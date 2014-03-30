@@ -1,0 +1,844 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Types Don't Know #</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+<br/>
+<br/>
+<a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
+2014-03-29
+</address>
+<hr/>
+<h1 align=center>Types Don't Know #</h1>
+
+<h2>Introduction</h2>
+
+<p>
+This paper starts with an assertion:
+</p>
+
+<blockquote class=note><p>
+Types should not know how to hash themselves.
+</p></blockquote>
+
+<p>
+The rest of this paper begins with demonstrating the problems created when
+software systems assume that types do know how to hash themselves, and what
+can be done to solve these problems.
+</p>
+
+<h2>The Example</h2>
+
+<p>
+Instead of starting with a basic example like <code>std::string</code> or
+<code>int</code>, this paper will introduce an example class X
+that is meant to be representative of a type that a programmer would write,
+and would want to create a hash code for:
+</p>
+
+<blockquote><pre>
+class X
+{
+    std::vector&lt;std::pair&lt;int, int&gt;&gt; data1_;
+    std::tuple&lt;char, char, char, char&gt; data2_;
+
+public:
+    X();
+    // ...
+};
+</pre></blockquote>
+
+<blockquote class=note><p>
+How do we write the hash function for X?
+</p></blockquote>
+
+<h3>Solution 1: Specialize <code>std::hash&lt;X&gt;</code></h3>
+
+<p>
+If we standardize
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+which gives us <code>hash_combine</code> and <code>hash_val</code> from
+<a href="http://www.boost.org/doc/libs/1_55_0/doc/html/hash/combine.html">boost</a>,
+then this is relatively doable:
+</p>
+
+<blockquote><pre>
+namespace std
+{
+
+template &lt;&gt;
+struct hash&lt;X&gt;
+{
+    size_t
+    operator()(X const&amp; x) const noexcept
+    {
+        size_t h = 0;
+        for (auto const&amp; p : x.data1_)
+            std::hash_combine (h, std::hash_val(p.first, p.second));
+        std::hash_combine (h, std::hash_val(std::get&lt;0&gt;(x.data2_)
+                                          , std::get&lt;1&gt;(x.data2_)
+                                          , std::get&lt;2&gt;(x.data2_)
+                                          , std::get&lt;3&gt;(x.data2_)));
+        return h;
+    }
+};
+
+}  // std
+</pre></blockquote>
+
+<p>
+And we also need to add a <code>friend</code> statement to our class X:
+</p>
+
+<blockquote><pre>
+friend class std::hash&lt;X&gt;;
+</pre></blockquote>
+
+<p>
+Now we can say <code>std::hash&lt;X&gt;{}(x)</code> and we get back a
+hash code.  Is it a <i>good</i> hash code? <i>&lt;shrug&gt;</i>.  The
+quality of the hash code is unknown.  What hashing algorithm has been
+used? <i>&lt;shrug&gt;</i>.  The hashing algorithm is unspecified.  Later
+in this paper I will try to at least partially answer these questions.
+</p>
+
+<p>
+Ok, what if we can't leave things up to chance?  We want to use a 
+hashing algorithm that is known to have some given verifiable
+qualities.  How do we do that?
+</p>
+
+<h3>Solution 2: Make use of a well-known hashing algorithm</h3>
+
+<p>
+There are many hash algorithms freely available, several of them explored
+in <a href="http://blog.aggregateknowledge.com/2011/12/29/choosing-a-good-hash-function-part-2/">this blog</a>.
+Which of these algorithms should we use?  Assuming we pick one, how do we
+use that algorithm?  As a simple example, let's assume that we wish to use
+<a href="http://www.isthe.com/chongo/tech/comp/fnv/index.html">FNV-1a</a>
+which can be coded up like this:
+</p>
+
+<blockquote><pre>
+std::size_t
+fnv1a (void const* key, std::size_t len)
+{
+    unsigned char const* p = static_cast&lt;unsigned char const*&gt;(key);
+    unsigned char const* const e = p + len;
+    std::size_t h = 14695981039346656037u;
+    for (; p &lt; e; ++p)
+        h = (h ^ *p) * 1099511628211u;
+    return h;
+}
+</pre></blockquote>
+
+<p>
+I have picked FNV-1a, not because it is a terribly good hash algorithm.  It is
+just ok.  There are much better ones.  I've picked it because it is very
+simple.
+</p>
+
+<p>
+If we are willing to assume that there are no padding bits in
+<code>std::pair&lt;int, int&gt;&gt;</code> we could first hash
+the entire <code>vector</code> with one call to <code>fnv1a</code>:
+</p>
+
+<blockquote><pre>
+std::size_t h1 = fnv1a (data1_.data(), data1_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
+</pre></blockquote>
+
+<p>
+It isn't the prettiest code in the world.  But it will work.  And if we dare
+to make the same (no padding) assumptions about <code>data2_</code> we could
+write similar code there:
+</p>
+
+<blockquote><pre>
+std::size_t h2 = fnv1a (&data2_, sizeof(data2_));
+</pre></blockquote>
+
+<p>
+Now we just need to combine these two hash function results into one.  And this
+is where things get complicated.  And this is the point on which the assumption
+that types know how to hash themselves begins to fall apart.
+</p>
+
+<p>
+What about using the proposed <code>std::hash_combine</code> you rightly ask?
+</p>
+
+<p>
+That might look something like this:
+</p>
+
+<blockquote><pre>
+std::size_t h1 = fnv1a (data1_.data(), data1_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
+std::hash_combine (h1, data2_);
+return h1;
+</pre></blockquote>
+
+<p>
+But this doesn't really work.  Internally <code>std::hash_combine</code>
+calls <code>std::hash&lt;std::tuple&lt;char, char, char, char&gt;&gt;{}(data2_)</code>,
+and we don't want to call <code>std::hash</code>.  We don't know what that
+code does.  We want to call <code>fnv1a</code>.  And we can't specialize
+<code>std::hash</code> to do what we want because we don't "own" any parts
+of the type that we want to specialize on (<code>std::tuple</code> and
+<code>char</code>).
+</p>
+
+<p>
+The very best we can do is crib the algorithm from <code>std::hash_combine</code>
+is based on.  We can put the entire thing in a <code>std::hash&lt;X&gt;</code>
+specialization as shown before:
+</p>
+
+<blockquote><pre>
+namespace std
+{
+
+template &lt;&gt;
+struct hash&lt;X&gt;
+{
+    size_t
+    operator()(X const&amp; x) const noexcept
+    {
+        std::size_t h = fnv1a (x.data1_.data(),
+                                   x.data1_.size()*sizeof(std::pair&lt;int, int&gt;));
+        std::size_t h2 = fnv1a (&amp;x.data2_, sizeof(x.data2_));
+        h ^= h2 + 0x9e3779b9 + (h&lt;&lt;6) + (h&gt;&gt;2);
+        return h;
+    }
+};
+
+}  // std
+</pre></blockquote>
+
+<p>
+By now there should be several alarms going off in your head:
+</p>
+
+<ol>
+<li>How sure are we that there are no padding bits in <code>pair</code>
+and <code>tuple</code>?</li>
+
+<li>That mixing step looks suspicious.  Does it really work for 64 bit
+hash codes?</li>
+
+<li>Because of the combining step, this really is no longer FNV-1a.  My
+result will likely no longer have the known properties of FNV-1a.  Thus
+my original goal of using FNV-1a has been compromised.</li>
+
+<li>If I can't assume no-padding, and/or if I'm using a container
+that is not contiguous, then I won't have just one combining step.
+I'll have tons of them.  The combining step will then dominate the hashing
+algorithm.  Then I'm clearly not using FNV-1a.  I'm using whatever
+that combining step is doing.</li>
+</ol>
+
+<p>
+The importance of this last point can not be understated.  Good hash
+algorithms are notoriously difficult to write, and poor ones notoriously
+easy.  This combining step has been pulled from a
+<a href="http://goanna.cs.rmit.edu.au/~jz/fulltext/jasist-tch.pdf">paper whose
+focus was not investigating the quality of this algorithm</a>.
+</p>
+
+<p>
+Backing up...
+</p>
+
+<p>
+I do not want to use:
+</p>
+
+<blockquote><pre>
+seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
+</pre></blockquote>
+
+<p>
+I want to use
+<a href="http://www.isthe.com/chongo/tech/comp/fnv/index.html">FNV-1a</a>,
+or
+<a href="https://code.google.com/p/smhasher/wiki/MurmurHash3">MurmurHash3</a>,
+or
+<a href="https://code.google.com/p/cityhash/">CityHash</a>,
+or
+<a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>,
+or whatever.  Every time I "dilute" one of these hash algorithms by using
+a combining step of unknown quality, I dilute the confidence I have in the
+final hash code I am producing.
+</p>
+
+<p>
+Essentially, with the inclusion of:
+</p>
+
+<blockquote><pre>
+seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
+</pre></blockquote>
+
+<p>
+in the computation of the hash code for X, I'm giving too much knowledge
+about the hashing process to the author of X.  Indeed, even hardcoding calls
+to <code>fnv1a</code> into this code is not scalable.  Imagine I have a
+sizable program with hundreds, even thousands of types that need hash functions
+written for them.  Changing from FNV-1a to MurmurHash3 or SpookyHash becomes
+a massive amount of error-prone work.  Each type must be revisited to change
+which algorithm it is using to produce its hash code.
+</p>
+
+<p>
+It would certainly be possible to have each type provide a variety of hash
+code algorithms.  But as most types are composed of other types, which are
+further composed of other types in other libraries, and so on, down to
+scalar types, this also is not a scalable solution.
+</p>
+
+<p>
+In essence, the type is the wrong place to put knowledge about any given
+hash algorithm.  That knowledge belongs in a specialized hashing library.
+</p>
+
+<blockquote class=note><p>
+Types should not know how to hash themselves.
+</p></blockquote>
+
+<p>
+The question now becomes:  How do you interface X with an arbitrary hashing
+library?
+</p>
+
+<h3>How to get X to use a general purpose hashing algorithm</h3>
+
+<p>
+Although most modern hashing algorithms are much more complicated than
+<code>fnv1a</code> shown above, there are similarities among them.
+</p>
+
+<ul>
+<li>They generally take a stream of bytes as their input.  This is often
+specified as a  <code>void const*</code> and a <code>size_t</code> length.</li>
+
+<li>
+This interface implies that they work on a contiguous array of bytes.
+</li>
+
+<li>
+The algorithms generally have an initialization stage, often taking an
+optional seed, followed by an accumulation stage which depends on the
+supplied bytes, followed by a finalization stage after all of the bytes
+are consumed.
+</li>
+</ul>
+
+<p>
+Not all, but many of the algorithms also have the property that they consume
+bytes in the order that they are received, possibly with a fixed sized internal
+buffer.  In the FNV-1a example, that internal buffer is reduced down to a
+single byte.  This characteristic can be taken advantage of in order to hash
+<i>discontiguous</i> memory.
+</p>
+
+<p>
+For example consider this minor repackaging of the FNV-1a algorithm:
+</p>
+
+<blockquote><pre>
+class fnv1a
+{
+    std::size_t state_ = 14695981039346656037u;
+public:
+
+    void
+    append(void const* key, std::size_t len) noexcept
+    {
+        unsigned char const* p = static_cast&lt;unsigned char const*&gt;(key);
+        unsigned char const* const e = p + len;
+        for (; p &lt; e; ++p)
+            state_ = (state_ ^ *p) * 1099511628211u;
+    }
+
+    explicit
+    operator std::size_t() noexcept
+    {
+        return state_;
+    }
+};
+</pre></blockquote>
+
+<p>
+Now the algorithm can be accessed in 3 stages:
+</p>
+
+<ol>
+<li>The algorithm is initialized in a constructor, in this case the
+implicit default constructor.</li>
+<li>The algorithm consumes bytes in the <code>append</code> function.
+Note that this function can be called any number of times.  In
+each call the memory is contiguous.  But there is no requirement at
+all that separate calls refer to a single block of memory.</li>
+<li>The algorithm is finalized when the object is converted to a 
+<code>size_t</code>.  This is the finalization stage, which in this
+case is trivial, but could be arbitrarily complex.</li>
+</ol>
+
+<p>
+We can say that <code>fnv1a</code> meets the requirements of a
+<code>Hasher</code>.  A <code>Hasher</code> is a class type that can be
+constructed (default, or possibly with seeding), has an <code>append</code>
+member function with the signature represented above.  The <code>append</code>
+member function processes bytes, updating the internal state of the
+<code>Hasher</code>.  This internal state can be arbitrarily complex.  Indeed
+an extreme example of internal state could be a copy of every chunk of memory
+supplied to the <code>Hasher</code>.  And finally a <code>Hasher</code> can
+be explicitly converted to a <code>size_t</code>.
+</p>
+
+<p>
+Given the concept of <code>Hasher</code>, a very general hash functor, which
+takes <b>any</b> type <code>T</code> can now be written (almost):
+</p>
+
+<blockquote><pre>
+template &lt;class T, class Hasher&gt;
+struct hash
+{
+    std::size_t
+    operator()(T const&amp; t) const noexcept
+    {
+        Hasher h;
+        using hash_defaults::hash_append;
+        hash_append(h, t);
+        return static_cast&lt;std::size_t&gt;(h);
+    }
+};
+</pre></blockquote>
+
+<p>
+The <code>Hasher</code> is constructed.  It is appended to using <code>t</code>
+as a key.  And then it is explicitly converted to the desired result.  This
+<code>hash</code> could even be defaulted to use your favorite hash algorithm:
+</p>
+
+<blockquote><pre>
+template &lt;class T, class Hasher = fnv1a&gt; struct hash;
+</pre></blockquote>
+
+<p>
+The <code>hash_append</code> function is the glue that binds the individual
+types to the general <code>Hasher</code>.
+</p>
+
+<ul>
+<li>The <code>Hasher</code> knows nothing about the type <code>T</code>
+being hashed.</li>
+<li>The hash functor <code>hash</code> knows nothing about the <code>Hasher</code>,
+nor the type <code>T</code> being hashed.</li>
+<li>Below I will show how each type <code>T</code> can implement
+<code>hash_append</code> (much like a type implements <code>swap</code>), and
+yet knows nothing about the <code>hash</code> functor, nor the algorithm
+encapsulated in the <code>Hasher</code>.</li>
+</ul>
+
+<p>
+Each type <code>T</code> is responsible only for exposing its hash-worthy state
+to the <code>Hasher</code> in the function  <code>hash_append</code>.
+<code>T</code> is <i>not</i> responsible for combining hash codes.  Nor is it
+responsible for any hashing arithmetic whatsoever.  It is only responsible for
+pointing out where its data is, how many different chunks of data there are,
+and what order they should be presented to the <code>Hasher</code>.
+</p>
+
+<p>
+For example, here is how X would implement <code>hash_append</code>: 
+</p>
+
+<blockquote><pre>
+class X
+{
+    std::vector&lt;std::pair&lt;int, int&gt;&gt; data1_;
+    std::tuple&lt;char, char, char, char&gt; data2_;
+
+public:
+    X();
+
+    // Hook into the system like this
+    template &lt;class Hasher&gt;
+    friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
+    {
+        using hash_defaults::hash_append;
+        hash_append(h, x.data1_);
+        hash_append(h, x.data2_);
+    }
+}
+</pre></blockquote>
+
+<p>
+Like <code>swap</code>, <code>hash_append</code> is a customization point
+for each type.  Only a type knows what parts of itself it should expose to a
+<code>Hasher</code>, even though the type has no idea what algorithm is being
+used to do the hashing.  For example <code>std::vector&lt;T, A&gt;</code>
+would never expose its <code>capacity()</code>.  Indeed, the <code>hash_append</code>
+for <code>std::vector&lt;T, A&gt;</code> should look more like:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T, class Alloc&gt;
+void
+hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
+{
+    for (auto const&amp; t : v)
+        hash_append(h, t);
+}
+</pre></blockquote>
+
+<p>
+And for <code>std::pair&lt;T, U&gt;</code>:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T, class U&gt;
+void
+hash_append (Hasher&amp; h, std::pair&lt;T, U&gt; const&amp; p) noexcept
+{
+    hash_append (h, p.first);
+    hash_append (h, p.second);
+}
+</pre></blockquote>
+
+<p>
+Eventually <code>hash_append</code> will drill down to primitive types such as
+<code>int</code>:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher&gt;
+void
+hash_append(Hasher&amp; h, int const&amp; i) noexcept
+{
+    h.append(&amp;i, sizeof(i));
+}
+</pre></blockquote>
+
+<p>
+Whereupon a contiguous chunk of memory is actually accumulated by the
+<code>Hasher</code>.  And thanks to modern techniques, all integral types
+can actually be handled by a single function template:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T&gt;
+inline
+std::enable_if_t
+&lt;
+    std::is_integral&lt;T&gt;::value
+&gt;
+hash_append (Hasher&amp; h, T const&amp; t) noexcept
+{
+    h.append (&amp;t, sizeof(t));
+}
+</pre></blockquote>
+
+<p>
+There are plenty of optimization opportunities in this system.  The bigger the
+chunk of memory you can send to the <code>Hasher</code> at one time, the more
+efficient it is likely to be.  However note that this is <i>purely</i> an
+optimization.  The <code>Hasher</code> should give the same results if you call
+it 100 times with a single character each time, or if you give it all 100
+characters in one call.  As an example, here is an optimized
+<code>hash_append</code> for <code>std::vector&lt;T, A&gt;</code> when
+<code>T</code> is known to be an integral type:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T, class Alloc&gt;
+inline
+std::enable_if_t
+&lt;
+    std::is_integral&lt;T&gt;::value
+&gt;
+hash_append(Hasher&amp; h, std::vector&lt;T, Alloc> const&amp; v) noexcept
+{
+    h.append (v.data(), v.size()*sizeof(T));
+}
+</pre></blockquote>
+
+<b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
+<code>boost::hash_combine</code>?</b>
+
+<p>No!</p>
+
+<p>
+<code>boost::hash_combine</code> is used to combine two separately computed
+hash codes into one hash code.  And furthermore it hard-codes the functor to
+be used for the second type.  <code>hash_append</code> accumulates state into
+a <i>generic</i> hash algorithm, returning the exact same result as if the
+hash algorithm had processed the entire discontiguous memory buffer as one
+contiguous memory buffer.
+</p>
+
+<b>Is there a variadic version of <code>hash_append</code>?</b>
+
+<p>
+Yes, this is easily written as:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T0, class T1, class ...T&gt;
+inline
+void
+hash_append (Hasher&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t) noexcept
+{
+    hash_append (h, t0);
+    hash_append (h, t1, t...);
+}
+</pre></blockquote>
+
+<p>
+This allows <code>hash_append</code> for X (for example) to be rewritten as:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher&gt;
+friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
+{
+    using hash_defaults::hash_append;
+    hash_append(h, x.data1_, x.data2_);
+}
+</pre></blockquote>
+
+<b>How easily can algorithms other than FNV-1a be used?</b>
+
+<p>
+Algorithms such as
+<a href="https://code.google.com/p/cityhash/">CityHash</a> are not easily
+adapted to this infrastructure, because as currently coded, CityHash actually
+hashes the end of the buffer first.  However
+<a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>, which
+is reported to have quality comparable to CityHash is trivial to incorporate:
+</p>
+
+<blockquote><pre>
+#include "SpookyV2.h"
+
+class spooky
+{
+    SpookyHash state_;
+public: 
+    spooky(std::size_t seed1 = 1, std::size_t seed2 = 2) noexcept
+    {
+        state_.Init(seed1, seed2);
+    }
+
+    void
+    append(void const* key, std::size_t len) noexcept
+    {
+        state_.Update(key, len);
+    }
+
+    explicit
+    operator std::size_t() noexcept
+    {
+        std::uint64_t h1, h2;
+        state_.Final(&amp;h1, &amp;h2);
+        return h1;
+    }
+
+};
+</pre></blockquote>
+
+<p>
+Indeed, this has become my algorithm of choice:
+</p>
+
+<blockquote><pre>
+template &lt;class T, class Hasher = spooky&gt; struct hash;
+</pre></blockquote>
+
+<b>What is involved in switching hashing algorithms?</b>
+
+<p>
+Given the class X shown above, with its complex state distributed among at
+least two different contiguous chunks of memory, and potentially many more
+if the container switched from <code>vector</code> to <code>deque</code> or
+<code>list</code>, I can create a <code>vector</code> of hash codes with my
+preferred default algorithm like so:
+</p>
+
+<blockquote><pre>
+for (unsigned i = 0; i &lt; 1000000; ++i)
+    hashes.push_back(hash&lt;X&gt;{}(x[i]));
+</pre></blockquote>
+
+<p>
+If I instead wanted to specify FNV-1a, I would modify the code to:
+</p>
+
+<blockquote><pre>
+for (unsigned i = 0; i &lt; 1000000; ++i)
+    hashes.push_back(hash&lt;X, fnv1a&gt;{}(x[i]));
+</pre></blockquote>
+
+<p>
+This would change the hash code algorithm for every <code>vector</code>,
+every <code>deque</code>, every <code>string</code>, every <code>char</code>,
+every <code>int</code>, etc. for which X considered part of its hash-worthy state.
+That is, hashing algorithms are controlled at the top of the data structure
+chain, at the point where the client (e.g. <code>unordered_map</code>) asks for
+the hash.  It is not controlled at all down at the bottom of the data structure
+chain.  I.e. <code>int</code> has no clue how to hash itself.  It only knows
+what state needs to be exposed to a hashing algorithm.
+</p>
+
+<p>
+And there is no combining step.  The hash algorithm works identically as
+if you had copied all of the various discontiguous chunks of state into
+one big contiguous chunk of memory, and fed that one big chunk to the
+hash algorithm.
+</p>
+
+<b>How does the quality of the resulting hash codes compare to the
+<code>hash_combine</code> solution?</b>
+
+<p>
+To answer this question I have given X a randomized default constructor:
+</p>
+
+<blockquote><pre>
+std::mt19937_64 eng;
+
+X::X()
+{
+    std::uniform_int_distribution&lt;std::size_t&gt; veclen(0, 100);
+    std::uniform_int_distribution&lt;char&gt; strdata('a', 'z');
+    std::uniform_int_distribution&lt;int&gt; intdata;
+    data1_.resize(veclen(eng));
+    for (auto&amp; p : data1_)
+    {
+        p.first = intdata(eng);
+        p.second = intdata(eng);
+    }
+    std::get&lt;0&gt;(data2_) = strdata(eng);
+    std::get&lt;1&gt;(data2_) = strdata(eng);
+    std::get&lt;2&gt;(data2_) = strdata(eng);
+    std::get&lt;3&gt;(data2_) = strdata(eng);
+}
+</pre></blockquote>
+
+<p>
+Given this, I can easily create a great number of random X's as shown in the
+loops above, and specify any hash algorithm.  I can also use
+<code>std::hash</code> and "Solution 1" from the first part of this paper.
+</p>
+
+<p>
+My hash function quality tester suite is quite crude.  In <code>test1</code>
+I look at each 64 bit hash code as a collection of 16 hex-digits.  I expect
+each hex-digit to be roughly equally represented in each hexadecimal place of
+the hash code.  The test returns maximum deviation of the average, from the
+expected average.
+</p>
+
+<p>
+My second test is
+<a href="https://code.google.com/p/smhasher/wiki/Distribution">TestDistribution</a>
+gratefully borrowed from the
+<a href="https://code.google.com/p/smhasher/wiki/SMHasher">smhasher</a>
+test suite.  I won't pretend to understand it.
+</p>
+
+<p>
+I load up a million hash codes generated from a million randomized X's,
+randomized by a default constructed <code>std::mt19937_64</code>, and feed
+them to these two tests.  For each test, the smaller the result the better.
+</p>
+
+<blockquote>
+<table border="1" cellpadding="5">
+<caption>Test Results -- smaller is better</caption>
+<tr>
+<th></th> <th>test 1</th> <th>test 2</th> <th>total time (sec)</th>
+</tr>
+<tr>
+<th><code>hash_combine</code></th> <td>0.57312</td> <td>0.981454</td> <td>3.184s</td>
+</tr>
+<tr>
+<th>FNV-1a</th> <td>0.014704</td> <td>0.0141133</td> <td>3.542s</td>
+</tr>
+<tr>
+<th>Spooky V2</th> <td>0.013453</td> <td>0.00136959</td> <td>3.653s</td>
+</tr>
+<tr>
+<th>CityHash</th> <td>0.012416</td> <td>0.00161449</td> <td>5.337s</td>
+</tr>
+</table>
+</blockquote>
+
+<p>
+The <code>hash_combine</code> solution handily wins the speed test, but with a
+quality that the obsolete FNV-1a function trounces.  It does no good to get the
+wrong answer faster.  The much more sophisticated Spooky V2 algorithm has the
+slowest performance, but with a very high quality rating.  And it isn't all
+that much slower than the incorrect <code>hash_combine</code> solution.
+</p>
+
+<p>
+Even though CityHash is not easily efficiently adapted to this infrastructure,
+it is easy to adapt it inefficiently:  Just collect the entire buffer in a
+<code>vector&lt;char&gt;</code> and hash the whole thing during the finalization
+step.  I show the results of doing this just for informational purposes.
+</p>
+
+<h3>Summary</h3>
+
+<p>
+This paper presents an infrastructure that decouples types from hashing
+algorithms.  This decoupling has several benefits:
+</p>
+
+<ul>
+<li>Hash algorithm designers can concentrate on designing better hash
+algorithms, with little worry about how these new algorithms can be
+incorporated into existing code.</li>
+<li>Type designers can create their hash support just once, without
+worrying about what hashing algorithm should be used.</li>
+<li>Clients can easily adopt most existing algorithms to this proposed
+infrastructure.</li>
+<li>Clients can easily very easily switch hashing algorithms used by
+very complex data structures.</li>
+<li>The resulting hash codes are true reflection of the original design
+of the hashing algorithms, even though applied to complex data structures
+spanning discontiguous memory.</li>
+</ul>
+
+<h3>Acknowledgments</h3>
+
+<p>
+This research has been generously supported by
+<a href="https://www.ripplelabs.com">Ripple Labs</a>.  I would especially like to
+thank my colleagues on the RippleD team.
+</p>
+
+</body>
+</html>
