@@ -25,7 +25,8 @@
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
-2014-03-30
+<a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
+2014-04-01
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -58,8 +59,8 @@ and would want to create a hash code for:
 <blockquote><pre>
 class X
 {
-    std::vector&lt;std::pair&lt;int, int&gt;&gt; data1_;
-    std::tuple&lt;char, char, char, char&gt; data2_;
+    std::tuple&lt;short, unsigned char, unsigned char&gt; date_;
+    std::vector&lt;std::pair&lt;int, int&gt;&gt; data_;
 
 public:
     X();
@@ -92,12 +93,11 @@ struct hash&lt;X&gt;
     operator()(X const&amp; x) const noexcept
     {
         size_t h = 0;
-        for (auto const&amp; p : x.data1_)
+        std::hash_combine (h, std::hash_val(std::get&lt;0&gt;(x.date_)
+                                          , std::get&lt;1&gt;(x.date_)
+                                          , std::get&lt;2&gt;(x.date_)));
+        for (auto const&amp; p : x.data_)
             std::hash_combine (h, std::hash_val(p.first, p.second));
-        std::hash_combine (h, std::hash_val(std::get&lt;0&gt;(x.data2_)
-                                          , std::get&lt;1&gt;(x.data2_)
-                                          , std::get&lt;2&gt;(x.data2_)
-                                          , std::get&lt;3&gt;(x.data2_)));
         return h;
     }
 };
@@ -130,7 +130,7 @@ qualities.  How do we do that?
 <h3>Solution 2: Make use of a well-known hashing algorithm</h3>
 
 <p>
-There are many hash algorithms freely available, several of them explored
+There are many hash algorithms freely available, and several of them explored
 in <a href="http://blog.aggregateknowledge.com/2011/12/29/choosing-a-good-hash-function-part-2/">this blog</a>.
 Which of these algorithms should we use?  Assuming we pick one, how do we
 use that algorithm?  As a simple example, let's assume that we wish to use
@@ -164,17 +164,17 @@ the entire <code>vector</code> with one call to <code>fnv1a</code>:
 </p>
 
 <blockquote><pre>
-std::size_t h1 = fnv1a (data1_.data(), data1_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
+std::size_t h1 = fnv1a (data_.data(), data_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
 </pre></blockquote>
 
 <p>
 It isn't the prettiest code in the world.  But it will work.  And if we dare
-to make the same (no padding) assumptions about <code>data2_</code> we could
+to make the same (no padding) assumptions about <code>date_</code> we could
 write similar code there:
 </p>
 
 <blockquote><pre>
-std::size_t h2 = fnv1a (&data2_, sizeof(data2_));
+std::size_t h2 = fnv1a (&date_, sizeof(date_));
 </pre></blockquote>
 
 <p>
@@ -192,14 +192,14 @@ That might look something like this:
 </p>
 
 <blockquote><pre>
-std::size_t h1 = fnv1a (data1_.data(), data1_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
-std::hash_combine (h1, data2_);
+std::size_t h1 = fnv1a (data_.data(), data_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
+std::hash_combine (h1, date_);
 return h1;
 </pre></blockquote>
 
 <p>
 But this doesn't really work.  Internally <code>std::hash_combine</code>
-calls <code>std::hash&lt;std::tuple&lt;char, char, char, char&gt;&gt;{}(data2_)</code>,
+calls <code>std::hash&lt;std::tuple&lt;short, unsigned char, unsigned char&gt;&gt;{}(date_)</code>,
 and we don't want to call <code>std::hash</code>.  We don't know what that
 code does.  We want to call <code>fnv1a</code>.  And we can't specialize
 <code>std::hash</code> to do what we want because we don't "own" any parts
@@ -223,9 +223,9 @@ struct hash&lt;X&gt;
     size_t
     operator()(X const&amp; x) const noexcept
     {
-        std::size_t h = fnv1a (x.data1_.data(),
-                                   x.data1_.size()*sizeof(std::pair&lt;int, int&gt;));
-        std::size_t h2 = fnv1a (&amp;x.data2_, sizeof(x.data2_));
+        std::size_t h = fnv1a (&amp;x.date_, sizeof(x.date_));
+        std::size_t h2 = fnv1a (x.data_.data(),
+                                    x.data_.size()*sizeof(std::pair&lt;int, int&gt;));
         h ^= h2 + 0x9e3779b9 + (h&lt;&lt;6) + (h&gt;&gt;2);
         return h;
     }
@@ -415,15 +415,18 @@ supplied to the <code>Hasher</code>.  And finally a <code>Hasher</code> can
 be explicitly converted to a <code>size_t</code>.
 </p>
 
+<b>Introducing the Universal hash function!</b>
+
 <p>
-Given the concept of <code>Hasher</code>, a very general hash functor, which
+Given the concept of <code>Hasher</code>, a universal hash functor, which
 takes <b>any</b> type <code>T</code> can now be written (almost):
 </p>
 
 <blockquote><pre>
-template &lt;class T, class Hasher&gt;
-struct hash
+template &lt;class Hasher&gt;
+struct uhash
 {
+    template &lt;class T&gt;
     std::size_t
     operator()(T const&amp; t) const noexcept
     {
@@ -442,8 +445,10 @@ as a key.  And then it is explicitly converted to the desired result.  This
 </p>
 
 <blockquote><pre>
-template &lt;class T, class Hasher = fnv1a&gt; struct hash;
+template &lt;class Hasher = fnv1a&gt; struct uhash;
 </pre></blockquote>
+
+<b>What is <code>hash_append</code>?</b>
 
 <p>
 The <code>hash_append</code> function is the glue that binds the individual
@@ -453,7 +458,7 @@ types to the general <code>Hasher</code>.
 <ul>
 <li>The <code>Hasher</code> knows nothing about the type <code>T</code>
 being hashed.</li>
-<li>The hash functor <code>hash</code> knows nothing about the <code>Hasher</code>,
+<li>The hash functor <code>uhash</code> knows nothing about the <code>Hasher</code>,
 nor the type <code>T</code> being hashed.</li>
 <li>Below I will show how each type <code>T</code> can implement
 <code>hash_append</code> (much like a type implements <code>swap</code>), and
@@ -477,8 +482,8 @@ For example, here is how X would implement <code>hash_append</code>:
 <blockquote><pre>
 class X
 {
-    std::vector&lt;std::pair&lt;int, int&gt;&gt; data1_;
-    std::tuple&lt;char, char, char, char&gt; data2_;
+    std::tuple&lt;short, unsigned char, unsigned char&gt; date_;
+    std::vector&lt;std::pair&lt;int, int&gt;&gt; data_;
 
 public:
     X();
@@ -488,8 +493,8 @@ public:
     friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
     {
         using hash_defaults::hash_append;
-        hash_append(h, x.data1_);
-        hash_append(h, x.data2_);
+        hash_append(h, x.date_);
+        hash_append(h, x.data_);
     }
 }
 </pre></blockquote>
@@ -543,8 +548,43 @@ hash_append(Hasher&amp; h, int const&amp; i) noexcept
 
 <p>
 Whereupon a contiguous chunk of memory is actually accumulated by the
-<code>Hasher</code>.  And thanks to modern techniques, all integral types
-can actually be handled by a single function template:
+<code>Hasher</code>.  Recall that the <code>Hasher</code> has a member function
+<code>append (const void* key, std::size_t len) noexcept</code>.  And the
+<code>int</code> is just a chunk of <i>contiguous</i> memory that is
+<i>hashable</i>.  It is now prudent to deeply consider what it means to say
+that a type (such as <code>int</code>) is <i>contiguously hashable</i>.
+</p>
+
+<p>
+A type <code>T</code> is <i>contiguously hashable</i> if for all combinations of
+two values of a type, say <code>x</code> and <code>y</code>, if <code>x ==
+y</code>, then it must also be true that <code>memcmp(addressof(x),
+addressof(y), sizeof(T)) == 0</code>.  I.e. if <code>x == y</code>, then
+<code>x</code> and <code>y</code> have the same bit pattern representation. A
+2's complement <code>int</code> satisfies this property because every bit
+pattern an <code>int</code> can have results in a distinct value.  And there are
+no "padding bits" which might take on random values.  This property is necessary
+because if two values are equal, then they must hash to the same hash code.
+</p>
+
+<b>An Optimization: <code>is_contiguously_hashable&lt;T&gt;</code>:</b>
+
+<p>
+With that in mind we can easily imagine a type trait:
+</p>
+
+<blockquote><pre>
+template &lt;class T&gt; struct is_contiguously_hashable;
+</pre></blockquote>
+
+<p>
+which derives from either <code>true_type</code> or <code>false_type</code>. And
+on 2's complement systems,
+<code>is_contiguously_hashable&lt;int&gt;::value</code> is <code>true</code>.
+And we might anticipate that some other types, such as <code>char</code> and
+<code>long long</code> are also <i>contiguously hashable</i>.  With this
+tool we can now easily write <code>hash_append</code> for all contiguously
+hashable types:
 </p>
 
 <blockquote><pre>
@@ -552,23 +592,83 @@ template &lt;class Hasher, class T&gt;
 inline
 std::enable_if_t
 &lt;
-    std::is_integral&lt;T&gt;::value
+    is_contiguously_hashable&lt;T&gt;::value
 &gt;
-hash_append (Hasher&amp; h, T const&amp; t) noexcept
+hash_append(Hasher&amp; h, T const&amp; t) noexcept
 {
-    h.append (&amp;t, sizeof(t));
+    h.append(addressof(t), sizeof(t));
 }
 </pre></blockquote>
 
 <p>
-There are plenty of optimization opportunities in this system.  The bigger the
-chunk of memory you can send to the <code>Hasher</code> at one time, the more
-efficient it is likely to be.  However note that this is <i>purely</i> an
-optimization.  The <code>Hasher</code> should give the same results if you call
-it 100 times with a single character each time, or if you give it all 100
-characters in one call.  As an example, here is an optimized
-<code>hash_append</code> for <code>std::vector&lt;T, A&gt;</code> when
-<code>T</code> is known to be an integral type:
+Now the task remains to specialize <code>is_contiguously_hashable</code>
+properly for those scalars we want to use this implementation of
+<code>hash_append</code> for, and for any other scalars, implement
+<code>hash_append</code> appropriately.  As an example of the latter, consider
+IEEE floating point types.
+</p>
+
+<p>
+An IEEE floating point type is <i>not contiguously hashable</i> because 
+<code>0. == -0.</code> but these two values are represented with different
+bit patterns.  Therefore its <code>hash_append</code> must go to extra
+effort to ensure that <code>0.</code> and <code>-0.</code> hash to identical
+hash codes, but <b>without</b> dictating a specific hash algorithm.  This
+could be done like so:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T&gt;
+inline
+std::enable_if_t
+&lt;
+    std::is_floating_point&lt;T&gt;::value
+&gt;
+hash_append(Hasher&amp; h, T t) noexcept
+{
+    if (t == 0)
+        t = 0;
+    h.append(&amp;t, sizeof(t));
+}
+</pre></blockquote>
+
+<p>
+Class types that are composed of only  <i>contiguously hashable</i> types
+and that have no padding bytes, may also be considered to be
+<i>contiguously hashable</i>.  For example consider this specialization of
+<code>is_contiguously_hashable&lt;std::pair&lt;T, U&gt;&gt;</code>:
+</p>
+
+<blockquote><pre>
+template &lt;class T, class U&gt;
+struct is_contiguously_hashable&lt;std::pair&lt;T, U&gt;&gt;
+    : public std::integral_constant&lt;bool, is_contiguously_hashable&lt;T&gt;::value &amp;&amp; 
+                                          is_contiguously_hashable&lt;U&gt;::value &amp;&amp;
+                                          sizeof(T) + sizeof(U) == sizeof(std::pair&lt;T, U&gt;)&gt;
+{
+};
+</pre></blockquote>
+
+<p>
+In English:  If the <code>pair</code>'s two types are both contiguously
+hashable, and if the size of the two members is the same size as the
+<code>pair</code> (so there are no padding bytes), then the entire
+<code>pair</code> itself is contiguously hashable!
+</p>
+
+<p>
+This same logic can be applied to <code>array</code>, <code>tuple</code>, and
+possibly user-defined types as well.  Consequently, a great many types can be
+easily and safely classified as contiguously hashable.  This is important because
+with modern hash algorithm implementations, the bigger the chunk of contiguous
+memory you can send to the <code>Hasher</code> at one time, the higher the
+performance (in terms of bytes-hashed/second) the <code>Hasher</code> is likely
+to perform.
+</p>
+
+<p>
+With that in mind (the bigger the memory chunk the better), consider again
+<code>hash_append</code> for <code>vector</code>:
 </p>
 
 <blockquote><pre>
@@ -576,13 +676,140 @@ template &lt;class Hasher, class T, class Alloc&gt;
 inline
 std::enable_if_t
 &lt;
-    std::is_integral&lt;T&gt;::value
+    !is_contiguously_hashable&lt;T&gt;::value
 &gt;
-hash_append(Hasher&amp; h, std::vector&lt;T, Alloc> const&amp; v) noexcept
+hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
+{
+    for (auto const&amp; t : v)
+        hash_append(h, t);
+}
+
+template &lt;class Hasher, class T, class Alloc&gt;
+inline
+std::enable_if_t
+&lt;
+    is_contiguously_hashable&lt;T&gt;::value
+&gt;
+hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     h.append (v.data(), v.size()*sizeof(T));
 }
 </pre></blockquote>
+
+<p>
+I.e. if the <code>T</code> <b>is</b> contiguously hashable, then even though
+<code>vector</code> itself is not, there can still be a <i>huge</i> optimization
+made by having <code>vector</code> send its <i>contiguous</i> <code>data</code>
+buffer to <code>hash_append</code>.
+</p>
+
+<p>
+This optimization can be made without any help from the <code>std::lib</code>.
+Other optimizations are possible, but could only be made from within the
+<code>std::lib</code>.  For example, what if <code>T</code> is <code>bool</code>
+in the above example?  What about <code>deque&lt;T&gt;</code>?  It could hash
+its internal contiguous buffers all at once, but there is no way to implement
+that without intimate knowledge of the internals of the <code>deque</code>
+implementation.  Externally, the best one can do for <code>deque&lt;T&gt;</code>
+is to send each individual <code>T</code> to <code>hash_append</code> one at a
+time.  This still gives the very same correct answer, just slower.
+</p>
+
+<p>
+If you believe <b>your type</b> to be contiguously hashable, you should
+specialize <code>is_contiguously_hashable&lt;YourType&gt;</code> appropriately,
+as has been shown for <code>pair</code>.  This would mean that not only is
+hashing <code>YourType</code> optimized, but hashing
+<code>vector&lt;YourType&gt;</code>, et. al. is also optimized!
+</p>
+
+<b>Strings are really important.  What say ye about strings?</b>
+
+<p>
+Like <code>vector</code>, <code>basic_string</code> can be optimized if the
+<code>CharT</code> is contiguously hashable, as it will be for any reasonable
+<code>CharT</code>.  But there is an interesting and useful wrinkle...
+</p>
+
+<p>
+C-style arrays are also hashable:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class T, std::size_t N&gt;
+inline
+std::enable_if_t
+&lt;
+    !is_contiguously_hashable&lt;T&gt;::value
+&gt;
+hash_append(Hasher&amp; h, T (&amp;a)[N]) noexcept
+{
+    for (auto const&amp; t : a)
+        hash_append(h, t);
+}
+</pre></blockquote>
+
+<p>
+And if <code>T</code> <i>is</i> contiguously hashable, then the generic
+<code>hash_append</code> works for C-style arrays (as long as we specialize
+<code>is_contiguously_hashable&lt;T[N]&gt;</code>) appropriately.  And well,
+this is the good part, the decltype(a-string-literal) is a C-style array type.
+For string literals, the array type is always one larger than the
+<code>strlen</code> of the literal because the array contains the trailing null
+character.  And, by happy coincidence, <code>basic_string</code> now always
+embeds a trailing null character as well.  So optimized or not, the
+<code>hash_append</code> for <code>basic_string</code> should be specified
+to include hashing the trailing null character:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher, class CharT, class Traits, class Alloc&gt;
+inline
+std::enable_if_t
+&lt;
+    is_contiguously_hashable&lt;CharT&gt;::value 
+&gt;
+hash_append(Hasher&amp; h, std::basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept
+{
+    h.append(s.data(), (s.size()+1)*sizeof(CharT));
+}
+</pre></blockquote>
+
+<p>
+With this definition, then there is an invariant relationship between
+<code>std::string</code> and string literals, no matter what hashing algorithm
+is specified by the client:
+</p>
+
+<blockquote><pre>
+assert(uhash&lt;&gt;{}(std::string("Hi!")) == uhash&lt;&gt;{}("Hi!"));
+assert(uhash&lt;MySpecialHasher&gt;{}(std::string("Hi!")) == uhash&lt;MySpecialHasher&gt;{}("Hi!"));
+</pre></blockquote>
+
+<p>
+String literals and their <code>std::basic_string</code> counterparts hash
+identically!  This opens the door for the unordered container analogue of:
+</p>
+
+<blockquote><pre>
+template &lt;class K&gt; iterator find(const K&amp; x);
+</pre></blockquote>
+
+<p>
+to actually work for the very most important use case!
+</p>
+
+<blockquote><pre>
+auto i = unordered_set_of_string.find("a string literal used to look up a std::string");
+</pre></blockquote>
+
+<p>
+And without having to actually construct a <code>std::string</code>! 
+<code>std::string</code> and string literals already are specified to always
+compare equal for equivalent content.  And with this hashing framework, such
+pairs of data are now guaranteed to hash to the same hash code.  And in an
+extremely manner no less!
+</p>
 
 <b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
 <code>boost::hash_combine</code>?</b>
@@ -687,8 +914,8 @@ preferred default algorithm like so:
 </p>
 
 <blockquote><pre>
-for (unsigned i = 0; i &lt; 1000000; ++i)
-    hashes.push_back(hash&lt;X&gt;{}(x[i]));
+for (auto const&amp; x : vx)
+    hashes.push_back(uhash&lt;&gt;{}(x));
 </pre></blockquote>
 
 <p>
@@ -696,8 +923,8 @@ If I instead wanted to specify FNV-1a, I would modify the code to:
 </p>
 
 <blockquote><pre>
-for (unsigned i = 0; i &lt; 1000000; ++i)
-    hashes.push_back(hash&lt;X, fnv1a&gt;{}(x[i]));
+for (auto const&amp; x : vx)
+    hashes.push_back(uhash&lt;fnv1a&gt;{}(x));
 </pre></blockquote>
 
 <p>
@@ -730,19 +957,21 @@ std::mt19937_64 eng;
 
 X::X()
 {
-    std::uniform_int_distribution&lt;std::size_t&gt; veclen(0, 100);
-    std::uniform_int_distribution&lt;char&gt; strdata('a', 'z');
-    std::uniform_int_distribution&lt;int&gt; intdata;
-    data1_.resize(veclen(eng));
-    for (auto&amp; p : data1_)
+    std::uniform_int_distribution&lt;short&gtl; yeardata(1900, 2014);
+    std::uniform_int_distribution&lt;unsigned char&gtl; monthdata(1, 12);
+    std::uniform_int_distribution&lt;unsigned char&gtl; daydata(1, 28);
+    std::uniform_int_distribution&lt;std::size_t&gtl; veclen(0, 100);
+    std::uniform_int_distribution&lt;int&gtl; int1data(1, 10);
+    std::uniform_int_distribution&lt;int&gtl; int2data(-3, 5000);
+    std::get&lt;0&gtl;(date_) = yeardata(eng);
+    std::get&lt;1&gtl;(date_) = monthdata(eng);
+    std::get&lt;2&gtl;(date_) = daydata(eng);
+    data_.resize(veclen(eng));
+    for (auto&amp; p : data_)
     {
-        p.first = intdata(eng);
-        p.second = intdata(eng);
+        p.first = int1data(eng);
+        p.second = int2data(eng);
     }
-    std::get&lt;0&gt;(data2_) = strdata(eng);
-    std::get&lt;1&gt;(data2_) = strdata(eng);
-    std::get&lt;2&gt;(data2_) = strdata(eng);
-    std::get&lt;3&gt;(data2_) = strdata(eng);
 }
 </pre></blockquote>
 
@@ -761,7 +990,13 @@ expected average.
 </p>
 
 <p>
-My second test is
+My second test is extremely simple:  It is simply the number of collisions
+divided by the number of available values in the hash code.  Zero is a perfect
+result.
+</p>
+
+<p>
+My third test is
 <a href="https://code.google.com/p/smhasher/wiki/Distribution">TestDistribution</a>
 gratefully borrowed from the
 <a href="https://code.google.com/p/smhasher/wiki/SMHasher">smhasher</a>
@@ -771,26 +1006,26 @@ test suite.  I won't pretend to understand it.
 <p>
 I load up a million hash codes generated from a million randomized X's,
 randomized by a default constructed <code>std::mt19937_64</code>, and feed
-them to these two tests.  For each test, the smaller the result the better.
+them to these three tests.  For each test, the smaller the result the better.
 </p>
 
 <blockquote>
 <table border="1" cellpadding="5">
 <caption>Test Results -- smaller is better</caption>
 <tr>
-<th></th> <th>test 1</th> <th>test 2</th> <th>total time (sec)</th>
+<th></th> <th>test 1</th> <th>test 2</th>  <th>test 3</th> <th>total time (sec)</th>
 </tr>
 <tr>
-<th><code>hash_combine</code></th> <td>0.57312</td> <td>0.981454</td> <td>3.184s</td>
+<th><code>hash_combine</code></th> <td>0.394544</td> <td>1.40071e-05</td> <td>0.984445</td> <td>0.419103s</td>
 </tr>
 <tr>
-<th>FNV-1a</th> <td>0.014704</td> <td>0.0141133</td> <td>3.542s</td>
+<th>FNV-1a</th> <td>0.029664</td> <td>0</td> <td>0.0719367</td> <td>0.829794s</td>
 </tr>
 <tr>
-<th>Spooky V2</th> <td>0.013453</td> <td>0.00136959</td> <td>3.653s</td>
+<th>Spooky V2</th> <td>0.011024</td> <td>0</td> <td>0.000902987</td> <td>0.634737s</td>
 </tr>
 <tr>
-<th>CityHash</th> <td>0.012416</td> <td>0.00161449</td> <td>5.337s</td>
+<th>CityHash</th> <td>0.015264</td> <td>0</td> <td>0.000662453</td> <td>2.68137s</td>
 </tr>
 </table>
 </blockquote>
@@ -798,9 +1033,15 @@ them to these two tests.  For each test, the smaller the result the better.
 <p>
 The <code>hash_combine</code> solution handily wins the speed test, but with a
 quality that the obsolete FNV-1a function trounces.  It does no good to get the
-wrong answer faster.  The much more sophisticated Spooky V2 algorithm has the
-slowest performance, but with a very high quality rating.  And it isn't all
-that much slower than the incorrect <code>hash_combine</code> solution.
+wrong answer faster.  In contrast, the much more sophisticated Spooky V2
+algorithm has a very high quality rating.
+</p>
+
+<p>
+Note in the above results that though Spooky is far more complicated than
+FNV-1a, it is actually faster for the type X, due to the optimizations based
+on <code>is_contiguously_hashable</code>.  Without these optimizations,
+Spooky would be slower than FNV-1a.
 </p>
 
 <p>
