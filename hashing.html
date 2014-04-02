@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-01
+2014-04-02
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -118,11 +118,11 @@ Now we can say <code>std::hash&lt;X&gt;{}(x)</code> and we get back a
 hash code.  Is it a <i>good</i> hash code? <i>&lt;shrug&gt;</i>.  The
 quality of the hash code is unknown.  What hashing algorithm has been
 used? <i>&lt;shrug&gt;</i>.  The hashing algorithm is unspecified.  Later
-in this paper I will try to at least partially answer these questions.
+in this paper we will attempt to at least partially answer these questions.
 </p>
 
 <p>
-Ok, what if we can't leave things up to chance?  We want to use a 
+Ok, what if we can't leave things up to chance?  We want to use a
 hashing algorithm that is known to have some given verifiable
 qualities.  How do we do that?
 </p>
@@ -152,9 +152,10 @@ fnv1a (void const* key, std::size_t len)
 </pre></blockquote>
 
 <p>
-I have picked FNV-1a, not because it is a terribly good hash algorithm.  It is
-just ok.  There are much better ones.  I've picked it because it is very
-simple.
+We have picked FNV-1a, not because it is a terribly good hash algorithm.  It is
+just ok.  There are better ones which we will also explore.  We've picked FNV-1a
+because it combines reasonable quality with excellent simplicity, making it
+ideal to demonstrate the main concept of this paper.
 </p>
 
 <p>
@@ -245,14 +246,14 @@ and <code>tuple</code>?</li>
 <li>That mixing step looks suspicious.  Does it really work for 64 bit
 hash codes?</li>
 
-<li>Because of the combining step, this really is no longer FNV-1a.  My
+<li>Because of the combining step, this really is no longer FNV-1a.  The
 result will likely no longer have the known properties of FNV-1a.  Thus
-my original goal of using FNV-1a has been compromised.</li>
+the original goal of using FNV-1a has been compromised.</li>
 
-<li>If I can't assume no-padding, and/or if I'm using a container
-that is not contiguous, then I won't have just one combining step.
-I'll have tons of them.  The combining step will then dominate the hashing
-algorithm.  Then I'm clearly not using FNV-1a.  I'm using whatever
+<li>If one can't assume no-padding, and/or if one is using a container
+that is not contiguous, then there won't be just one combining step.
+There will be tons of them.  The combining step will then dominate the hashing
+algorithm.  Then we will clearly not be using FNV-1a.  We will beusing whatever
 that combining step is doing.</li>
 </ol>
 
@@ -269,7 +270,7 @@ Backing up...
 </p>
 
 <p>
-I do not want to use:
+We do not want to use:
 </p>
 
 <blockquote><pre>
@@ -277,7 +278,7 @@ seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
 </pre></blockquote>
 
 <p>
-I want to use
+We want to use
 <a href="http://www.isthe.com/chongo/tech/comp/fnv/index.html">FNV-1a</a>,
 or
 <a href="https://code.google.com/p/smhasher/wiki/MurmurHash3">MurmurHash3</a>,
@@ -285,9 +286,9 @@ or
 <a href="https://code.google.com/p/cityhash/">CityHash</a>,
 or
 <a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>,
-or whatever.  Every time I "dilute" one of these hash algorithms by using
-a combining step of unknown quality, I dilute the confidence I have in the
-final hash code I am producing.
+or whatever.  Every time we "dilute" one of these hash algorithms by using
+a combining step of unknown quality, we dilute the confidence in the
+final hash code being produced.
 </p>
 
 <p>
@@ -299,13 +300,13 @@ seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
 </pre></blockquote>
 
 <p>
-in the computation of the hash code for X, I'm giving too much knowledge
-about the hashing process to the author of X.  Indeed, even hardcoding calls
-to <code>fnv1a</code> into this code is not scalable.  Imagine I have a
-sizable program with hundreds, even thousands of types that need hash functions
-written for them.  Changing from FNV-1a to MurmurHash3 or SpookyHash becomes
-a massive amount of error-prone work.  Each type must be revisited to change
-which algorithm it is using to produce its hash code.
+in the computation of the hash code for X, too much knowledge has been given to
+the author of X about the hashing algorithm.  Indeed, even hardcoding calls to
+<code>fnv1a</code> into this code is not scalable.  Imagine a sizable program
+with hundreds, even thousands of types that need hash functions written for
+them.  Changing from FNV-1a to MurmurHash3 or SpookyHash becomes a massive
+amount of error-prone work.  Each type must be revisited to change which
+algorithm it is using to produce its hash code.
 </p>
 
 <p>
@@ -398,7 +399,7 @@ implicit default constructor.</li>
 Note that this function can be called any number of times.  In
 each call the memory is contiguous.  But there is no requirement at
 all that separate calls refer to a single block of memory.</li>
-<li>The algorithm is finalized when the object is converted to a 
+<li>The algorithm is finalized when the object is converted to a
 <code>size_t</code>.  This is the finalization stage, which in this
 case is trivial, but could be arbitrarily complex.</li>
 </ol>
@@ -460,7 +461,7 @@ types to the general <code>Hasher</code>.
 being hashed.</li>
 <li>The hash functor <code>uhash</code> knows nothing about the <code>Hasher</code>,
 nor the type <code>T</code> being hashed.</li>
-<li>Below I will show how each type <code>T</code> can implement
+<li>Below we will show how each type <code>T</code> can implement
 <code>hash_append</code> (much like a type implements <code>swap</code>), and
 yet knows nothing about the <code>hash</code> functor, nor the algorithm
 encapsulated in the <code>Hasher</code>.</li>
@@ -476,7 +477,7 @@ and what order they should be presented to the <code>Hasher</code>.
 </p>
 
 <p>
-For example, here is how X would implement <code>hash_append</code>: 
+For example, here is how X would implement <code>hash_append</code>:
 </p>
 
 <blockquote><pre>
@@ -609,7 +610,7 @@ IEEE floating point types.
 </p>
 
 <p>
-An IEEE floating point type is <i>not contiguously hashable</i> because 
+An IEEE floating point type is <i>not contiguously hashable</i> because
 <code>0. == -0.</code> but these two values are represented with different
 bit patterns.  Therefore its <code>hash_append</code> must go to extra
 effort to ensure that <code>0.</code> and <code>-0.</code> hash to identical
@@ -642,7 +643,7 @@ and that have no padding bytes, may also be considered to be
 <blockquote><pre>
 template &lt;class T, class U&gt;
 struct is_contiguously_hashable&lt;std::pair&lt;T, U&gt;&gt;
-    : public std::integral_constant&lt;bool, is_contiguously_hashable&lt;T&gt;::value &amp;&amp; 
+    : public std::integral_constant&lt;bool, is_contiguously_hashable&lt;T&gt;::value &amp;&amp;
                                           is_contiguously_hashable&lt;U&gt;::value &amp;&amp;
                                           sizeof(T) + sizeof(U) == sizeof(std::pair&lt;T, U&gt;)&gt;
 {
@@ -767,7 +768,7 @@ template &lt;class Hasher, class CharT, class Traits, class Alloc&gt;
 inline
 std::enable_if_t
 &lt;
-    is_contiguously_hashable&lt;CharT&gt;::value 
+    is_contiguously_hashable&lt;CharT&gt;::value
 &gt;
 hash_append(Hasher&amp; h, std::basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept
 {
@@ -804,11 +805,11 @@ auto i = unordered_set_of_string.find("a string literal used to look up a std::s
 </pre></blockquote>
 
 <p>
-And without having to actually construct a <code>std::string</code>! 
+And without having to actually construct a <code>std::string</code>!
 <code>std::string</code> and string literals already are specified to always
 compare equal for equivalent content.  And with this hashing framework, such
 pairs of data are now guaranteed to hash to the same hash code.  And in an
-extremely manner no less!
+extremely efficient manner no less!
 </p>
 
 <b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
@@ -851,7 +852,7 @@ template &lt;class Hasher&gt;
 friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
 {
     using hash_defaults::hash_append;
-    hash_append(h, x.data1_, x.data2_);
+    hash_append(h, x.date_, x.data_);
 }
 </pre></blockquote>
 
@@ -872,7 +873,7 @@ is reported to have quality comparable to CityHash is trivial to incorporate:
 class spooky
 {
     SpookyHash state_;
-public: 
+public:
     spooky(std::size_t seed1 = 1, std::size_t seed2 = 2) noexcept
     {
         state_.Init(seed1, seed2);
@@ -896,11 +897,11 @@ public:
 </pre></blockquote>
 
 <p>
-Indeed, this has become my algorithm of choice:
+Indeed, this has become our algorithm of choice:
 </p>
 
 <blockquote><pre>
-template &lt;class T, class Hasher = spooky&gt; struct hash;
+template &lt;class Hasher = spooky&gt; struct uhash;
 </pre></blockquote>
 
 <b>What is involved in switching hashing algorithms?</b>
@@ -909,7 +910,7 @@ template &lt;class T, class Hasher = spooky&gt; struct hash;
 Given the class X shown above, with its complex state distributed among at
 least two different contiguous chunks of memory, and potentially many more
 if the container switched from <code>vector</code> to <code>deque</code> or
-<code>list</code>, I can create a <code>vector</code> of hash codes with my
+<code>list</code>, one can create a <code>vector</code> of hash codes with a
 preferred default algorithm like so:
 </p>
 
@@ -919,7 +920,7 @@ for (auto const&amp; x : vx)
 </pre></blockquote>
 
 <p>
-If I instead wanted to specify FNV-1a, I would modify the code to:
+If one instead wanted to specify FNV-1a, the code is easily modified to:
 </p>
 
 <blockquote><pre>
@@ -949,7 +950,7 @@ hash algorithm.
 <code>hash_combine</code> solution?</b>
 
 <p>
-To answer this question I have given X a randomized default constructor:
+To answer this question X has been given a randomized default constructor:
 </p>
 
 <blockquote><pre>
@@ -976,37 +977,37 @@ X::X()
 </pre></blockquote>
 
 <p>
-Given this, I can easily create a great number of random X's as shown in the
-loops above, and specify any hash algorithm.  I can also use
+Given this, one can easily create a great number of random X's as shown in the
+loops above, and specify any hash algorithm.  One can also use
 <code>std::hash</code> and "Solution 1" from the first part of this paper.
 </p>
 
 <p>
-My hash function quality tester suite is quite crude.  In <code>test1</code>
-I look at each 64 bit hash code as a collection of 16 hex-digits.  I expect
-each hex-digit to be roughly equally represented in each hexadecimal place of
-the hash code.  The test returns maximum deviation of the average, from the
-expected average.
+The hash function quality tester suite used herein is quite crude.
+<code>test1</code> looks at each 64 bit hash code as a collection of 16
+hex-digits.  The expectation is that each hex-digit should be roughly equally
+represented in each hexadecimal place of the hash code.  The test returns
+maximum deviation of the average, from the expected average.
 </p>
 
 <p>
-My second test is extremely simple:  It is simply the number of collisions
+The second test is extremely simple:  It is simply the number of collisions
 divided by the number of available values in the hash code.  Zero is a perfect
 result.
 </p>
 
 <p>
-My third test is
+The third test is
 <a href="https://code.google.com/p/smhasher/wiki/Distribution">TestDistribution</a>
 gratefully borrowed from the
 <a href="https://code.google.com/p/smhasher/wiki/SMHasher">smhasher</a>
-test suite.  I won't pretend to understand it.
+test suite.
 </p>
 
 <p>
-I load up a million hash codes generated from a million randomized X's,
-randomized by a default constructed <code>std::mt19937_64</code>, and feed
-them to these three tests.  For each test, the smaller the result the better.
+A million hash codes are generated from a million randomized but unique X's,
+randomized by a default constructed <code>std::mt19937_64</code>, and fed to
+these three tests.  For each test, the smaller the result the better.
 </p>
 
 <blockquote>
@@ -1048,7 +1049,7 @@ Spooky would be slower than FNV-1a.
 Even though CityHash is not easily efficiently adapted to this infrastructure,
 it is easy to adapt it inefficiently:  Just collect the entire buffer in a
 <code>vector&lt;char&gt;</code> and hash the whole thing during the finalization
-step.  I show the results of doing this just for informational purposes.
+step.  These results are shown just for informational purposes.
 </p>
 
 <h3>Summary</h3>
@@ -1076,9 +1077,9 @@ spanning discontiguous memory.</li>
 <h3>Acknowledgments</h3>
 
 <p>
-This research has been generously supported by
-<a href="https://www.ripplelabs.com">Ripple Labs</a>.  I would especially like to
-thank my colleagues on the RippleD team.
+This research has been generously supported by <a
+href="https://www.ripplelabs.com">Ripple Labs</a>.  We would especially like to
+thank our colleagues on the RippleD team.
 </p>
 
 </body>
