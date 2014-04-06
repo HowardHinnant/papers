@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-02
+2014-04-05
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -60,7 +60,7 @@ and would want to create a hash code for:
 class X
 {
     std::tuple&lt;short, unsigned char, unsigned char&gt; date_;
-    std::vector&lt;std::pair&lt;int, int&gt;&gt; data_;
+    std::vector&lt;std::pair&lt;int, int&gt;&gt;                data_;
 
 public:
     X();
@@ -253,7 +253,7 @@ the original goal of using FNV-1a has been compromised.</li>
 <li>If one can't assume no-padding, and/or if one is using a container
 that is not contiguous, then there won't be just one combining step.
 There will be tons of them.  The combining step will then dominate the hashing
-algorithm.  Then we will clearly not be using FNV-1a.  We will beusing whatever
+algorithm.  Then we will clearly not be using FNV-1a.  We will be using whatever
 that combining step is doing.</li>
 </ol>
 
@@ -266,6 +266,29 @@ focus was not investigating the quality of this algorithm</a>.
 </p>
 
 <p>
+We should note that
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+proposes a superior definition of <code>hash_combine</code> that would call
+out to a type's customized overload of <code>hash_value</code> for both types
+when combining hash codes.  This at least allows the sub-type author to have
+full control over the hashing algorithm used for each sub-type.  However 
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+would still hard-code into the standard a single
+<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>
+algorithm.  And as reported in
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>,
+the lead author of
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+notes that neither
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+nor 
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+solve the problem of letting the client of X easily decide what hashing
+algorithm he wants to use, without having to rewrite custom hashers not only
+for X, but for all of X's sub-types.
+</p>
+
+<p>
 Backing up...
 </p>
 
@@ -275,7 +298,13 @@ We do not want to use:
 
 <blockquote><pre>
 seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
-</pre></blockquote>
+</pre>
+<p>
+(or some other
+<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>
+function)
+</p>
+</blockquote>
 
 <p>
 We want to use
@@ -286,34 +315,31 @@ or
 <a href="https://code.google.com/p/cityhash/">CityHash</a>,
 or
 <a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>,
-or whatever.  Every time we "dilute" one of these hash algorithms by using
-a combining step of unknown quality, we dilute the confidence in the
-final hash code being produced.
+or whatever on the <i>full</i> state of type X.  Every time we "dilute" one of
+these hash algorithms by using a combining step, we dilute the confidence in the
+final hash code being produced, as are no longer using the hashing algorithm of
+our choice.
 </p>
 
 <p>
-Essentially, with the inclusion of:
+In other words, the state of our example X class is like one long message we
+wish to hash.  At the top level, the message is the "value" of X.  But that
+top level view of the message can be broken down into a series of integral
+types (in this case X is composed only of integral types), for example:
 </p>
 
 <blockquote><pre>
-seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
+2014, 4, 5, 2, 3, 7, 3, 16, -9
 </pre></blockquote>
 
 <p>
-in the computation of the hash code for X, too much knowledge has been given to
-the author of X about the hashing algorithm.  Indeed, even hardcoding calls to
-<code>fnv1a</code> into this code is not scalable.  Imagine a sizable program
-with hundreds, even thousands of types that need hash functions written for
-them.  Changing from FNV-1a to MurmurHash3 or SpookyHash becomes a massive
-amount of error-prone work.  Each type must be revisited to change which
-algorithm it is using to produce its hash code.
-</p>
-
-<p>
-It would certainly be possible to have each type provide a variety of hash
-code algorithms.  But as most types are composed of other types, which are
-further composed of other types in other libraries, and so on, down to
-scalar types, this also is not a scalable solution.
+I.e. a date followed by zero or more pairs of ints.  The client of X needs to be
+able to choose some hashing algorithm to hash this message, whether it be a
+<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function">cryptographic hash function</a>
+from the
+<a href="http://en.wikipedia.org/wiki/SHA-2">SHA-2 family</a>,
+<a href="http://www.isthe.com/chongo/tech/comp/fnv/index.html">FNV-1a</a>, or
+<a href="https://131002.net/siphash/">SipHash</a>.
 </p>
 
 <p>
@@ -326,8 +352,10 @@ Types should not know how to hash themselves.
 </p></blockquote>
 
 <p>
-The question now becomes:  How do you interface X with an arbitrary hashing
-library?
+The question now becomes:  How do you present X as one long message to an
+arbitrary hashing library?  And how do you do so such that one does not need to
+revisit X, nor any of X's sub-types when you want to change from one hashing
+algorithm to another?
 </p>
 
 <h3>How to get X to use a general purpose hashing algorithm</h3>
@@ -370,9 +398,10 @@ class fnv1a
 {
     std::size_t state_ = 14695981039346656037u;
 public:
+    using result_type = std::size_t;
 
     void
-    append(void const* key, std::size_t len) noexcept
+    operator()(void const* key, std::size_t len) noexcept
     {
         unsigned char const* p = static_cast&lt;unsigned char const*&gt;(key);
         unsigned char const* const e = p + len;
@@ -381,7 +410,7 @@ public:
     }
 
     explicit
-    operator std::size_t() noexcept
+    operator result_type() noexcept
     {
         return state_;
     }
@@ -394,26 +423,30 @@ Now the algorithm can be accessed in 3 stages:
 
 <ol>
 <li>The algorithm is initialized in a constructor, in this case the
-implicit default constructor.</li>
-<li>The algorithm consumes bytes in the <code>append</code> function.
-Note that this function can be called any number of times.  In
-each call the memory is contiguous.  But there is no requirement at
-all that separate calls refer to a single block of memory.</li>
+implicit default constructor.  Other constructors / initializations
+should be possible.  But we start out with this simplest of algorithms.</li>
+<li>The algorithm consumes bytes in the <code>operator()(void const* key,
+std::size_t len)</code> function. Note that this function can be called any
+number of times.  In each call the memory is contiguous.  But there is no
+requirement at all that separate calls refer to a single block of memory.</li>
 <li>The algorithm is finalized when the object is converted to a
-<code>size_t</code>.  This is the finalization stage, which in this
+<code>result_type</code> (in this case a <code>size_t</code>).
+This is the finalization stage, which in this
 case is trivial, but could be arbitrarily complex.</li>
 </ol>
 
 <p>
 We can say that <code>fnv1a</code> meets the requirements of a
 <code>Hasher</code>.  A <code>Hasher</code> is a class type that can be
-constructed (default, or possibly with seeding), has an <code>append</code>
-member function with the signature represented above.  The <code>append</code>
-member function processes bytes, updating the internal state of the
-<code>Hasher</code>.  This internal state can be arbitrarily complex.  Indeed
-an extreme example of internal state could be a copy of every chunk of memory
-supplied to the <code>Hasher</code>.  And finally a <code>Hasher</code> can
-be explicitly converted to a <code>size_t</code>.
+constructed (default, or possibly with seeding), has an <code>operator()</code>
+member function with the signature represented above.  The
+<code>operator()</code> member function processes bytes, updating the internal
+state of the <code>Hasher</code>.  This internal state can be arbitrarily
+complex.  Indeed an extreme example of internal state could be a copy of every
+chunk of memory supplied to the <code>Hasher</code>.  And finally a
+<code>Hasher</code> can be explicitly converted to the nested type
+<code>result_type</code>, which when used with the unordered containers should
+be an alias for <code>size_t</code>.
 </p>
 
 <b>Introducing the Universal hash function!</b>
@@ -427,22 +460,76 @@ takes <b>any</b> type <code>T</code> can now be written (almost):
 template &lt;class Hasher&gt;
 struct uhash
 {
+    using result_type = typename Hasher::result_type;
+
     template &lt;class T&gt;
-    std::size_t
+    result_type
     operator()(T const&amp; t) const noexcept
     {
         Hasher h;
-        using hash_defaults::hash_append;
+        using std::hash_append;
         hash_append(h, t);
-        return static_cast&lt;std::size_t&gt;(h);
+        return static_cast&lt;result_type&gt;(h);
     }
 };
 </pre></blockquote>
 
 <p>
-The <code>Hasher</code> is constructed.  It is appended to using <code>t</code>
-as a key.  And then it is explicitly converted to the desired result.  This
-<code>hash</code> could even be defaulted to use your favorite hash algorithm:
+First note several important attributes of <code>uhash</code>:
+</p>
+
+<ol>
+<li>
+<code>uhash</code> depends only on the hashing algorithm, which is encapsulated
+in the <code>Hasher</code>.  <code>uhash</code> does not depend upon the
+type <code>T</code> being hashed.
+</li>
+<li>
+<code>uhash</code> is simple.  Though such a utility should certainly be 
+supplied by the std::lib, any programmer can very easily implement their own
+variant of <code>uhash</code> for desired customizations (e.g. 
+<a href="http://en.wikipedia.org/wiki/Random_seed">random seeding</a>,
+<a href="http://en.wikipedia.org/wiki/Salt_(cryptography)">salting</a>,
+or <a href="http://en.wikipedia.org/wiki/Padding_(cryptography)">padding</a>),
+<b>without</b> having to revisit the hashing code for distinct types.
+</li>
+<li>
+For applications other than unordered containers, and for hashing algorithms
+that support it, the programmer can easily create a hash functor that returns
+something besides a <code>size_t</code>.  For example, this could come in handy
+in computing a <a href="http://en.wikipedia.org/wiki/SHA-2">SHA-256</a>
+result.  And all without having to revisit each individual type!
+</li>
+</ol>
+
+<p>
+Let's walk through <code>uhash</code> one step at a time.
+</p>
+
+<ol>
+<li><p>
+The <code>Hasher</code> is constructed (default constructed in this example, but
+that is not the only possibility).  This step initializes the hashing algorithm
+encapsulated in the <code>Hasher</code>.
+</p></li>
+<li><p>
+It is appended to using <code>t</code> as a key.  The function
+<code>hash_append</code> is implemented for each type that supports hashing.
+We will see below that such support code need be written only once per type in
+order to support many hashing algorithms.  It is implemented in the type's own
+namespace, but there are implementations in namespace std for most scalars
+(just like <code>swap</code>).
+</p></li>
+<li><p>
+And then the <code>Hasher</code> is explicitly converted to the desired result.
+This is where the algorithm is "finalized."
+</p></li>
+</ol>
+
+<p>
+The above <code>hash</code> functor is accessing the generic hashing algorithm
+by its 3 distinct phases. Additionally, this <code>hash</code> functor could
+even be defaulted to use your favorite hash algorithm:
 </p>
 
 <blockquote><pre>
@@ -477,23 +564,22 @@ and what order they should be presented to the <code>Hasher</code>.
 </p>
 
 <p>
-For example, here is how X would implement <code>hash_append</code>:
+For example, here is how X might implement <code>hash_append</code>:
 </p>
 
 <blockquote><pre>
 class X
 {
     std::tuple&lt;short, unsigned char, unsigned char&gt; date_;
-    std::vector&lt;std::pair&lt;int, int&gt;&gt; data_;
+    std::vector&lt;std::pair&lt;int, int&gt;&gt;                data_;
 
 public:
-    X();
 
     // Hook into the system like this
     template &lt;class Hasher&gt;
     friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
     {
-        using hash_defaults::hash_append;
+        using std::hash_append;
         hash_append(h, x.date_);
         hash_append(h, x.data_);
     }
@@ -501,12 +587,16 @@ public:
 </pre></blockquote>
 
 <p>
-Like <code>swap</code>, <code>hash_append</code> is a customization point
-for each type.  Only a type knows what parts of itself it should expose to a
+Like <code>swap</code>, <code>hash_append</code> is a customization point for
+each type.  Only a type knows what parts of itself it should expose to a
 <code>Hasher</code>, even though the type has no idea what algorithm is being
-used to do the hashing.  For example <code>std::vector&lt;T, A&gt;</code>
-would never expose its <code>capacity()</code>.  Indeed, the <code>hash_append</code>
-for <code>std::vector&lt;T, A&gt;</code> should look more like:
+used to do the hashing.  For example <code>std::vector&lt;T, A&gt;</code> would
+never expose its <code>capacity()</code>, since <code>capacity()</code> can be
+different for <code>vector</code>'s that otherwise compare equal.
+<code>vector</code> may or may not be specified to expose <code>size()</code>.
+Recommendations on that point will be made later in this paper. The very
+simplest <code>hash_append</code> implementation for <code>std::vector&lt;T,
+A&gt;</code> would look like this:
 </p>
 
 <blockquote><pre>
@@ -520,7 +610,10 @@ hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 </pre></blockquote>
 
 <p>
-And for <code>std::pair&lt;T, U&gt;</code>:
+I.e. <code>vector</code> considers itself a message composed of 0 or more
+sub-messages, and appends each sub-message (in order) to the state of the
+generic <code>Hasher</code>.
+And the situation is very similar for <code>std::pair&lt;T, U&gt;</code>:
 </p>
 
 <blockquote><pre>
@@ -543,14 +636,15 @@ template &lt;class Hasher&gt;
 void
 hash_append(Hasher&amp; h, int const&amp; i) noexcept
 {
-    h.append(&amp;i, sizeof(i));
+    h(&amp;i, sizeof(i));
 }
 </pre></blockquote>
 
 <p>
 Whereupon a contiguous chunk of memory is actually accumulated by the
-<code>Hasher</code>.  Recall that the <code>Hasher</code> has a member function
-<code>append (const void* key, std::size_t len) noexcept</code>.  And the
+<code>Hasher</code>, using the <code>Hasher</code>'s <code>operator()</code>.
+ Recall that the <code>Hasher</code> has a member function
+<code>operator()(const void* key, std::size_t len) noexcept</code>.  And the
 <code>int</code> is just a chunk of <i>contiguous</i> memory that is
 <i>hashable</i>.  It is now prudent to deeply consider what it means to say
 that a type (such as <code>int</code>) is <i>contiguously hashable</i>.
@@ -597,7 +691,7 @@ std::enable_if_t
 &gt;
 hash_append(Hasher&amp; h, T const&amp; t) noexcept
 {
-    h.append(addressof(t), sizeof(t));
+    h(addressof(t), sizeof(t));
 }
 </pre></blockquote>
 
@@ -629,9 +723,20 @@ hash_append(Hasher&amp; h, T t) noexcept
 {
     if (t == 0)
         t = 0;
-    h.append(&amp;t, sizeof(t));
+    h(&amp;t, sizeof(t));
 }
 </pre></blockquote>
+
+<p>
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+also introduced a very similar <code>is_contiguous_layout</code> trait.  We
+build upon but modify their idea here.  But just because a type has a
+<i>contiguous layout</i> does not necessarily imply that a type is
+<i>contiguously hashable</i>.  IEEE floating point is a case in point.  IEEE
+floating point does have a contiguous layout (and is trivially copyable, and
+has a standard layout).  And yet still it is not <i>contiguously hashable</i>
+because of how its <code>operator=</code> works with signed zeros.
+</p>
 
 <p>
 Class types that are composed of only  <i>contiguously hashable</i> types
@@ -659,12 +764,12 @@ hashable, and if the size of the two members is the same size as the
 
 <p>
 This same logic can be applied to <code>array</code>, <code>tuple</code>, and
-possibly user-defined types as well.  Consequently, a great many types can be
-easily and safely classified as contiguously hashable.  This is important because
-with modern hash algorithm implementations, the bigger the chunk of contiguous
-memory you can send to the <code>Hasher</code> at one time, the higher the
-performance (in terms of bytes-hashed/second) the <code>Hasher</code> is likely
-to perform.
+possibly user-defined types as well (but only with the user-defined type's
+author's permission).  Consequently, a great many types can be easily and safely
+classified as contiguously hashable.  This is important because with modern hash
+algorithm implementations, the bigger the chunk of contiguous memory you can
+send to the <code>Hasher</code> at one time, the higher the performance (in
+terms of bytes-hashed/second) the <code>Hasher</code> is likely to perform.
 </p>
 
 <p>
@@ -693,7 +798,7 @@ std::enable_if_t
 &gt;
 hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
-    h.append (v.data(), v.size()*sizeof(T));
+    h(v.data(), v.size()*sizeof(T));
 }
 </pre></blockquote>
 
@@ -708,12 +813,14 @@ buffer to <code>hash_append</code>.
 This optimization can be made without any help from the <code>std::lib</code>.
 Other optimizations are possible, but could only be made from within the
 <code>std::lib</code>.  For example, what if <code>T</code> is <code>bool</code>
-in the above example?  What about <code>deque&lt;T&gt;</code>?  It could hash
-its internal contiguous buffers all at once, but there is no way to implement
-that without intimate knowledge of the internals of the <code>deque</code>
-implementation.  Externally, the best one can do for <code>deque&lt;T&gt;</code>
-is to send each individual <code>T</code> to <code>hash_append</code> one at a
-time.  This still gives the very same correct answer, just slower.
+in the above example?  <code>vector&lt;bool&gt;</code> doesn't follow the usual
+<code>vector</code> rules.  What about <code>deque&lt;T&gt;</code>?  It could
+hash its internal contiguous buffers all at once, but there is no way to
+implement that without intimate knowledge of the internals of the
+<code>deque</code> implementation.  Externally, the best one can do for
+<code>deque&lt;T&gt;</code> is to send each individual <code>T</code> to
+<code>hash_append</code> one at a time.  This still gives the very same correct
+answer, but is just much slower.
 </p>
 
 <p>
@@ -753,7 +860,7 @@ hash_append(Hasher&amp; h, T (&amp;a)[N]) noexcept
 <p>
 And if <code>T</code> <i>is</i> contiguously hashable, then the generic
 <code>hash_append</code> works for C-style arrays (as long as we specialize
-<code>is_contiguously_hashable&lt;T[N]&gt;</code>) appropriately.  And well,
+<code>is_contiguously_hashable&lt;T[N]&gt;</code>) appropriately.  And, well
 this is the good part, the decltype(a-string-literal) is a C-style array type.
 For string literals, the array type is always one larger than the
 <code>strlen</code> of the literal because the array contains the trailing null
@@ -772,7 +879,7 @@ std::enable_if_t
 &gt;
 hash_append(Hasher&amp; h, std::basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept
 {
-    h.append(s.data(), (s.size()+1)*sizeof(CharT));
+    h(s.data(), (s.size()+1)*sizeof(CharT));
 }
 </pre></blockquote>
 
@@ -789,7 +896,12 @@ assert(uhash&lt;MySpecialHasher&gt;{}(std::string("Hi!")) == uhash&lt;MySpecialH
 
 <p>
 String literals and their <code>std::basic_string</code> counterparts hash
-identically!  This opens the door for the unordered container analogue of:
+identically!  When you think about it in terms of messages, this makes perfect
+sense.  Is <code>std::string{"some text"}</code> a different message than
+<code>"some text"</code>?  Of course not.  The two identical messages simply
+have different storage mechanisms.  They actually compare equal, and thus should
+have identical hash codes as well (no matter the hashing algorithm).
+This opens the door for the unordered container analogue of:
 </p>
 
 <blockquote><pre>
@@ -806,10 +918,6 @@ auto i = unordered_set_of_string.find("a string literal used to look up a std::s
 
 <p>
 And without having to actually construct a <code>std::string</code>!
-<code>std::string</code> and string literals already are specified to always
-compare equal for equivalent content.  And with this hashing framework, such
-pairs of data are now guaranteed to hash to the same hash code.  And in an
-extremely efficient manner no less!
 </p>
 
 <b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
@@ -820,10 +928,38 @@ extremely efficient manner no less!
 <p>
 <code>boost::hash_combine</code> is used to combine two separately computed
 hash codes into one hash code.  And furthermore it hard-codes the functor to
-be used for the second type.  <code>hash_append</code> accumulates state into
+be used for the second type.
+</p>
+
+<p>
+The
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+<code>hash_combine</code> does not have the fault of hard-coding
+the hash algorithm for the second type.  However it does mandate a
+<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>
+algorithm.
+</p>
+
+  <code>hash_append</code> accumulates state into
 a <i>generic</i> hash algorithm, returning the exact same result as if the
 hash algorithm had processed the entire discontiguous memory buffer as one
-contiguous memory buffer.
+contiguous memory buffer.  <b>There is no hash concatenation step!</b>
+With <code>hash_append</code>, there is only <i>message concatenation</i>, and
+not
+<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>.
+</p>
+
+<b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
+serialization?</b>
+
+<p>
+It is very closely related.  Close enough that there may be a way to elegantly
+combine the two.  Each type can expose its state to a <code>Hasher</code> or
+<code>Serializer</code>.  However there <i>are</i> differences.  IEEE floating
+point is our poster-child for the difference.  For hashing, IEEE floating point
+needs to hide the difference between -0. and 0.  For serialization one needs to
+keep these two values distinct.  Combining these two functions, for now, remains
+beyond the scope of this paper.
 </p>
 
 <b>Is there a variadic version of <code>hash_append</code>?</b>
@@ -851,7 +987,7 @@ This allows <code>hash_append</code> for X (for example) to be rewritten as:
 template &lt;class Hasher&gt;
 friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
 {
-    using hash_defaults::hash_append;
+    using std::hash_append;
     hash_append(h, x.date_, x.data_);
 }
 </pre></blockquote>
@@ -874,19 +1010,21 @@ class spooky
 {
     SpookyHash state_;
 public:
+    using result_type = std::size_t;
+
     spooky(std::size_t seed1 = 1, std::size_t seed2 = 2) noexcept
     {
         state_.Init(seed1, seed2);
     }
 
     void
-    append(void const* key, std::size_t len) noexcept
+    operator()(void const* key, std::size_t len) noexcept
     {
         state_.Update(key, len);
     }
 
     explicit
-    operator std::size_t() noexcept
+    operator result_type() noexcept
     {
         std::uint64_t h1, h2;
         state_.Final(&amp;h1, &amp;h2);
@@ -958,15 +1096,15 @@ std::mt19937_64 eng;
 
 X::X()
 {
-    std::uniform_int_distribution&lt;short&gtl; yeardata(1900, 2014);
-    std::uniform_int_distribution&lt;unsigned char&gtl; monthdata(1, 12);
-    std::uniform_int_distribution&lt;unsigned char&gtl; daydata(1, 28);
-    std::uniform_int_distribution&lt;std::size_t&gtl; veclen(0, 100);
-    std::uniform_int_distribution&lt;int&gtl; int1data(1, 10);
-    std::uniform_int_distribution&lt;int&gtl; int2data(-3, 5000);
-    std::get&lt;0&gtl;(date_) = yeardata(eng);
-    std::get&lt;1&gtl;(date_) = monthdata(eng);
-    std::get&lt;2&gtl;(date_) = daydata(eng);
+    std::uniform_int_distribution&lt;short&gt; yeardata(1900, 2014);
+    std::uniform_int_distribution&lt;unsigned char&gt; monthdata(1, 12);
+    std::uniform_int_distribution&lt;unsigned char&gt; daydata(1, 28);
+    std::uniform_int_distribution&lt;std::size_t&gt; veclen(0, 100);
+    std::uniform_int_distribution&lt;int&gt; int1data(1, 10);
+    std::uniform_int_distribution&lt;int&gt; int2data(-3, 5000);
+    std::get&lt;0&gt;(date_) = yeardata(eng);
+    std::get&lt;1&gt;(date_) = monthdata(eng);
+    std::get&lt;2&gt;(date_) = daydata(eng);
     data_.resize(veclen(eng));
     for (auto&amp; p : data_)
     {
@@ -1067,9 +1205,9 @@ incorporated into existing code.</li>
 worrying about what hashing algorithm should be used.</li>
 <li>Clients can easily adopt most existing algorithms to this proposed
 infrastructure.</li>
-<li>Clients can easily very easily switch hashing algorithms used by
+<li>Clients can very easily switch hashing algorithms used by
 very complex data structures.</li>
-<li>The resulting hash codes are true reflection of the original design
+<li>The resulting hash codes are a true reflection of the original design
 of the hashing algorithms, even though applied to complex data structures
 spanning discontiguous memory.</li>
 </ul>
