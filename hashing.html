@@ -26,12 +26,46 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-05
+2014-04-06
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
 
-<h2>Introduction</h2>
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#Introduction">Introduction</a></li>
+<li><a href="#Example">The Example</a></li>
+<li><a href="#Solution1">Solution 1: Specialize <code>std::hash&lt;X&gt;</code></a></li>
+<li><a href="#Solution2">Solution 2: Make use of a well-known hashing algorithm</a></li>
+<li><a href="#generalpurpose">How to get X to use a general purpose hashing algorithm</a>
+    <ul>
+    <li><a href="#Universal">Introducing the Universal hash function!</a></li>
+    <li><a href="#hash_append">What is <code>hash_append</code>?</a></li>
+    <li><a href="#hash_append_vector"><code>hash_append</code> for <code>vector&lt;T, A&gt;</code></a></li>
+    <li><a href="#hash_append_pair"><code>hash_append</code> for <code>std::pair&lt;T, U&gt;</code></a></li>
+    <li><a href="#hash_append_int"><code>hash_append</code> for <code>int</code></a></li>
+    <li><a href="#is_contiguously_hashable">An Optimization: <code>is_contiguously_hashable&lt;T&gt;</code>:</a></li>
+    <li><a href="#strings">Strings are really important.  What say ye about strings?</a></li>
+    <li><a href="#hash_combine">Wait a minute.  Isn't <code>hash_append</code> the same thing as <code>boost::hash_combine</code>?</a></li>
+    <li><a href="#serialization">Wait a minute.  Isn't <code>hash_append</code> the same thing as serialization?</a></li>
+    <li><a href="#variadic">Is there a variadic version of <code>hash_append</code>?</a></li>
+    <li><a href="#adapt_algorithm">How easily can algorithms other than FNV-1a be used?</a></li>
+    <li><a href="#switch_algorithm">What is involved in switching hashing algorithms?</a></li>
+    <li><a href="#pimpl">How does one <code>hash_append</code> Pimpl designs?</a></li>
+    <li><a href="#testing">How does the quality of the resulting hash codes compare to the <code>hash_combine</code> solution?</a></li>
+    <li><a href="#seeding">How does one apply random seeding?</a></li>
+    </ul>
+</li>
+<li><a href="#Summary">Summary</a>
+    <ul>
+    <li><a href="#proposedinfrastructure">Summary of proposed infrastructure</a></li>
+    </ul>
+</li>
+<li><a href="#Acknowledgments">Acknowledgments</a></li>
+</ul>
+
+<a name="Introduction"></a><h2>Introduction</h2>
 
 <p>
 This paper starts with an assertion:
@@ -47,7 +81,7 @@ software systems assume that types do know how to hash themselves, and what
 can be done to solve these problems.
 </p>
 
-<h2>The Example</h2>
+<a name="Example"></a><h2>The Example</h2>
 
 <p>
 Instead of starting with a basic example like <code>std::string</code> or
@@ -65,6 +99,10 @@ class X
 public:
     X();
     // ...
+    friend bool operator==(X const&amp; x, X const&amp; y)
+    {
+        return std::tie(x.date_, x.data_) == std::tie(y.date_, y.data_);
+    }
 };
 </pre></blockquote>
 
@@ -72,7 +110,7 @@ public:
 How do we write the hash function for X?
 </p></blockquote>
 
-<h3>Solution 1: Specialize <code>std::hash&lt;X&gt;</code></h3>
+<a name="Solution1"></a><h2>Solution 1: Specialize <code>std::hash&lt;X&gt;</code></h2>
 
 <p>
 If we standardize
@@ -127,7 +165,7 @@ hashing algorithm that is known to have some given verifiable
 qualities.  How do we do that?
 </p>
 
-<h3>Solution 2: Make use of a well-known hashing algorithm</h3>
+<a name="Solution2"><h2>Solution 2: Make use of a well-known hashing algorithm</h2>
 
 <p>
 There are many hash algorithms freely available, and several of them explored
@@ -317,8 +355,8 @@ or
 <a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>,
 or whatever on the <i>full</i> state of type X.  Every time we "dilute" one of
 these hash algorithms by using a combining step, we dilute the confidence in the
-final hash code being produced, as are no longer using the hashing algorithm of
-our choice.
+final hash code being produced, as we are no longer using the hashing algorithm
+of our choice.
 </p>
 
 <p>
@@ -358,7 +396,7 @@ revisit X, nor any of X's sub-types when you want to change from one hashing
 algorithm to another?
 </p>
 
-<h3>How to get X to use a general purpose hashing algorithm</h3>
+<a name="generalpurpose"></a><h2>How to get X to use a general purpose hashing algorithm</h2>
 
 <p>
 Although most modern hashing algorithms are much more complicated than
@@ -449,7 +487,7 @@ chunk of memory supplied to the <code>Hasher</code>.  And finally a
 be an alias for <code>size_t</code>.
 </p>
 
-<b>Introducing the Universal hash function!</b>
+<a name="Universal"></a><h3>Introducing the Universal hash function!</h3>
 
 <p>
 Given the concept of <code>Hasher</code>, a universal hash functor, which
@@ -536,7 +574,7 @@ even be defaulted to use your favorite hash algorithm:
 template &lt;class Hasher = fnv1a&gt; struct uhash;
 </pre></blockquote>
 
-<b>What is <code>hash_append</code>?</b>
+<a name="hash_append"></a><h3>What is <code>hash_append</code>?</h3>
 
 <p>
 The <code>hash_append</code> function is the glue that binds the individual
@@ -574,6 +612,11 @@ class X
     std::vector&lt;std::pair&lt;int, int&gt;&gt;                data_;
 
 public:
+    // ...
+    friend bool operator==(X const&amp; x, X const&amp; y)
+    {
+        return std::tie(x.date_, x.data_) == std::tie(y.date_, y.data_);
+    }
 
     // Hook into the system like this
     template &lt;class Hasher&gt;
@@ -590,13 +633,115 @@ public:
 Like <code>swap</code>, <code>hash_append</code> is a customization point for
 each type.  Only a type knows what parts of itself it should expose to a
 <code>Hasher</code>, even though the type has no idea what algorithm is being
-used to do the hashing.  For example <code>std::vector&lt;T, A&gt;</code> would
+used to do the hashing.  Furthermore the <code>hash_append</code> function is
+intimately tied to the <code>operator==</code> for the same type.  For example
+if for some reason <code>x.data_</code> did not participate in the equality
+computation, then it should also not participate in the <code>hash_append</code>
+computation.
+</p>
+
+<p>
+For all combination values of X, <code>x</code> and <code>y</code>, there are
+two rules to follow in designing <code>hash_append</code> for type X.  Actually
+the second rule is more of a guideline.  But it should be followed as closely
+as possible:
+</p>
+
+<ol>
+<li><p>
+<a name="rule1"></a>If <code>x == y</code>, then both <code>x</code> and <code>y</code> <i>shall</i>
+send the same message to the <code>Hasher</code> in <code>hash_append</code>.
+</p></li>
+<li><p>
+<a name="rule2"></a>If <code>x != y</code>, then <code>x</code> and <code>y</code> <i>should</i>
+send different messages to the <code>Hasher</code> in <code>hash_append</code>.
+</p></li>
+</ol>
+
+<p>
+It is very important to keep these two rules in mind when designing the
+<code>hash_append</code> function for any type, or for any instantiation of a
+class template.  Failure to follow the first rule will mean that equal values
+hash to different codes.  Clients such as unordered containers will simply
+fail to work, resulting in run time errors if this rule is violated.  Failure
+to follow the second guideline will result in hash collisions for the two
+different values that send identical messages to the <code>Hasher</code>, and
+will thus degrade the performance of clients such as unordered containers.
+</p>
+
+<a name="hash_append_vector"></a><h3><code>hash_append</code> for <code>vector&lt;T, A&gt;</code></h3>
+
+<p>
+For example <code>std::vector&lt;T, A&gt;</code> would
 never expose its <code>capacity()</code>, since <code>capacity()</code> can be
-different for <code>vector</code>'s that otherwise compare equal.
-<code>vector</code> may or may not be specified to expose <code>size()</code>.
-Recommendations on that point will be made later in this paper. The very
-simplest <code>hash_append</code> implementation for <code>std::vector&lt;T,
-A&gt;</code> would look like this:
+different for <code>vector</code>'s that otherwise compare equal.  Likewise
+it should not expose its <code>allocator_type</code> to <code>hash_append</code>,
+since this value also does not participate in the equality computation.
+</p>
+
+<p>
+Should <code>vector</code> expose its <code>size()</code> to the
+<code>Hasher</code>? To find out, lets look closer at the
+<code>operator==</code> for <code>vector</code>:
+</p>
+
+<blockquote><p>
+Two <code>vector</code>'s <code>x</code> and <code>y</code> compare equal if
+<code>x.size() == y.size()</code> and if <code>x[i] == y[i]</code> for
+<code>i</code> in the range of 0 to <code>x.size()</code>.
+</p></blockquote>
+
+<p>
+To meet <a href="#rule1">rule 1</a>, it is sufficient that every element in the <code>vector</code>
+be sent to the <code>Hasher</code> as part of the <code>vector</code>'s message.
+A logical convention is that the elements will be sent in order from
+<code>begin()</code> to <code>end()</code>.  But this alone will not satisfy
+<a href="#rule2">rule 2</a>.  Consider:
+</p>
+
+<blockquote><pre>
+std::vector&lt;std::vector&lt;int&gt;&gt; v1{};
+std::vector&lt;std::vector&lt;int&gt;&gt; v2{1};
+assert(v1 != v2);
+</pre></blockquote>
+
+<p>
+<code>v1</code> and <code>v2</code> are not equal.  <code>v1.size() == 0</code>
+and  <code>v2.size() == 1</code>.  However <code>v2.front().size() == 0</code>.
+If an empty <code>vector&lt;int&gt;</code> sends no message at all to the
+<code>Hasher</code>, then <code>v2</code>, even though it is not empty, also
+sends no message to the <code>Hasher</code>.  And therefore <code>v1</code> and
+<code>v2</code> send the same (0 length) message to the <code>Hasher</code>,
+violating <a href="#rule2">rule 2</a>.
+</p>
+
+<p>
+One idea for fixing this is to special case 0-length <code>vector</code>s to 
+output a special value such as "empty" or 0.  However in the first case the
+result would be ambiguous with a <code>vector&lt;string&gt;</code> of length
+1 containing the string "empty".  The second case has the exact same problem
+but for <code>vector&lt;int&gt;</code>.
+</p>
+
+<p>
+The right way to fix this problem is to have  <code>vector&lt;T&gt;</code> send
+its <code>size()</code> in addition to sending all of its members to the
+<code>Hasher</code>.  Now the only question is:  Should it send its
+<code>size</code> before or after sending its members to the <code>Hasher</code>?
+</p>
+
+<p>
+To answer this last question, consider another sequence container:
+<code>forward_list&lt;T&gt;</code>.  It has the exact same issues as we have
+been discussing for <code>vector&lt;T&gt;</code>, but <code>forward_list&lt;T&gt;</code>
+has no <code>size()</code> member.  In order to send its <code>size()</code>,
+<code>forward_list&lt;T&gt;</code> has to loop through all of its members to
+first compute <code>size()</code>.  In order to avoid the requirement that
+<code>hash_append</code> for <code>forward_list&lt;T&gt;</code> make two
+passes through the list, we should specify that the <code>size()</code> of the
+container is sent to the <code>Hasher</code> <i>after</i> all of the elements
+are sent.  And for consistency, we should do this for all std-containers for
+which <code>hash_append</code> is defined.
 </p>
 
 <blockquote><pre>
@@ -606,14 +751,21 @@ hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     for (auto const&amp; t : v)
         hash_append(h, t);
+    hash_append(h, v.size());
 }
 </pre></blockquote>
 
 <p>
 I.e. <code>vector</code> considers itself a message composed of 0 or more
 sub-messages, and appends each sub-message (in order) to the state of the
-generic <code>Hasher</code>.
-And the situation is very similar for <code>std::pair&lt;T, U&gt;</code>:
+generic <code>Hasher</code>.  And this is followed with a final message
+consisting of the <code>size()</code> of the <code>vector</code>.
+</p>
+
+<a name="hash_append_pair"></a><h3><code>hash_append</code> for <code>std::pair&lt;T, U&gt;</code></h3>
+
+<p>
+The situation is simpler for <code>std::pair&lt;T, U&gt;</code>:
 </p>
 
 <blockquote><pre>
@@ -627,7 +779,14 @@ hash_append (Hasher&amp; h, std::pair&lt;T, U&gt; const&amp; p) noexcept
 </pre></blockquote>
 
 <p>
-Eventually <code>hash_append</code> will drill down to primitive types such as
+All there is to do is to just <code>hash_append</code> the first and second
+members of the pair.
+</p>
+
+<a name="hash_append_int"></a><h3><code>hash_append</code> for <code>int</code></h3>
+
+<p>
+Eventually <code>hash_append</code> will drill down to a scalar type such as
 <code>int</code>:
 </p>
 
@@ -657,12 +816,13 @@ y</code>, then it must also be true that <code>memcmp(addressof(x),
 addressof(y), sizeof(T)) == 0</code>.  I.e. if <code>x == y</code>, then
 <code>x</code> and <code>y</code> have the same bit pattern representation. A
 2's complement <code>int</code> satisfies this property because every bit
-pattern an <code>int</code> can have results in a distinct value.  And there are
-no "padding bits" which might take on random values.  This property is necessary
-because if two values are equal, then they must hash to the same hash code.
+pattern an <code>int</code> can have results in a distinct value (<a
+href="#rule2">rule 2</a>).  And there are no "padding bits" which might take on
+random values.  This property is necessary because if two values are equal, then
+they must hash to the same hash code (<a href="#rule1">rule 1</a>).
 </p>
 
-<b>An Optimization: <code>is_contiguously_hashable&lt;T&gt;</code>:</b>
+<a name="is_contiguously_hashable"></a><h3>An Optimization: <code>is_contiguously_hashable&lt;T&gt;</code>:</h3>
 
 <p>
 With that in mind we can easily imagine a type trait:
@@ -704,12 +864,13 @@ IEEE floating point types.
 </p>
 
 <p>
-An IEEE floating point type is <i>not contiguously hashable</i> because
-<code>0. == -0.</code> but these two values are represented with different
-bit patterns.  Therefore its <code>hash_append</code> must go to extra
-effort to ensure that <code>0.</code> and <code>-0.</code> hash to identical
-hash codes, but <b>without</b> dictating a specific hash algorithm.  This
-could be done like so:
+An IEEE floating point type is <i>not contiguously hashable</i> because <code>0.
+== -0.</code> but these two values are represented with different bit patterns. 
+<a href="#rule1">Rule 1</a> would be violated if hashed contiguously. Therefore the
+<code>hash_append</code> for IEEE floating point types must go to extra effort
+to ensure that <code>0.</code> and <code>-0.</code> hash to identical hash
+codes, but <b>without</b> dictating a specific hash algorithm.  This could be
+done like so:
 </p>
 
 <blockquote><pre>
@@ -728,6 +889,11 @@ hash_append(Hasher&amp; h, T t) noexcept
 </pre></blockquote>
 
 <p>
+I.e. if the value is -0., reset the value to 0., and <i>then</i> contiguously
+hash the resulting bits.
+</p>
+
+<p>
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 also introduced a very similar <code>is_contiguous_layout</code> trait.  We
 build upon but modify their idea here.  But just because a type has a
@@ -735,7 +901,8 @@ build upon but modify their idea here.  But just because a type has a
 <i>contiguously hashable</i>.  IEEE floating point is a case in point.  IEEE
 floating point does have a contiguous layout (and is trivially copyable, and
 has a standard layout).  And yet still it is not <i>contiguously hashable</i>
-because of how its <code>operator=</code> works with signed zeros.
+because of how its <code>operator=</code> works with signed zeros (violating
+<a href="#rule1">rule 1</a>).
 </p>
 
 <p>
@@ -788,6 +955,7 @@ hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     for (auto const&amp; t : v)
         hash_append(h, t);
+    hash_append(h, v.size());
 }
 
 template &lt;class Hasher, class T, class Alloc&gt;
@@ -799,6 +967,7 @@ std::enable_if_t
 hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     h(v.data(), v.size()*sizeof(T));
+    hash_append(h, v.size());
 }
 </pre></blockquote>
 
@@ -820,7 +989,7 @@ implement that without intimate knowledge of the internals of the
 <code>deque</code> implementation.  Externally, the best one can do for
 <code>deque&lt;T&gt;</code> is to send each individual <code>T</code> to
 <code>hash_append</code> one at a time.  This still gives the very same correct
-answer, but is just much slower.
+message, but is just much slower.
 </p>
 
 <p>
@@ -828,10 +997,15 @@ If you believe <b>your type</b> to be contiguously hashable, you should
 specialize <code>is_contiguously_hashable&lt;YourType&gt;</code> appropriately,
 as has been shown for <code>pair</code>.  This would mean that not only is
 hashing <code>YourType</code> optimized, but hashing
-<code>vector&lt;YourType&gt;</code>, et. al. is also optimized!
+<code>vector&lt;YourType&gt;</code>, et. al. is also optimized!  But note that
+there is no bullet proof way to automate the registration of
+<code>YourType</code> with <code>is_contiguously_hashable</code> as IEEE
+floating point so ably demonstrates.  To do so requires an in depth analysis
+of <code>operator==</code> for <code>YourType</code>, which only the author
+of <code>YourType</code> is qualified to do.
 </p>
 
-<b>Strings are really important.  What say ye about strings?</b>
+<a name="strings"></a><h3>Strings are really important.  What say ye about strings?</h3>
 
 <p>
 Like <code>vector</code>, <code>basic_string</code> can be optimized if the
@@ -920,8 +1094,16 @@ auto i = unordered_set_of_string.find("a string literal used to look up a std::s
 And without having to actually construct a <code>std::string</code>!
 </p>
 
-<b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
-<code>boost::hash_combine</code>?</b>
+<p>
+Note that <a href="#rule1">rules 1 and 2</a> have effectively been expanded to
+heterogeneous <code>operator==</code> here.  Since we can compare
+<code>string</code>s and <code>char[N]</code>, and it has the obvious meaning,
+it also makes sense to message them to a <code>Hasher</code> in such a way that
+follows these two rules.
+</p>
+
+<a name="hash_combine"></a><h3>Wait a minute.  Isn't <code>hash_append</code> the same thing as
+<code>boost::hash_combine</code>?</h3>
 
 <p>No!</p>
 
@@ -940,6 +1122,7 @@ the hash algorithm for the second type.  However it does mandate a
 algorithm.
 </p>
 
+<p>
   <code>hash_append</code> accumulates state into
 a <i>generic</i> hash algorithm, returning the exact same result as if the
 hash algorithm had processed the entire discontiguous memory buffer as one
@@ -949,8 +1132,8 @@ not
 <a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>.
 </p>
 
-<b>Wait a minute.  Isn't <code>hash_append</code> the same thing as
-serialization?</b>
+<a name="serialization"></a><h3>Wait a minute.  Isn't <code>hash_append</code> the same thing as
+serialization?</h3>
 
 <p>
 It is very closely related.  Close enough that there may be a way to elegantly
@@ -962,7 +1145,7 @@ keep these two values distinct.  Combining these two functions, for now, remains
 beyond the scope of this paper.
 </p>
 
-<b>Is there a variadic version of <code>hash_append</code>?</b>
+<a name="variadic"></a><h3>Is there a variadic version of <code>hash_append</code>?</h3>
 
 <p>
 Yes, this is easily written as:
@@ -992,7 +1175,7 @@ friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
 }
 </pre></blockquote>
 
-<b>How easily can algorithms other than FNV-1a be used?</b>
+<a name="adapt_algorithm"></a><h3>How easily can algorithms other than FNV-1a be used?</h3>
 
 <p>
 Algorithms such as
@@ -1042,7 +1225,13 @@ Indeed, this has become our algorithm of choice:
 template &lt;class Hasher = spooky&gt; struct uhash;
 </pre></blockquote>
 
-<b>What is involved in switching hashing algorithms?</b>
+<p>
+<a href="https://131002.net/siphash/">SipHash</a> and the cryptographic
+algorithms of the <a href="http://en.wikipedia.org/wiki/SHA-2">SHA-2 family</a>
+are also efficiently adaptable to this framework.
+</p>
+
+<a name="switch_algorithm"></a><h3>What is involved in switching hashing algorithms?</h3>
 
 <p>
 Given the class X shown above, with its complex state distributed among at
@@ -1084,8 +1273,129 @@ one big contiguous chunk of memory, and fed that one big chunk to the
 hash algorithm.
 </p>
 
-<b>How does the quality of the resulting hash codes compare to the
-<code>hash_combine</code> solution?</b>
+<a name="pimpl"></a><h3>How does one <code>hash_append</code>
+<a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">Pimpl</a> designs?</h3>
+
+<p>
+So far, every <code>hash_append</code> function shown must be templated on
+<code>Hasher</code> so as to handle any hashing algorithm requested by some
+unknown, far away client.  But with the 
+<a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">Pimpl</a> design, one
+can not send a templated <code>Hasher</code> past the implementation firewall.
+</p>
+
+<p>
+Or can you ... ?
+</p>
+
+<p>
+With a combination of <code>std::function</code> and <code>std::ref</code> one
+can <i>type erase</i> the templated <code>Hasher</code>, adopting it to a type
+with a concrete type, and pass that concrete <code>Hasher</code> through the
+implementation firewall.  Imagine a class as shown
+<a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">here</a>,
+here is how it can support arbitrary hash algorithms with the proposed
+infrastructure:
+</p>
+
+<blockquote><pre>
+class Handle
+{
+    struct CheshireCat;               // Not defined here
+    CheshireCat* smile;               // Handle
+
+public:
+    // Other operations...
+
+    // Hash support
+    using type_erased_Hasher = std::function&lt;void(void const*, std::size_t)&gt;;
+
+    template &lt;class Hasher&gt;
+    friend
+    void
+    hash_append(Hasher&amp; h, Handle const&amp; x)
+    {
+        using std::hash_append;
+        if (x.smile == nullptr)
+            hash_append(h, nullptr);
+        else
+            x.do_hash(type_erased_Hasher(std::ref(h)), *x.smile);
+    }
+
+private:
+    void
+    do_hash(type_erased_Hasher h, CheshireCat const&amp;) const;
+};
+</pre></blockquote>
+
+<p>
+So you still have to implement a templated <code>hash_append</code> for
+<code>Handle</code>, but the implementation of that function forwards to a
+<b>non-template</b> function which can be implemented in the source, alongside
+of the definition of <code>CheshireCat</code>:
+</p>
+
+<blockquote><pre>
+void
+Handle::do_hash(Handle::type_erased_Hasher h, CheshireCat const&amp; c) const
+{
+    hash_append(h, c);
+}
+</pre></blockquote>
+
+<p>
+And now you can implement <code>hash_append</code> for <code>CheshireCat</code>,
+but not for <i>any</i> <code>Hasher</code>, just for
+<code>Handle::type_erased_Hasher</code>.  But besides this one detail (the
+type of <code>Hasher</code>, <code>hash_append</code> for <code>CheshireCat</code>
+looks just like any other <code>hash_append</code>:
+</p>
+
+<blockquote><pre>
+friend
+void
+hash_append(Handle::type_erased_Hasher&amp; h, CheshireCat const&amp; c)
+{
+    using std::hash_append;
+    hash_append(h, c.data1_, c.data2_, <i>etc.</i> ...);
+}
+</pre></blockquote>
+
+<p>
+Think about what has just happened here.  You've compiled CheshireCat.cpp today.
+ And <i>tomorrow</i>, when somebody invents a brand new hash algorithm, your
+CheshireCat.cpp uses it, with no re-compile necessary, for the cost of a virtual
+function call to the <code>Hasher</code>.  And yet no other client of this new
+<code>Hasher</code> (outside of those called by <code>CheshireCat</code>), is
+forced to access the new hashing algorithm via a virtual function call. That
+boarders on magic!
+</p>
+
+<p>
+It is this very concern (hashing of Pimpl's) that decided the name of the
+member function of <code>Hasher</code>s which appends state to the hash
+algorithm:
+</p>
+
+<blockquote><pre>
+void operator()(void const* key, std::size_t len) noexcept;
+</pre></blockquote>
+
+<p>
+Had this member function been given any other name, such as:
+</p>
+
+<blockquote><pre>
+void append(void const* key, std::size_t len) noexcept;
+</pre></blockquote>
+
+<p>
+then programmers would be able to use <code>std::function</code> to
+create a type-erased wrapper around a templated <code>Hasher</code>.
+</p>
+
+<a name="testing"></a><h3>How does the quality of the resulting hash codes compare to the
+<code>hash_combine</code> solution?</h3>
 
 <p>
 To answer this question X has been given a randomized default constructor:
@@ -1190,7 +1500,87 @@ it is easy to adapt it inefficiently:  Just collect the entire buffer in a
 step.  These results are shown just for informational purposes.
 </p>
 
-<h3>Summary</h3>
+<a name="seeding"></a><h3>How does one apply random seeding?</h3>
+
+<p>
+Many hash algorithms can be randomly seeded during the initialization stage in
+such a way that the hash code produced for a type is constant between
+invokations by a single client (just like a non-seeded algorithm), but varies
+between clients. The variance might be per-process, but could also be as
+frequent as per-hash-functor construction, excluding copy or move construction.
+In the latter case one might have two distinct <code>unordered_set</code>s
+(for example) of the same type, and even containing the same data, and yet have
+the two containers result in different hash codes for the same values.  Doing
+so can help harden an application from attacks when the application must hash
+keys supplied by an untrusted source.
+</p>
+
+<p>
+This is remarkably easily done with this proposal.  One codes <i>one</i> new
+hash functor, which can be used with <i>any</i> <code>Hasher</code> which
+accepts a seed, and for <i>any</i> type which already has <code>hash_append</code>
+implemented (even those <code>CheshireCat</code>s which have already been
+compiled, and can not be recompiled).
+</p>
+
+<p>
+Here is one possible implementation:
+</p>
+
+<blockquote><pre>
+template &lt;class Hasher = spooky&gt;
+class hardened_hash
+{
+    std::size_t seed_;
+    static std::mt19937_64 rand_s;
+
+public:
+    using result_type = typename Hasher::result_type;
+
+    hardened_hash() noexcept : seed_(rand_s()) {}
+    explicit hardened_hash(std::size_t seed) noexcept
+        : seed_(seed)
+    {}
+
+    template &lt;class T&gt;
+    result_type
+    operator()(T const&amp; t) const noexcept
+    {
+        Hasher h(seed_);
+        using std::hash_append;
+        hash_append(h, t);
+        return static_cast&lt;result_type&gt;(h);
+    }
+};
+</pre></blockquote>
+
+<p>
+In this example, the hashing algorithm is initialized with a random seed when
+<code>hardened_hash</code> is default constructed.  Or it can also be given a
+deterministic seed by the client at construction time.  In either case, once
+constructed, the seed does not change except through hash functor assignment.
+</p>
+
+<p>
+The same seed is used to initialize the algorithm on each hash functor
+invocation. The seeded algorithm is then used to hash the entire message of the
+type <code>T</code>, even down to the scalars embedded in <code>T</code> or the
+sub-types of <code>T</code>.
+</p>
+
+<p>
+One uses the same technique to apply
+<a href="http://en.wikipedia.org/wiki/Salt_(cryptography)">salting</a>,
+or <a href="http://en.wikipedia.org/wiki/Padding_(cryptography)">padding</a>
+to a type to be hashed.  E.g. one would prepend and/or append the
+<a href="http://en.wikipedia.org/wiki/Salt_(cryptography)">salt</a> or
+<a href="http://en.wikipedia.org/wiki/Padding_(cryptography)">padding</a>
+to the message of <code>T</code> by using additional calls to
+<code>hash_append</code> in the <code>operator()(T const&amp; t)</code> of the
+hash functor.
+</p>
+
+<a name="Summary"></a><h2>Summary</h2>
 
 <p>
 This paper presents an infrastructure that decouples types from hashing
@@ -1212,7 +1602,38 @@ of the hashing algorithms, even though applied to complex data structures
 spanning discontiguous memory.</li>
 </ul>
 
-<h3>Acknowledgments</h3>
+<a name="proposedinfrastructure"></a><h3>Summary of proposed infrastructure</h3>
+
+<blockquote><pre>
+template &lt;class T&gt; struct is_contiguously_hashable;                        // A type property trait
+template &lt;class Hasher&gt; void hash_append(Hasher&amp; h, T const&amp; t) noexcept;  // overloaded for each type T
+template &lt;class Hasher = <i>implementation-defined</i>&gt; struct uhash;             // A hashing functor
+</pre></blockquote>
+
+<a name="Acknowledgments"></a><h2>Acknowledgments</h2>
+
+<p>
+Special thanks to John Bytheway for pointing out the real-world utility of 
+naming the "append" member of <code>Hasher</code> to <code>operator()</code>
+in order to accommodate code which can't call <code>hash_append</code> from a
+header.
+</p>
+
+<p>
+Thanks to Daniel James (et al.) for highlighting the problem of hashing
+zero-length containers with no message.
+</p>
+
+<p>
+Thanks to Dix Lorenz (et al.) for pointing out that the <code>result_type</code> of the
+<code>Hasher</code> need not be <code>size_t</code>, and indeed, can not be
+if we want this infrastructure to fully handle cryptographic hash functions
+(which produce results larger than a <code>size_t</code>).
+</p>
+
+<p>
+Additional thanks to Walter Brown for his invaluable review and guidance.
+</p>
 
 <p>
 This research has been generously supported by <a
