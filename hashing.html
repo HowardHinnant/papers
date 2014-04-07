@@ -41,7 +41,11 @@
 <li><a href="#generalpurpose">How to get X to use a general purpose hashing algorithm</a>
     <ul>
     <li><a href="#Universal">Introducing the Universal hash function!</a></li>
-    <li><a href="#hash_append">What is <code>hash_append</code>?</a></li>
+    <li><a href="#hash_append">What is <code>hash_append</code>?</a>
+        <ul>
+        <li><a href="#hash_append_rules">Rules Relating <code>hash_append</code> to <code>operator==</code></a></li>
+        </ul>
+    </li>
     <li><a href="#hash_append_vector"><code>hash_append</code> for <code>vector&lt;T, A&gt;</code></a></li>
     <li><a href="#hash_append_pair"><code>hash_append</code> for <code>std::pair&lt;T, U&gt;</code></a></li>
     <li><a href="#hash_append_int"><code>hash_append</code> for <code>int</code></a></li>
@@ -513,6 +517,15 @@ struct uhash
 </pre></blockquote>
 
 <p>
+Now one can use <code>uhash&lt;fnv1a&gt;</code> as the hash function for
+<code>std::unordered_map</code>, for example:
+</p>
+
+<blockquote><pre>
+std::unordered_map&lt;MyKey, std::string, uhash&lt;fnv1a&gt;&gt; the_map;
+</pre></blockquote>
+
+<p>
 First note several important attributes of <code>uhash</code>:
 </p>
 
@@ -573,6 +586,28 @@ even be defaulted to use your favorite hash algorithm:
 <blockquote><pre>
 template &lt;class Hasher = fnv1a&gt; struct uhash;
 </pre></blockquote>
+
+<p>
+The question usually arises now:  Are you proposing that <code>uhash&lt;&gt;</code>
+replace <code>hash&lt;T&gt;</code> as the default hash functor in the
+unordered containers?  The answer is it really almost doesn't matter.  With
+templated using declarations, it is just so easy for programmers to specify
+their own defaults:
+</p>
+
+<blockquote><pre>
+namespace my
+{
+template &lt;class Key, class T, class Hash = std::uhash&lt;&gt;, class Pred = std::equal_to&lt;Key&gt;,
+          class Alloc = std::allocator&lt;std::pair&lt;Key const, T&gt;&gt;&gt;
+    using unordered_map = std::unordered_map&lt;Key, T, Hash, Pred, Alloc&gt;;
+}  // my
+
+// ...
+
+my::unordered_map&lt;MyKey, std::string&gt; the_map;  // uses std::uhash&lt;&gt; instead of std::hash&lt;MyKey&gt;
+</pre></blockquote>
+
 
 <a name="hash_append"></a><h3>What is <code>hash_append</code>?</h3>
 
@@ -640,20 +675,22 @@ computation, then it should also not participate in the <code>hash_append</code>
 computation.
 </p>
 
+<a name="hash_append_rules"></a><h4>Rules Relating <code>hash_append</code> to <code>operator==</code></h4>
+
 <p>
-For all combination values of X, <code>x</code> and <code>y</code>, there are
-two rules to follow in designing <code>hash_append</code> for type X.  Actually
-the second rule is more of a guideline.  But it should be followed as closely
-as possible:
+For all combination of two values of X, <code>x</code> and <code>y</code>, there
+are two rules to follow in designing <code>hash_append</code> for type X. 
+Actually the second rule is more of a guideline.  But it should be followed as
+closely as possible:
 </p>
 
 <ol>
 <li><p>
-<a name="rule1"></a>If <code>x == y</code>, then both <code>x</code> and <code>y</code> <i>shall</i>
+If <code>x == y</code>, then both <code>x</code> and <code>y</code> <i>shall</i>
 send the same message to the <code>Hasher</code> in <code>hash_append</code>.
 </p></li>
 <li><p>
-<a name="rule2"></a>If <code>x != y</code>, then <code>x</code> and <code>y</code> <i>should</i>
+If <code>x != y</code>, then <code>x</code> and <code>y</code> <i>should</i>
 send different messages to the <code>Hasher</code> in <code>hash_append</code>.
 </p></li>
 </ol>
@@ -692,11 +729,11 @@ Two <code>vector</code>'s <code>x</code> and <code>y</code> compare equal if
 </p></blockquote>
 
 <p>
-To meet <a href="#rule1">rule 1</a>, it is sufficient that every element in the <code>vector</code>
+To meet <a href="#hash_append_rules">rule 1</a>, it is sufficient that every element in the <code>vector</code>
 be sent to the <code>Hasher</code> as part of the <code>vector</code>'s message.
 A logical convention is that the elements will be sent in order from
 <code>begin()</code> to <code>end()</code>.  But this alone will not satisfy
-<a href="#rule2">rule 2</a>.  Consider:
+<a href="#hash_append_rules">rule 2</a>.  Consider:
 </p>
 
 <blockquote><pre>
@@ -712,7 +749,7 @@ If an empty <code>vector&lt;int&gt;</code> sends no message at all to the
 <code>Hasher</code>, then <code>v2</code>, even though it is not empty, also
 sends no message to the <code>Hasher</code>.  And therefore <code>v1</code> and
 <code>v2</code> send the same (0 length) message to the <code>Hasher</code>,
-violating <a href="#rule2">rule 2</a>.
+violating <a href="#hash_append_rules">rule 2</a>.
 </p>
 
 <p>
@@ -761,6 +798,24 @@ sub-messages, and appends each sub-message (in order) to the state of the
 generic <code>Hasher</code>.  And this is followed with a final message
 consisting of the <code>size()</code> of the <code>vector</code>.
 </p>
+
+<p><b>Emphasis</b></p>
+<blockquote><p>
+The message a type sends to a <code>Hasher</code> is part of its public API.
+E.g. whether or not a container includes its <code>size()</code> in its
+<code>hash_append</code> message, and if so, whether the  <code>size()</code> is
+prepended or appended to the message, is critical information a type's client
+needs to know, in order to ensure that their composition of some type's message
+with another type's message doesn't produce an ambiguous message (doesn't create
+collisions).
+</p><p>
+The standard should clearly document the message emanating from every
+<code>hash_append</code> it defines, to the extent possible (might not be
+possible to nail down that an implementation is using IEEE floating point or
+two's complement signed integers).  But the standard can certainly document
+the message produced by a <code>vector</code> or any other std-defined class
+type.
+</p></blockquote>
 
 <a name="hash_append_pair"></a><h3><code>hash_append</code> for <code>std::pair&lt;T, U&gt;</code></h3>
 
@@ -817,9 +872,9 @@ addressof(y), sizeof(T)) == 0</code>.  I.e. if <code>x == y</code>, then
 <code>x</code> and <code>y</code> have the same bit pattern representation. A
 2's complement <code>int</code> satisfies this property because every bit
 pattern an <code>int</code> can have results in a distinct value (<a
-href="#rule2">rule 2</a>).  And there are no "padding bits" which might take on
+href="#hash_append_rules">rule 2</a>).  And there are no "padding bits" which might take on
 random values.  This property is necessary because if two values are equal, then
-they must hash to the same hash code (<a href="#rule1">rule 1</a>).
+they must hash to the same hash code (<a href="#hash_append_rules">rule 1</a>).
 </p>
 
 <a name="is_contiguously_hashable"></a><h3>An Optimization: <code>is_contiguously_hashable&lt;T&gt;</code>:</h3>
@@ -866,7 +921,7 @@ IEEE floating point types.
 <p>
 An IEEE floating point type is <i>not contiguously hashable</i> because <code>0.
 == -0.</code> but these two values are represented with different bit patterns. 
-<a href="#rule1">Rule 1</a> would be violated if hashed contiguously. Therefore the
+<a href="#hash_append_rules">Rule 1</a> would be violated if hashed contiguously. Therefore the
 <code>hash_append</code> for IEEE floating point types must go to extra effort
 to ensure that <code>0.</code> and <code>-0.</code> hash to identical hash
 codes, but <b>without</b> dictating a specific hash algorithm.  This could be
@@ -902,7 +957,7 @@ build upon but modify their idea here.  But just because a type has a
 floating point does have a contiguous layout (and is trivially copyable, and
 has a standard layout).  And yet still it is not <i>contiguously hashable</i>
 because of how its <code>operator=</code> works with signed zeros (violating
-<a href="#rule1">rule 1</a>).
+<a href="#hash_append_rules">rule 1</a>).
 </p>
 
 <p>
@@ -1095,7 +1150,7 @@ And without having to actually construct a <code>std::string</code>!
 </p>
 
 <p>
-Note that <a href="#rule1">rules 1 and 2</a> have effectively been expanded to
+Note that <a href="#hash_append_rules">rules 1 and 2</a> have effectively been expanded to
 heterogeneous <code>operator==</code> here.  Since we can compare
 <code>string</code>s and <code>char[N]</code>, and it has the obvious meaning,
 it also makes sense to message them to a <code>Hasher</code> in such a way that
@@ -1632,7 +1687,8 @@ if we want this infrastructure to fully handle cryptographic hash functions
 </p>
 
 <p>
-Additional thanks to Walter Brown for his invaluable review and guidance.
+Additional thanks to Walter Brown and Richard Smith for their invaluable review
+and guidance.
 </p>
 
 <p>
