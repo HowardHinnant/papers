@@ -1401,8 +1401,8 @@ Handle::do_hash(Handle::type_erased_Hasher h, CheshireCat const&amp; c) const
 <p>
 And now you can implement <code>hash_append</code> for <code>CheshireCat</code>,
 but not for <i>any</i> <code>Hasher</code>, just for
-<code>Handle::type_erased_Hasher</code>.  But besides this one detail (the
-type of <code>Hasher</code>, <code>hash_append</code> for <code>CheshireCat</code>
+<code>Handle::type_erased_Hasher</code>.  But besides this one detail (the type
+of <code>Hasher</code>), <code>hash_append</code> for <code>CheshireCat</code>
 looks just like any other <code>hash_append</code>:
 </p>
 
@@ -1445,7 +1445,7 @@ void append(void const* key, std::size_t len) noexcept;
 </pre></blockquote>
 
 <p>
-then programmers would be able to use <code>std::function</code> to
+then programmers would not be able to use <code>std::function</code> to
 create a type-erased wrapper around a templated <code>Hasher</code>.
 </p>
 
@@ -1560,7 +1560,7 @@ step.  These results are shown just for informational purposes.
 <p>
 Many hash algorithms can be randomly seeded during the initialization stage in
 such a way that the hash code produced for a type is constant between
-invokations by a single client (just like a non-seeded algorithm), but varies
+invocations by a single client (just like a non-seeded algorithm), but varies
 between clients. The variance might be per-process, but could also be as
 frequent as per-hash-functor construction, excluding copy or move construction.
 In the latter case one might have two distinct <code>unordered_set</code>s
