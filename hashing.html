@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-06
+2014-04-09
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -36,7 +36,12 @@
 <ul>
 <li><a href="#Introduction">Introduction</a></li>
 <li><a href="#Example">The Example</a></li>
-<li><a href="#Solution1">Solution 1: Specialize <code>std::hash&lt;X&gt;</code></a></li>
+<li><a href="#Solution1">Solution 1: Specialize <code>std::hash&lt;X&gt;</code></a>
+    <ul>
+    <li><a href="#Solution1B">What about implementing it with N3333?</a></li>
+    <li><a href="#Solution1C">What about implementing it only with C++14 tools?</a></li>
+    </ul>
+</li>
 <li><a href="#Solution2">Solution 2: Make use of a well-known hashing algorithm</a></li>
 <li><a href="#generalpurpose">How to get X to use a general purpose hashing algorithm</a>
     <ul>
@@ -57,8 +62,8 @@
     <li><a href="#adapt_algorithm">How easily can algorithms other than FNV-1a be used?</a></li>
     <li><a href="#switch_algorithm">What is involved in switching hashing algorithms?</a></li>
     <li><a href="#pimpl">How does one <code>hash_append</code> Pimpl designs?</a></li>
-    <li><a href="#testing">How does the quality of the resulting hash codes compare to the <code>hash_combine</code> solution?</a></li>
     <li><a href="#seeding">How does one apply random seeding?</a></li>
+    <li><a href="#testing">How does the quality of the resulting hash codes compare to the <code>hash_combine</code> solution?</a></li>
     </ul>
 </li>
 <li><a href="#Summary">Summary</a>
@@ -70,6 +75,37 @@
 </ul>
 
 <a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+To start off with, we emphasize:  there is nothing in this proposal that changes
+the existing <code>std::hash</code>, or the unordered containers.  And there is
+also nothing in this proposal that would prohibit the committee from standardizing
+both this proposal, and either one of
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+or
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>.
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+and
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+contradict each other, and thus compete with each other.  Both can not be
+standardized.  This proposal, on the other hand, addresses a problem not addressed
+by 
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+or
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>.
+Nor does this proposal depend upon anything in 
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+or
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>.
+</p>
+
+<p>
+This paper simply takes a completely different approach to producing hash
+codes from types, in order to solve a problem that was beyond the scope of
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+and
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>.
+</p>
 
 <p>
 This paper starts with an assertion:
@@ -134,12 +170,14 @@ struct hash&lt;X&gt;
     size_t
     operator()(X const&amp; x) const noexcept
     {
-        size_t h = 0;
-        std::hash_combine (h, std::hash_val(std::get&lt;0&gt;(x.date_)
-                                          , std::get&lt;1&gt;(x.date_)
-                                          , std::get&lt;2&gt;(x.date_)));
+        size_t h =      hash&lt;tuple_element&lt;0, decltype(x.date_)&gt;::type&gt;{}(get&lt;0&gt;(x.date_));
+        hash_combine(h, hash&lt;tuple_element&lt;1, decltype(x.date_)&gt;::type&gt;{}(get&lt;1&gt;(x.date_)));
+        hash_combine(h, hash&lt;tuple_element&lt;2, decltype(x.date_)&gt;::type&gt;{}(get&lt;2&gt;(x.date_)));
         for (auto const&amp; p : x.data_)
-            std::hash_combine (h, std::hash_val(p.first, p.second));
+        {
+            hash_combine(h, hash&lt;decltype(x.data_)::value_type::first_type&gt;{} (p.first));
+            hash_combine(h, hash&lt;decltype(x.data_)::value_type::second_type&gt;{} (p.second));
+        }
         return h;
     }
 };
@@ -154,6 +192,73 @@ And we also need to add a <code>friend</code> statement to our class X:
 <blockquote><pre>
 friend class std::hash&lt;X&gt;;
 </pre></blockquote>
+
+<a name="Solution1B"><h3>What about implementing it with
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>?</h3>
+
+<p>
+I was surprised when I attempted to implement <code>std::hash&lt;X&gt;</code>
+using the tools proposed in
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+and was thwarted.  I thought that the <code>hash_combine</code> proposed here
+(which is different than that in
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>)
+would be more helpful.  And I thought I could use the proposed
+<code>hash_combine_range</code> as well.  This is as far as I got:
+</p>
+
+<blockquote><pre>
+template &lt;&gt;
+struct hash&lt;X&gt;
+{
+    std::size_t
+    operator()(X const&amp; x) noexcept
+    {
+        std::size_t h = hash_combine(std::get&lt;0&gt;(x.date_), std::get&lt;1&gt;(x.date_),
+                                     std::get&lt;2&gt;(x.date_));
+        std::size_t h2 = hash_combine_range(x.data_.begin(), x.data_.end());
+        return my_own_hash_combine(h, h2);
+    }
+};
+</pre></blockquote>
+
+<p>
+The problem came when I tried to combine two <i>already computed</i> hash codes.
+For review, here is a summary:
+</p>
+
+<ul>
+<li>
+<p>
+The <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+<code>hash_combine</code> will hash two objects, combine their hash codes, and
+return one hash code.
+</p>
+</li>
+<li>
+<p>
+The <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+<code>hash_combine</code> (and the <code>boost::hash_combine</code>) will take
+one hash code and one object, hashes the object, and combines the new hash code
+into the old one.
+</p>
+</li>
+<li>
+<p>
+I found what I needed was something that takes two hash codes, and combines
+them into one hash code.  So I had to roll my own (<code>my_own_hash_combine</code>).
+</p>
+</li>
+</ul>
+
+<a name="Solution1C"><h3>What about implementing it only with C++14 tools?</h3>
+
+<p>
+Our C++14-only implementation of <code>std::hash&lt;X&gt;</code> ended up looking
+just like the 
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+version, except using a hand-rolled <code>hash_combine</code>.
+</p>
 
 <p>
 Now we can say <code>std::hash&lt;X&gt;{}(x)</code> and we get back a
@@ -182,7 +287,7 @@ which can be coded up like this:
 
 <blockquote><pre>
 std::size_t
-fnv1a (void const* key, std::size_t len)
+do_fnv1a (void const* key, std::size_t len)
 {
     unsigned char const* p = static_cast&lt;unsigned char const*&gt;(key);
     unsigned char const* const e = p + len;
@@ -194,199 +299,270 @@ fnv1a (void const* key, std::size_t len)
 </pre></blockquote>
 
 <p>
-We have picked FNV-1a, not because it is a terribly good hash algorithm.  It is
-just ok.  There are better ones which we will also explore.  We've picked FNV-1a
-because it combines reasonable quality with excellent simplicity, making it
-ideal to demonstrate the main concept of this paper.
+We have picked FNV-1a, not because it is the best hash algorithm.  There are
+more modern ones which we will also explore.  We've picked FNV-1a because it
+combines reasonable quality with excellent simplicity, making it ideal to
+demonstrate the main concept of this paper.
 </p>
 
 <p>
-If we are willing to assume that there are no padding bits in
-<code>std::pair&lt;int, int&gt;&gt;</code> we could first hash
-the entire <code>vector</code> with one call to <code>fnv1a</code>:
+One point should be made very clear, right up front:
 </p>
 
-<blockquote><pre>
-std::size_t h1 = fnv1a (data_.data(), data_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
-</pre></blockquote>
-
+<blockquote class=note>
 <p>
-It isn't the prettiest code in the world.  But it will work.  And if we dare
-to make the same (no padding) assumptions about <code>date_</code> we could
-write similar code there:
-</p>
-
-<blockquote><pre>
-std::size_t h2 = fnv1a (&date_, sizeof(date_));
-</pre></blockquote>
-
-<p>
-Now we just need to combine these two hash function results into one.  And this
-is where things get complicated.  And this is the point on which the assumption
-that types know how to hash themselves begins to fall apart.
-</p>
-
-<p>
-What about using the proposed <code>std::hash_combine</code> you rightly ask?
-</p>
-
-<p>
-That might look something like this:
-</p>
-
-<blockquote><pre>
-std::size_t h1 = fnv1a (data_.data(), data_.size() * sizeof(std::pair&lt;int, int&gt;&gt;);
-std::hash_combine (h1, date_);
-return h1;
-</pre></blockquote>
-
-<p>
-But this doesn't really work.  Internally <code>std::hash_combine</code>
-calls <code>std::hash&lt;std::tuple&lt;short, unsigned char, unsigned char&gt;&gt;{}(date_)</code>,
-and we don't want to call <code>std::hash</code>.  We don't know what that
-code does.  We want to call <code>fnv1a</code>.  And we can't specialize
-<code>std::hash</code> to do what we want because we don't "own" any parts
-of the type that we want to specialize on (<code>std::tuple</code> and
-<code>char</code>).
-</p>
-
-<p>
-The very best we can do is crib the algorithm from <code>std::hash_combine</code>
-is based on.  We can put the entire thing in a <code>std::hash&lt;X&gt;</code>
-specialization as shown before:
-</p>
-
-<blockquote><pre>
-namespace std
-{
-
-template &lt;&gt;
-struct hash&lt;X&gt;
-{
-    size_t
-    operator()(X const&amp; x) const noexcept
-    {
-        std::size_t h = fnv1a (&amp;x.date_, sizeof(x.date_));
-        std::size_t h2 = fnv1a (x.data_.data(),
-                                    x.data_.size()*sizeof(std::pair&lt;int, int&gt;));
-        h ^= h2 + 0x9e3779b9 + (h&lt;&lt;6) + (h&gt;&gt;2);
-        return h;
-    }
-};
-
-}  // std
-</pre></blockquote>
-
-<p>
-By now there should be several alarms going off in your head:
-</p>
-
-<ol>
-<li>How sure are we that there are no padding bits in <code>pair</code>
-and <code>tuple</code>?</li>
-
-<li>That mixing step looks suspicious.  Does it really work for 64 bit
-hash codes?</li>
-
-<li>Because of the combining step, this really is no longer FNV-1a.  The
-result will likely no longer have the known properties of FNV-1a.  Thus
-the original goal of using FNV-1a has been compromised.</li>
-
-<li>If one can't assume no-padding, and/or if one is using a container
-that is not contiguous, then there won't be just one combining step.
-There will be tons of them.  The combining step will then dominate the hashing
-algorithm.  Then we will clearly not be using FNV-1a.  We will be using whatever
-that combining step is doing.</li>
-</ol>
-
-<p>
-The importance of this last point can not be understated.  Good hash
-algorithms are notoriously difficult to write, and poor ones notoriously
-easy.  This combining step has been pulled from a
-<a href="http://goanna.cs.rmit.edu.au/~jz/fulltext/jasist-tch.pdf">paper whose
-focus was not investigating the quality of this algorithm</a>.
-</p>
-
-<p>
-We should note that
+Neither
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
-proposes a superior definition of <code>hash_combine</code> that would call
-out to a type's customized overload of <code>hash_value</code> for both types
-when combining hash codes.  This at least allows the sub-type author to have
-full control over the hashing algorithm used for each sub-type.  However 
-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
-would still hard-code into the standard a single
-<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>
-algorithm.  And as reported in
-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>,
-the lead author of
-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
-notes that neither
-<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
-nor 
+nor
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
-solve the problem of letting the client of X easily decide what hashing
-algorithm he wants to use, without having to rewrite custom hashers not only
-for X, but for all of X's sub-types.
+offer any aid whatsoever to the programmer who wants to specify or adopt an
+existing open-source hashing algorithm.  These two papers only further package
+what C++11 already offers:  A single, unspecified, std::lib-supplied hashing
+algorithm.
 </p>
-
 <p>
-Backing up...
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+acknowledges this fact in
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html#future">Future work</a>.
 </p>
-
 <p>
-We do not want to use:
-</p>
-
-<blockquote><pre>
-seed ^= hash(v) + 0x9e3779b9 + (seed&lt;&lt;6) + (seed&gt;&gt;2);
-</pre>
-<p>
-(or some other
-<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>
-function)
+This proposal <i>is</i> that future work.  Just by different authors.
 </p>
 </blockquote>
 
 <p>
-We want to use
-<a href="http://www.isthe.com/chongo/tech/comp/fnv/index.html">FNV-1a</a>,
-or
-<a href="https://code.google.com/p/smhasher/wiki/MurmurHash3">MurmurHash3</a>,
-or
-<a href="https://code.google.com/p/cityhash/">CityHash</a>,
-or
-<a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>,
-or whatever on the <i>full</i> state of type X.  Every time we "dilute" one of
-these hash algorithms by using a combining step, we dilute the confidence in the
-final hash code being produced, as we are no longer using the hashing algorithm
-of our choice.
+In the description that follows, this is how we would implement a custom hash
+functor which uses the FNV-1a algorithm.  This implementation is a reasonable
+implementation technique, <b>whether or not</b>
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+or <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+is standardized.  Since neither of those proposals aid in adapting existing
+hashing algorithms, the tools from neither are used below.
 </p>
 
 <p>
-In other words, the state of our example X class is like one long message we
-wish to hash.  At the top level, the message is the "value" of X.  But that
-top level view of the message can be broken down into a series of integral
-types (in this case X is composed only of integral types), for example:
+On my system, both <code>std::pair&lt;int, int&gt;&gt;</code> and 
+std::tuple&lt;short, unsigned char, unsigned char&gt; are what we refer to as
+<i>contiguously hashable</i>.  More on that concept below, but consider it
+to be used for the same purpose that
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+uses <code>is_contiguous_layout&lt;T&gt;</code>.
+</p>
+
+<p>
+It is now convenient to write a custom hash functor that works for any type
+<code>T</code> which is <i>contiguously hashable</i>:
 </p>
 
 <blockquote><pre>
-2014, 4, 5, 2, 3, 7, 3, 16, -9
+template &lt;class T&gt;
+struct fnv1a_hash
+{
+    static_assert(is_contiguously_hashable&lt;T&gt;::value, "");
+
+    std::size_t
+    operator() (T const&amp; t) const
+    {
+        return do_fnv1a(std::addressof(t), sizeof(t));
+    }
+
+    std::size_t
+    operator() (T const*  t, std::size_t len) const
+    {
+        return do_fnv1a(t, sizeof(T)*len);
+    }
+};
 </pre></blockquote>
 
 <p>
-I.e. a date followed by zero or more pairs of ints.  The client of X needs to be
-able to choose some hashing algorithm to hash this message, whether it be a
-<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function">cryptographic hash function</a>
-from the
-<a href="http://en.wikipedia.org/wiki/SHA-2">SHA-2 family</a>,
-<a href="http://www.isthe.com/chongo/tech/comp/fnv/index.html">FNV-1a</a>, or
-<a href="https://131002.net/siphash/">SipHash</a>.
+This convenience functor wraps the existing FNV-1A algorithm up so that it can
+be used two ways:
+</p>
+
+<ol>
+<li>To hash a single <code>T</code>.</li>
+<li>To hash a contiguous range of <code>T</code>.</li>
+</ol>
+
+<p>
+In both cases, it is wise to <code>static_assert</code> that <code>T</code>
+actually <i>is contiguously hashable</i>.  As a start, this trait can answer
+true for two's complement integral types, and for types such as <code>pair</code>
+and <code>tuple</code> when these containers consist only of types which answer
+true to <code>is_contiguously_hashable</code>, and when the sum of the
+<code>sizeof</code> of each data member is the same as the <code>sizeof</code>
+the entire <code>pair</code> or <code>tuple</code> (and thus there are no
+padding bytes).
 </p>
 
 <p>
-In essence, the type is the wrong place to put knowledge about any given
-hash algorithm.  That knowledge belongs in a specialized hashing library.
+Now we can specialize <code>fnv1a_hash</code> for X, which is not contiguously
+hashable:
+</p>
+
+<blockquote><pre>
+template &lt;&gt;
+struct fnv1a_hash&lt;X&gt;
+{
+    std::size_t
+    hash_combine(std::size_t x, std::size_t y)
+    {
+        return x ^ (y + 0x9e3779b9 + (x&lt;&lt;6) + (x&gt;&gt;2));
+    }
+
+    std::size_t
+    operator()(X const&amp; x) noexcept
+    {
+        std::size_t h = fnv1a_hash&lt;decltype(x.date_)&gt;{} (x.date_);
+        h = hash_combine(h, fnv1a_hash&lt;decltype(x.data_)::value_type&gt;{}
+                                              (x.data_.data(), x.data_.size()));
+        h = hash_combine(h, fnv1a_hash&lt;std::size_t&gt;{} (x.data_.size()));
+        return h;
+    }
+};
+</pre></blockquote>
+
+<p>
+Now we can use this new functor in <code>unordered_set</code>:
+</p>
+
+<blockquote><pre>
+std::unordered_set&lt;X, fnv1a_hash&lt;X&gt;&gt; my_set;
+</pre></blockquote>
+
+<p>
+Naturally if we add <code>OtherType</code> as a member to X (and if that
+new type participates in the equality computation for X), then we need to
+add a call to <code>fnv1a_hash&lt;OtherType&gt;</code> to X's computation,
+and then we need to implement <code>fnv1a_hash&lt;OtherType&gt;</code>, and
+we need to implement <code>fnv1a_hash</code> specializations for any
+non-contiguously hashable types which <code>OtherType</code> uses.
+</p>
+
+<blockquote class=note>
+This design in general requires O(N) implementation work per hash algorithm
+where N is the number of unique non-contiguously hashable sub-types of the type
+to be hashed, plus the number of sub-types, of the sub-types, etc.
+</blockquote>
+
+<p>
+If we now want to implement 
+<a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>
+or
+<a href="https://code.google.com/p/cityhash/">CityHash</a>
+or
+<a href="https://code.google.com/p/smhasher/wiki/MurmurHash3">MurmurHash3</a>
+or
+<a href="https://131002.net/siphash/">SipHash</a>,
+then we need to reimplement hash functor specializations for each of
+these algorithms <i>times</i> each non-contiguously hashable sub-type of
+interest.  All of this code will have very similar structure.  It will just
+be a lot of error-prone copy/pasting.
+</p>
+
+<p>
+Imagine that you have just implemented 5 hashing algorithms for X and X's
+subtypes.  Now you can easily switch between the hashing algorithms for
+performance and quality testing.  For arguments sake, let's assume that X has 4
+unique non-contiguously hashable subtypes.  So you've implemented 25 hashing
+algorithms, on top of the 5 algorithms that implement each hash algorithm on
+contiguously hashable types.
+</p>
+
+<p>
+Now there is a change to X:  The first two data members have slight changes:
+</p>
+
+<blockquote><pre>
+class X
+{
+    std::tuple&lt;<del>short</del><ins>int</ins>, unsigned char, unsigned char&gt; date_;
+    std::vector&lt;std::pair&lt;int, <del>int</del><ins>char</ins>&gt;&gt; data_;
+    // ...
+</pre></blockquote>
+
+<p>
+You recompile, and the resulting avalanche of compile-time errors overwhelms
+you!  It could have been worse ... had we not included
+</p>
+
+<blockquote><pre>
+static_assert(is_contiguously_hashable&lt;T&gt;::value, "");
+</pre></blockquote>
+
+<p>
+then everything would have compiled fine, and we would have been stuck with
+many extremely difficult-to-debug run-time errors.
+</p>
+
+<p>
+How do we fix these errors?
+</p>
+
+<p>
+The first thing to look at is the <code>fnv1a_hash&lt;X&gt;</code>
+specialization.  Our previous implementation assume <code>date_</code> and
+the <code>value_type</code> of <code>data_</code> were contiguously hashable.
+That assumption is now false.  Here is how <code>fnv1a_hash&lt;X&gt;</code>
+must be coded now:
+</p>
+
+<blockquote><pre>
+struct fnv1a_hash&lt;X&gt;
+{
+    std::size_t
+    hash_combine(std::size_t x, std::size_t y)
+    {
+        return x ^ (y + 0x9e3779b9 + (x&lt;&lt;6) + (x&gt;&gt;2));
+    }
+
+    std::size_t
+    operator()(X const&amp; x) noexcept
+    {
+        std::size_t h = fnv1a_hash&lt;std::tuple_element&lt;0, decltype(x.date_)&gt;::type&gt;{}
+                                                              (std::get&lt;0&gt;(x.date_));
+        h = hash_combine(h, fnv1a_hash&lt;std::tuple_element&lt;1, decltype(x.date_)&gt;::type&gt;{}
+                                                              (std::get&lt;1&gt;(x.date_)));
+        h = hash_combine(h, fnv1a_hash&lt;std::tuple_element&lt;2, decltype(x.date_)&gt;::type&gt;{}
+                                                              (std::get&lt;2&gt;(x.date_)));
+        for (auto const&amp; p : x.data_)
+        {
+            h = hash_combine(h, fnv1a_hash&lt;decltype(x.data_)::value_type::first_type&gt;{}
+                                                                         (p.first));
+            h = hash_combine(h, fnv1a_hash&lt;decltype(x.data_)::value_type::second_type&gt;{}
+                                                                         (p.second));
+        }
+        h = hash_combine(h, fnv1a_hash&lt;std::size_t&gt;{}(x.data_.size()));
+        // combine in contribution from other types...
+        return h;
+    }
+};
+</pre></blockquote>
+
+<p>
+This also may need to be done for the 4 other hypothetical sub-types of X.
+It also needs to be repeated for each of the other 4 hashing algorithms (i.e.
+24 other places).
+</p>
+
+<p>
+We have a N hashing algorithms x M sub-types problem.  And just like the
+N general algorithms x M containers problem was solved by the elegant design
+of the STL, this problem can also be solved.
+</p>
+
+<p>
+This proposal solves the N hashing algorithms x M sub-types problem.
+Neither
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+nor
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+contribute anything at all to the solution to this problem.  This problem was
+beyond their scope.
+</p>
+
+<p>
+The key to solving this problem is the recognition of one simple observation:
 </p>
 
 <blockquote class=note><p>
@@ -394,10 +570,8 @@ Types should not know how to hash themselves.
 </p></blockquote>
 
 <p>
-The question now becomes:  How do you present X as one long message to an
-arbitrary hashing library?  And how do you do so such that one does not need to
-revisit X, nor any of X's sub-types when you want to change from one hashing
-algorithm to another?
+The question now becomes:  How do you present X to a general purpose hashing
+algorithm without binding it to any specific algorithm?
 </p>
 
 <a name="generalpurpose"></a><h2>How to get X to use a general purpose hashing algorithm</h2>
@@ -668,11 +842,16 @@ public:
 Like <code>swap</code>, <code>hash_append</code> is a customization point for
 each type.  Only a type knows what parts of itself it should expose to a
 <code>Hasher</code>, even though the type has no idea what algorithm is being
-used to do the hashing.  Furthermore the <code>hash_append</code> function is
-intimately tied to the <code>operator==</code> for the same type.  For example
-if for some reason <code>x.data_</code> did not participate in the equality
-computation, then it should also not participate in the <code>hash_append</code>
-computation.
+used to do the hashing.  Note that X need not concern itself with details like
+whether or not its sub-types are <i>contiguously hashable</i>.  Those details
+will be handled by the <code>hash_append</code> for the individual sub-types.
+The <i>only</i> information the <code>hash_append</code> overload for X must
+implement is what sub-types need to be presented to the <code>Hasher</code>,
+and in what order.
+Furthermore the <code>hash_append</code> function is intimately tied to the
+<code>operator==</code> for the same type.  For example if for some reason
+<code>x.data_</code> did not participate in the equality computation, then it
+should also not participate in the <code>hash_append</code> computation.
 </p>
 
 <a name="hash_append_rules"></a><h4>Rules Relating <code>hash_append</code> to <code>operator==</code></h4>
@@ -797,6 +976,17 @@ I.e. <code>vector</code> considers itself a message composed of 0 or more
 sub-messages, and appends each sub-message (in order) to the state of the
 generic <code>Hasher</code>.  And this is followed with a final message
 consisting of the <code>size()</code> of the <code>vector</code>.
+</p>
+
+<p>
+Note that as
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
+and
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+both stand today, this critically important but subtle detail is not treated,
+and is left up to the client (the author of X) to get right.  This proposal
+states that this is a detail that the <code>hash_append</code> for
+<code>vector</code> (and every other hashable std-container) is responsible for.
 </p>
 
 <p><b>Emphasis</b></p>
@@ -951,7 +1141,7 @@ hash the resulting bits.
 <p>
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 also introduced a very similar <code>is_contiguous_layout</code> trait.  We
-build upon but modify their idea here.  But just because a type has a
+build upon but modify their idea here.  Just because a type has a
 <i>contiguous layout</i> does not necessarily imply that a type is
 <i>contiguously hashable</i>.  IEEE floating point is a case in point.  IEEE
 floating point does have a contiguous layout (and is trivially copyable, and
@@ -1034,17 +1224,32 @@ buffer to <code>hash_append</code>.
 </p>
 
 <p>
-This optimization can be made without any help from the <code>std::lib</code>.
-Other optimizations are possible, but could only be made from within the
-<code>std::lib</code>.  For example, what if <code>T</code> is <code>bool</code>
-in the above example?  <code>vector&lt;bool&gt;</code> doesn't follow the usual
-<code>vector</code> rules.  What about <code>deque&lt;T&gt;</code>?  It could
-hash its internal contiguous buffers all at once, but there is no way to
-implement that without intimate knowledge of the internals of the
-<code>deque</code> implementation.  Externally, the best one can do for
-<code>deque&lt;T&gt;</code> is to send each individual <code>T</code> to
-<code>hash_append</code> one at a time.  This still gives the very same correct
-message, but is just much slower.
+Note that this <b>is</b> a pure optimization.  I.e. the <code>Hasher</code>
+sees the <i>exact</i> same sequence of bytes, in the same order, whether or
+not this optimization for <code>vector</code> is done.  But if it is done,
+then the <code>Hasher</code> sees almost all of the bytes at once.
+</p>
+
+<p>
+This optimization could be made for <code>vector</code> without any help from the
+<code>std::lib</code>. Other optimizations are possible, but could only be made
+from within the <code>std::lib</code>.  For example, what if <code>T</code> is
+<code>bool</code> in the above example?  <code>vector&lt;bool&gt;</code> doesn't
+follow the usual <code>vector</code> rules.  What about
+<code>deque&lt;T&gt;</code>?  It could hash its internal contiguous buffers all
+at once, but there is no way to implement that without intimate knowledge of the
+internals of the <code>deque</code> implementation.  Externally, the best one
+can do for <code>deque&lt;T&gt;</code> is to send each individual <code>T</code>
+to <code>hash_append</code> one at a time.  This still gives the very same
+correct message, but is just much slower.
+</p>
+
+<p>
+Because only the std::lib implementor can fully implement this optimization for
+types such as <code>deque</code>, <code>bitset</code> and
+<code>vector&lt;bool&gt;</code>, it is important that we standardize
+<code>is_contiguously_hashable</code> and <code>hash_append</code> instead of
+asking the programmer to implement them (for std-defined types).
 </p>
 
 <p>
@@ -1163,29 +1368,25 @@ follows these two rules.
 <p>No!</p>
 
 <p>
-<code>boost::hash_combine</code> is used to combine two separately computed
-hash codes into one hash code.  And furthermore it hard-codes the functor to
-be used for the second type.
+<code>boost::hash_combine</code> is used to combine an already computed hash
+code with an object that is to be hashed with <code>boost::hash&lt;T&gt;</code>
+(and this is also the 
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
+<code>hash_combine</code>, modulo using <code>std::hash&lt;T&gt;</code>).
 </p>
-
 <p>
-The
+The 
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
-<code>hash_combine</code> does not have the fault of hard-coding
-the hash algorithm for the second type.  However it does mandate a
-<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>
-algorithm.
+<code>hash_combine</code> takes two objects, hashes both of them with
+<code>std::hash&lt;T&gt;</code>, and combines those two hash codes into one.
 </p>
 
 <p>
-  <code>hash_append</code> accumulates state into
-a <i>generic</i> hash algorithm, returning the exact same result as if the
-hash algorithm had processed the entire discontiguous memory buffer as one
-contiguous memory buffer.  <b>There is no hash concatenation step!</b>
-With <code>hash_append</code>, there is only <i>message concatenation</i>, and
-not
-<a href="http://en.wikipedia.org/wiki/Cryptographic_hash_function#Concatenation_of_cryptographic_hash_functions">hash concatenation</a>.
+In contrast <code>hash_append</code> is used to expose an object's <i>hashable
+state</i> to an <b>arbitrary</b> hashing algorithm.  It is up to the generic
+hashing algorithm to decide how to combine later bytes with earlier bytes.
 </p>
+
 
 <a name="serialization"></a><h3>Wait a minute.  Isn't <code>hash_append</code> the same thing as
 serialization?</h3>
@@ -1234,7 +1435,7 @@ friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
 
 <p>
 Algorithms such as
-<a href="https://code.google.com/p/cityhash/">CityHash</a> are not easily
+<a href="https://code.google.com/p/cityhash/">CityHash</a> are not efficiently
 adapted to this infrastructure, because as currently coded, CityHash actually
 hashes the end of the buffer first.  However
 <a href="http://burtleburtle.net/bob/hash/spooky.html">SpookyHash</a>, which
@@ -1292,13 +1493,12 @@ are also efficiently adaptable to this framework.
 Given the class X shown above, with its complex state distributed among at
 least two different contiguous chunks of memory, and potentially many more
 if the container switched from <code>vector</code> to <code>deque</code> or
-<code>list</code>, one can create a <code>vector</code> of hash codes with a
-preferred default algorithm like so:
+<code>list</code>, one can create an unordered container with the default
+hash function like so:
 </p>
 
 <blockquote><pre>
-for (auto const&amp; x : vx)
-    hashes.push_back(uhash&lt;&gt;{}(x));
+std::unordered_set&lt;X, std::uhash&lt;&gt;&gt; my_set;
 </pre></blockquote>
 
 <p>
@@ -1306,8 +1506,7 @@ If one instead wanted to specify FNV-1a, the code is easily modified to:
 </p>
 
 <blockquote><pre>
-for (auto const&amp; x : vx)
-    hashes.push_back(uhash&lt;fnv1a&gt;{}(x));
+std::unordered_set&lt;X, std::uhash&lt;fnv1a&gt;&gt; my_set;
 </pre></blockquote>
 
 <p>
@@ -1328,6 +1527,50 @@ one big contiguous chunk of memory, and fed that one big chunk to the
 hash algorithm.
 </p>
 
+<p>
+If one wants to use <code>spooky</code> instead, simply change in <b>one</b>
+place:
+</p>
+
+<blockquote><pre>
+std::unordered_set&lt;X, std::uhash&lt;<b>spooky</b>&gt;&gt; my_set;
+</pre></blockquote>
+
+<p>
+If a new hashing algorithm is invented tomorrow, and you want to use it, all
+that needs to be done is to write an adaptor for it:
+</p>
+
+<blockquote><pre>
+class new_hash_function
+{
+public:
+    using result_type = std::size_t;
+
+    new_hash_function() noexcept;
+
+    void
+    operator()(void const* key, std::size_t len) noexcept;
+
+    explicit
+    operator result_type() noexcept;
+};
+</pre></blockquote>
+
+<p>
+And then use it:
+</p>
+
+<blockquote><pre>
+std::unordered_set&lt;X, std::uhash&lt;<b>new_hash_function</b>&gt;&gt; my_set;
+</pre></blockquote>
+
+<p>
+You do not need to revisit the <code>hash_append</code> for X, nor for any
+of X's sub-types.  The the N hashing algorithms x M sub-types problem has
+been solved!
+</p>
+
 <a name="pimpl"></a><h3>How does one <code>hash_append</code>
 <a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">Pimpl</a> designs?</h3>
 
@@ -1345,11 +1588,11 @@ Or can you ... ?
 
 <p>
 With a combination of <code>std::function</code> and <code>std::ref</code> one
-can <i>type erase</i> the templated <code>Hasher</code>, adopting it to a type
+can <i>type erase</i> the templated <code>Hasher</code>, adapting it to a type
 with a concrete type, and pass that concrete <code>Hasher</code> through the
 implementation firewall.  Imagine a class as shown
-<a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">here</a>,
-here is how it can support arbitrary hash algorithms with the proposed
+<a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">here</a>.
+Here is how it can support arbitrary hash algorithms with the proposed
 infrastructure:
 </p>
 
@@ -1423,7 +1666,7 @@ CheshireCat.cpp uses it, with no re-compile necessary, for the cost of a virtual
 function call to the <code>Hasher</code>.  And yet no other client of this new
 <code>Hasher</code> (outside of those called by <code>CheshireCat</code>), is
 forced to access the new hashing algorithm via a virtual function call. That
-boarders on magic!
+borders on magic!
 </p>
 
 <p>
@@ -1447,112 +1690,6 @@ void append(void const* key, std::size_t len) noexcept;
 <p>
 then programmers would not be able to use <code>std::function</code> to
 create a type-erased wrapper around a templated <code>Hasher</code>.
-</p>
-
-<a name="testing"></a><h3>How does the quality of the resulting hash codes compare to the
-<code>hash_combine</code> solution?</h3>
-
-<p>
-To answer this question X has been given a randomized default constructor:
-</p>
-
-<blockquote><pre>
-std::mt19937_64 eng;
-
-X::X()
-{
-    std::uniform_int_distribution&lt;short&gt; yeardata(1900, 2014);
-    std::uniform_int_distribution&lt;unsigned char&gt; monthdata(1, 12);
-    std::uniform_int_distribution&lt;unsigned char&gt; daydata(1, 28);
-    std::uniform_int_distribution&lt;std::size_t&gt; veclen(0, 100);
-    std::uniform_int_distribution&lt;int&gt; int1data(1, 10);
-    std::uniform_int_distribution&lt;int&gt; int2data(-3, 5000);
-    std::get&lt;0&gt;(date_) = yeardata(eng);
-    std::get&lt;1&gt;(date_) = monthdata(eng);
-    std::get&lt;2&gt;(date_) = daydata(eng);
-    data_.resize(veclen(eng));
-    for (auto&amp; p : data_)
-    {
-        p.first = int1data(eng);
-        p.second = int2data(eng);
-    }
-}
-</pre></blockquote>
-
-<p>
-Given this, one can easily create a great number of random X's as shown in the
-loops above, and specify any hash algorithm.  One can also use
-<code>std::hash</code> and "Solution 1" from the first part of this paper.
-</p>
-
-<p>
-The hash function quality tester suite used herein is quite crude.
-<code>test1</code> looks at each 64 bit hash code as a collection of 16
-hex-digits.  The expectation is that each hex-digit should be roughly equally
-represented in each hexadecimal place of the hash code.  The test returns
-maximum deviation of the average, from the expected average.
-</p>
-
-<p>
-The second test is extremely simple:  It is simply the number of collisions
-divided by the number of available values in the hash code.  Zero is a perfect
-result.
-</p>
-
-<p>
-The third test is
-<a href="https://code.google.com/p/smhasher/wiki/Distribution">TestDistribution</a>
-gratefully borrowed from the
-<a href="https://code.google.com/p/smhasher/wiki/SMHasher">smhasher</a>
-test suite.
-</p>
-
-<p>
-A million hash codes are generated from a million randomized but unique X's,
-randomized by a default constructed <code>std::mt19937_64</code>, and fed to
-these three tests.  For each test, the smaller the result the better.
-</p>
-
-<blockquote>
-<table border="1" cellpadding="5">
-<caption>Test Results -- smaller is better</caption>
-<tr>
-<th></th> <th>test 1</th> <th>test 2</th>  <th>test 3</th> <th>total time (sec)</th>
-</tr>
-<tr>
-<th><code>hash_combine</code></th> <td>0.394544</td> <td>1.40071e-05</td> <td>0.984445</td> <td>0.419103s</td>
-</tr>
-<tr>
-<th>FNV-1a</th> <td>0.029664</td> <td>0</td> <td>0.0719367</td> <td>0.829794s</td>
-</tr>
-<tr>
-<th>Spooky V2</th> <td>0.011024</td> <td>0</td> <td>0.000902987</td> <td>0.634737s</td>
-</tr>
-<tr>
-<th>CityHash</th> <td>0.015264</td> <td>0</td> <td>0.000662453</td> <td>2.68137s</td>
-</tr>
-</table>
-</blockquote>
-
-<p>
-The <code>hash_combine</code> solution handily wins the speed test, but with a
-quality that the obsolete FNV-1a function trounces.  It does no good to get the
-wrong answer faster.  In contrast, the much more sophisticated Spooky V2
-algorithm has a very high quality rating.
-</p>
-
-<p>
-Note in the above results that though Spooky is far more complicated than
-FNV-1a, it is actually faster for the type X, due to the optimizations based
-on <code>is_contiguously_hashable</code>.  Without these optimizations,
-Spooky would be slower than FNV-1a.
-</p>
-
-<p>
-Even though CityHash is not easily efficiently adapted to this infrastructure,
-it is easy to adapt it inefficiently:  Just collect the entire buffer in a
-<code>vector&lt;char&gt;</code> and hash the whole thing during the finalization
-step.  These results are shown just for informational purposes.
 </p>
 
 <a name="seeding"></a><h3>How does one apply random seeding?</h3>
@@ -1635,6 +1772,225 @@ to the message of <code>T</code> by using additional calls to
 hash functor.
 </p>
 
+<a name="testing"></a><h3>How much does this cost, in terms of speed, and
+hash quality, compared to the current N x M method of custom hash functor
+implementation?</h3>
+<!-- 
+<a name="testing"></a><h3>How does the quality of the resulting hash codes compare to the
+<code>hash_combine</code> solution?</h3>
+ -->
+
+<p>
+To answer this question X has been given a randomized default constructor:
+</p>
+
+<blockquote><pre>
+std::mt19937_64 eng;
+
+X::X()
+{
+    std::uniform_int_distribution&lt;short&gt; yeardata(1900, 2014);
+    std::uniform_int_distribution&lt;unsigned char&gt; monthdata(1, 12);
+    std::uniform_int_distribution&lt;unsigned char&gt; daydata(1, 28);
+    std::uniform_int_distribution&lt;std::size_t&gt; veclen(0, 100);
+    std::uniform_int_distribution&lt;int&gt; int1data(1, 10);
+    std::uniform_int_distribution&lt;int&gt; int2data(-3, 5000);
+    std::get&lt;0&gt;(date_) = yeardata(eng);
+    std::get&lt;1&gt;(date_) = monthdata(eng);
+    std::get&lt;2&gt;(date_) = daydata(eng);
+    data_.resize(veclen(eng));
+    for (auto&amp; p : data_)
+    {
+        p.first = int1data(eng);
+        p.second = int2data(eng);
+    }
+}
+</pre></blockquote>
+
+<p>
+Given this, one can easily create a great number of random X's as shown in the
+loops above, and specify any hash algorithm.  One can also use the "Solution 2"
+N x M algorithm outlined early in this paper.  These two approaches are
+compared, using several different hashing algorithms.  Again, note that there is
+nothing in this proposal which in any way impedes a programmer from implementing
+"Solution 2" for any hashing algorithm of his choice.  This proposal simply
+gives the programmer an alternative that takes O(N) implementation work, instead
+of O(N*M) implementation work, to support N hashing algorithms.
+</p>
+
+<p>
+The hash function quality tester suite used herein is basic. The first test,
+<code>test1</code>, looks at each 64 bit hash code as a collection of 16
+hex-digits.  The expectation is that each hex-digit should be roughly equally
+represented in each hexadecimal place of the hash code.  The test returns
+maximum deviation of the average, from the expected average.
+</p>
+
+<p>
+The second test is
+<a href="https://code.google.com/p/smhasher/wiki/Distribution">TestDistribution</a>
+gratefully borrowed from the
+<a href="https://code.google.com/p/smhasher/wiki/SMHasher">smhasher</a>
+test suite.
+</p>
+
+<p>
+A million hash codes are generated from a million randomized but unique X's,
+randomized by a default constructed <code>std::mt19937_64</code>, and fed to
+these two tests.  For each test, the smaller the result the better.
+</p>
+
+<blockquote>
+<table border="1" cellpadding="5">
+<caption>Contiguous Test Results -- smaller is better</caption>
+<tr>
+<th></th><th></th> <th>test 1</th> <th>test 2</th> <th>total time (sec)</th>
+</tr>
+<tr>
+<th rowspan=2>FNV-1a</th><th>N x M</th> <td>0.012448</td><td>0.00630771</td> <td>0.81771s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.0104</td> <td>0.00117008</td> <td>0.806777s</td>
+</tr>
+<tr>
+<th rowspan=2>Jenkins 1</th><th>N x M</th> <td>0.013056</td><td>0.0247747</td> <td>1.08094s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.0134789</td> <td>0.000733134</td> <td>1.09616s</td>
+</tr>
+<tr>
+<th rowspan=2>Spooky V2</th><th>N x M</th> <td>0.015072</td><td>0.00106153</td> <td>0.569262s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.011536</td><td>0.0012386</td> <td>0.642032s</td>
+</tr>
+<tr>
+<th rowspan=2>CityHash</th><th>N x M</th> <td>0.0119027</td><td>0.00122526</td> <td>0.381s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.010128</td><td>0.00111908</td> <td>2.53071s</td>
+</tr>
+</table>
+</blockquote>
+
+<p>
+The above table shows that the clear speed winner is CityHash, but only when
+implemented with effort O(N*M).  When implemented with <code>uhash</code>,
+the implementation is very slow because for this algorithm, the entire hashable
+state must be copied into a temporary buffer prior to the hashing computation.
+</p>
+
+<p>
+This is a remarkable accomplishment in speed, especially when compared to the
+far simpler FNV-1A algorithm, which clocks in over 2X slower.  The downside is
+that it is very difficult for the average programmer to guarantee that CityHash
+is being used for every hash computation.
+</p>
+
+<p>
+Using SpookyHash, combined with <code>uhash</code>, the programmer can achieve
+just as high a quality as CityHash, and with 26% better performance than the
+far simpler FNV-1A, but still 69% slower than the labor intensive CityHash
+solution.  Because of the use of <code>uhash</code>, the programmer can achieve
+this with very little programming effort, compared to what is required for
+implementing CityHash with the N x M technique.
+</p>
+
+<p>
+This test played towards CityHash's and Spooky's strengths:  very long
+contiguous keys.  If we slightly modify X as earlier described such that
+the <code>tuple</code> and <code>vector::value_type</code> are no longer
+contiguously hashable, the results change fairly dramatically:
+</p>
+
+<blockquote>
+<table border="1" cellpadding="5">
+<caption>Non-Contiguous Test Results -- smaller is better</caption>
+<tr>
+<th></th><th></th> <th>test 1</th> <th>test 2</th> <th>total time (sec)</th>
+</tr>
+<tr>
+<th rowspan=2>FNV-1a</th><th>N x M</th> <td>0.013424</td><td>0.0698351</td> <td>0.537677s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.0115742</td> <td>0.00121977</td> <td>0.608181s</td>
+</tr>
+<tr>
+<th rowspan=2>Jenkins 1</th><th>N x M</th> <td>0.013968</td><td>0.082919</td> <td>0.672917s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.00928075</td> <td>0.00155438</td> <td>0.828472s</td>
+</tr>
+<tr>
+<th rowspan=2>Spooky V2</th><th>N x M</th> <td>0.0101182</td><td>0.00142344</td> <td>1.51985s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.0136</td><td>0.00114236</td> <td>1.2635s</td>
+</tr>
+<tr>
+<th rowspan=2>CityHash</th><th>N x M</th> <td>0.011904</td><td>0.000966045</td> <td>0.851983s</td>
+</tr>
+<tr>
+<th>uhash</th><td>0.013072</td><td>0.000903772</td> <td>2.16299s</td>
+</tr>
+</table>
+</blockquote>
+
+<p>
+Now the speed test winner is the N x M implementation of FNV-1A., however the
+quality of the resulting hash is questionable by test 2.  If we pay a 13%
+performance penalty to get to the 2nd fastest hasher, we get a large boost in
+hash code quality, large enough that it can be considered about as good as any
+of the other results.  And this is the easy-to-implement FNV-1A implementation
+using <code>uhash</code>, clocking in at 40% faster than CityHash, and
+interestingly, 32% faster than the same <code>uhash</code>-based solution for
+the "contiguous" results.  I.e. This test plays towards the strength of the
+small, simple hashing algorithms.  But the "combining step", when used in the N x
+M technique, significantly degrades the quality of these simple algorithms.
+</p>
+
+<p>
+Overall, for any specific hashing algorithm except for CityHash which requires a
+temporary dynamic buffer, the speed cost of using <code>uhash</code> over the N
+x M technique varies from being a little more expensive (for the simpler
+algorithms - FNV-1A, Jenkins 1), to a little less expensive for the more
+complex' algorithms (Spooky).  And the quality of the resulting hash codes is
+never significantly degraded when moving from N x M to <code>uhash</code> and is
+sometimes significantly improved.
+</p>
+
+<p>
+CityHash suffers significantly in the speed department when moving to
+<code>uhash</code> because it does not process its bytes in order like the
+other algorithms.  If CityHash could be re-implemented to process its bytes in
+order, that would make a most interesting hashing algorithm when combined with
+the easy-to-implement <code>uhash</code>.
+</p>
+
+<p>
+For completeness, here are the same tests results for just calling
+<code>std::hash</code> as shown in "Solution 1".  The speed is very good, but
+the quality is very bad. These results, both speed and quality, are very
+implementation dependent.  These results are obtained on libc++, where the
+<code>std::hash&lt;integral&gt;</code> is as fast as it can get:  it is the
+identity function.  This explains both the high speed, and the low quality.  The
+gcc libstdc++ also uses the identity function for integral hashes.  VC++ does
+not. It would likely have both slower performance and higher hash quality,
+though this test has not been run.
+</p>
+
+<blockquote>
+<table border="1" cellpadding="5">
+<caption><code>std::hash</code> Test Results -- smaller is better</caption>
+<tr>
+<th></th> <th>test 1</th> <th>test 2</th> <th>total time (sec)</th>
+</tr>
+<tr>
+<th>std::hash</th> <td>0.270544</td><td>0.961271</td> <td>0.462652s</td>
+</tr>
+</table>
+</blockquote>
+
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
@@ -1643,6 +1999,9 @@ algorithms.  This decoupling has several benefits:
 </p>
 
 <ul>
+<li>Clients can very easily switch hashing algorithms used by
+very complex data structures, thus enabling comparisons as shown
+in the previous section.</li>
 <li>Hash algorithm designers can concentrate on designing better hash
 algorithms, with little worry about how these new algorithms can be
 incorporated into existing code.</li>
@@ -1650,8 +2009,6 @@ incorporated into existing code.</li>
 worrying about what hashing algorithm should be used.</li>
 <li>Clients can easily adopt most existing algorithms to this proposed
 infrastructure.</li>
-<li>Clients can very easily switch hashing algorithms used by
-very complex data structures.</li>
 <li>The resulting hash codes are a true reflection of the original design
 of the hashing algorithms, even though applied to complex data structures
 spanning discontiguous memory.</li>
@@ -1662,7 +2019,7 @@ spanning discontiguous memory.</li>
 <blockquote><pre>
 template &lt;class T&gt; struct is_contiguously_hashable;                        // A type property trait
 template &lt;class Hasher&gt; void hash_append(Hasher&amp; h, T const&amp; t) noexcept;  // overloaded for each type T
-template &lt;class Hasher = <i>implementation-defined</i>&gt; struct uhash;             // A hashing functor
+template &lt;class Hasher = <i>unspecified-default-hasher</i>&gt; struct uhash;         // A hashing functor
 </pre></blockquote>
 
 <a name="Acknowledgments"></a><h2>Acknowledgments</h2>
