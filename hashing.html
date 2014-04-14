@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-09
+2014-04-13
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -71,10 +71,48 @@
     <li><a href="#proposedinfrastructure">Summary of proposed infrastructure</a></li>
     </ul>
 </li>
+<li><a href="#debugHasher">Appendix A: <code>debugHasher</code></a></li>
 <li><a href="#Acknowledgments">Acknowledgments</a></li>
 </ul>
 
 <a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+This paper proposes a new hashing infrastructure that completely decouples
+hashing algorithms from individual types that need to be hashed.  This
+decoupling divides the hashing computation among 3 different programmers who
+need not coordinate with each other:
+</p>
+
+<ol>
+<li><p>
+Authors of types to be hashed (keys of type <code>K</code>) write their hashing
+support just once, using no specific hashing algorithm.  This code resembles
+(and is approximately the same amount of work as) <code>operator==</code> and
+<code>swap</code> for a type.
+</p></li>
+<li><p>
+Authors of hashing algorithms write a functor (e.g. <code>H</code>) that
+operates on a contiguous chunk of generic memory, represented by a <code>void
+const*</code> and a number of bytes.  This code has no concept of a specific key
+type, only of bytes to be hashed.
+</p></li>
+<li><p>
+Clients who want to hash keys of type <code>K</code> using hashing algorithm
+<code>H</code> will form a functor of type <code>std::uhash&lt;H&gt;</code> to
+give to an unordered container.
+</p>
+<blockquote><pre>
+unordered_set&lt;K, uhash&lt;H&gt;&gt; my_set;
+</pre></blockquote>
+<p>
+Naturally, there could be a default hashing algorithm supplied by the std::lib:
+</p>
+<blockquote><pre>
+unordered_set&lt;K, uhash&lt;&gt;&gt; my_set;
+</pre></blockquote>
+</li>
+</ol>
 
 <p>
 To start off with, we emphasize:  there is nothing in this proposal that changes
@@ -105,6 +143,24 @@ codes from types, in order to solve a problem that was beyond the scope of
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 and
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>.
+The problem solved herein is how to support the hashing of N different types of
+keys using M different hashing algorithms, using an amount of source code that
+is proportional to N+M, as opposed to the current system based on
+<code>std::hash&lt;T&gt;</code> which requires an amount of source code
+proportional to N*M.  And consequently in practice today M==1, and the single
+hashing algorithm is supplied only by the std::lib implementor. As it is too
+difficult and error prone for the client to supply alternative algorithms for
+all of the built-in scalar types (<code>int</code>, <code>long</code>,
+<code>double</code>, etc.).  Indeed, it has even been too difficult for the
+committee to supply hashing support for all of the types our clients might
+reasonably want to use as keys: <code>pair</code>, <code>tuple</code>,
+<code>vector</code>, <code>complex</code>, <code>duration</code>,
+<code>forward_list</code> etc.
+</p>
+
+<p>
+This paper makes ubiquitous hash support for types as easy and as practical as
+is today's support for <code>swap</code> and <code>operator==</code>.
 </p>
 
 <p>
@@ -197,14 +253,14 @@ friend class std::hash&lt;X&gt;;
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>?</h3>
 
 <p>
-I was surprised when I attempted to implement <code>std::hash&lt;X&gt;</code>
+We were surprised when we attempted to implement <code>std::hash&lt;X&gt;</code>
 using the tools proposed in
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
-and was thwarted.  I thought that the <code>hash_combine</code> proposed here
-(which is different than that in
+and were thwarted.  We had thought that the <code>hash_combine</code> proposed
+here (which is different than that in
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>)
-would be more helpful.  And I thought I could use the proposed
-<code>hash_combine_range</code> as well.  This is as far as I got:
+would be more helpful.  And we thought we could use the proposed
+<code>hash_combine_range</code> as well.  This is as far as we got:
 </p>
 
 <blockquote><pre>
@@ -223,7 +279,7 @@ struct hash&lt;X&gt;
 </pre></blockquote>
 
 <p>
-The problem came when I tried to combine two <i>already computed</i> hash codes.
+The problem came when we tried to combine two <i>already computed</i> hash codes.
 For review, here is a summary:
 </p>
 
@@ -239,14 +295,14 @@ return one hash code.
 <p>
 The <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
 <code>hash_combine</code> (and the <code>boost::hash_combine</code>) will take
-one hash code and one object, hashes the object, and combines the new hash code
+one hash code and one object, hash the object, and combine the new hash code
 into the old one.
 </p>
 </li>
 <li>
 <p>
-I found what I needed was something that takes two hash codes, and combines
-them into one hash code.  So I had to roll my own (<code>my_own_hash_combine</code>).
+We found what we needed was something that takes two hash codes, and combines
+them into one hash code.  So we had to roll our own (<code>my_own_hash_combine</code>).
 </p>
 </li>
 </ul>
@@ -341,10 +397,10 @@ hashing algorithms, the tools from neither are used below.
 </p>
 
 <p>
-On my system, both <code>std::pair&lt;int, int&gt;&gt;</code> and 
-std::tuple&lt;short, unsigned char, unsigned char&gt; are what we refer to as
-<i>contiguously hashable</i>.  More on that concept below, but consider it
-to be used for the same purpose that
+On our system, both <code>std::pair&lt;int, int&gt;&gt;</code> and 
+<code>std::tuple&lt;short, unsigned char, unsigned char&gt;</code> are what we
+refer to as <i>contiguously hashable</i>.  More on that concept below, but
+consider it to be used for the same purpose that
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 uses <code>is_contiguous_layout&lt;T&gt;</code>.
 </p>
@@ -546,6 +602,10 @@ It also needs to be repeated for each of the other 4 hashing algorithms (i.e.
 </p>
 
 <p>
+This approach does not scale!
+</p>
+
+<p>
 We have a N hashing algorithms x M sub-types problem.  And just like the
 N general algorithms x M containers problem was solved by the elegant design
 of the STL, this problem can also be solved.
@@ -566,7 +626,8 @@ The key to solving this problem is the recognition of one simple observation:
 </p>
 
 <blockquote class=note><p>
-Types should not know how to hash themselves.
+Types should not know how to hash themselves.  However types do know what parts
+of their state should be exposed to a hashing algorithm.
 </p></blockquote>
 
 <p>
@@ -786,20 +847,9 @@ my::unordered_map&lt;MyKey, std::string&gt; the_map;  // uses std::uhash&lt;&gt;
 <a name="hash_append"></a><h3>What is <code>hash_append</code>?</h3>
 
 <p>
-The <code>hash_append</code> function is the glue that binds the individual
-types to the general <code>Hasher</code>.
+The <code>hash_append</code> function is the way that individual types
+communicate with the <code>Hasher</code>.
 </p>
-
-<ul>
-<li>The <code>Hasher</code> knows nothing about the type <code>T</code>
-being hashed.</li>
-<li>The hash functor <code>uhash</code> knows nothing about the <code>Hasher</code>,
-nor the type <code>T</code> being hashed.</li>
-<li>Below we will show how each type <code>T</code> can implement
-<code>hash_append</code> (much like a type implements <code>swap</code>), and
-yet knows nothing about the <code>hash</code> functor, nor the algorithm
-encapsulated in the <code>Hasher</code>.</li>
-</ul>
 
 <p>
 Each type <code>T</code> is responsible only for exposing its hash-worthy state
@@ -827,14 +877,14 @@ public:
         return std::tie(x.date_, x.data_) == std::tie(y.date_, y.data_);
     }
 
-    // Hook into the system like this
+    <b>// Hook into the system like this
     template &lt;class Hasher&gt;
     friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
     {
         using std::hash_append;
         hash_append(h, x.date_);
         hash_append(h, x.data_);
-    }
+    }</b>
 }
 </pre></blockquote>
 
@@ -1000,9 +1050,9 @@ with another type's message doesn't produce an ambiguous message (doesn't create
 collisions).
 </p><p>
 The standard should clearly document the message emanating from every
-<code>hash_append</code> it defines, to the extent possible (might not be
+<code>hash_append</code> it defines, to the extent possible. It might not be
 possible to nail down that an implementation is using IEEE floating point or
-two's complement signed integers).  But the standard can certainly document
+two's complement signed integers.  But the standard can certainly document
 the message produced by a <code>vector</code> or any other std-defined class
 type.
 </p></blockquote>
@@ -1146,7 +1196,7 @@ build upon but modify their idea here.  Just because a type has a
 <i>contiguously hashable</i>.  IEEE floating point is a case in point.  IEEE
 floating point does have a contiguous layout (and is trivially copyable, and
 has a standard layout).  And yet still it is not <i>contiguously hashable</i>
-because of how its <code>operator=</code> works with signed zeros (violating
+because of how its <code>operator==</code> works with signed zeros (violating
 <a href="#hash_append_rules">rule 1</a>).
 </p>
 
@@ -1608,6 +1658,10 @@ public:
     // Hash support
     using type_erased_Hasher = std::function&lt;void(void const*, std::size_t)&gt;;
 
+    friend
+    void
+    hash_append(type_erased_Hasher, CheshireCat const&amp;);
+
     template &lt;class Hasher&gt;
     friend
     void
@@ -1617,47 +1671,32 @@ public:
         if (x.smile == nullptr)
             hash_append(h, nullptr);
         else
-            x.do_hash(type_erased_Hasher(std::ref(h)), *x.smile);
+            hash_append(type_erased_Hasher(std::ref(h)), *x.smile);
     }
-
-private:
-    void
-    do_hash(type_erased_Hasher h, CheshireCat const&amp;) const;
 };
 </pre></blockquote>
 
 <p>
 So you still have to implement a templated <code>hash_append</code> for
 <code>Handle</code>, but the implementation of that function forwards to a
-<b>non-template</b> function which can be implemented in the source, alongside
-of the definition of <code>CheshireCat</code>:
-</p>
-
-<blockquote><pre>
-void
-Handle::do_hash(Handle::type_erased_Hasher h, CheshireCat const&amp; c) const
-{
-    hash_append(h, c);
-}
-</pre></blockquote>
-
-<p>
-And now you can implement <code>hash_append</code> for <code>CheshireCat</code>,
-but not for <i>any</i> <code>Hasher</code>, just for
-<code>Handle::type_erased_Hasher</code>.  But besides this one detail (the type
-of <code>Hasher</code>), <code>hash_append</code> for <code>CheshireCat</code>
-looks just like any other <code>hash_append</code>:
+<b>non-template</b> function which can be implemented in the source, within
+the definition of <code>CheshireCat</code>:
 </p>
 
 <blockquote><pre>
 friend
 void
-hash_append(Handle::type_erased_Hasher&amp; h, CheshireCat const&amp; c)
+hash_append(Handle::type_erased_Hasher h, CheshireCat const&amp; c)
 {
     using std::hash_append;
     hash_append(h, c.data1_, c.data2_, <i>etc.</i> ...);
 }
 </pre></blockquote>
+
+<p>
+Besides the type of the <code>Hasher</code>, <code>hash_append</code> for
+<code>CheshireCat</code> looks just like any other <code>hash_append</code>.
+</p>
 
 <p>
 Think about what has just happened here.  You've compiled CheshireCat.cpp today.
@@ -1757,8 +1796,17 @@ constructed, the seed does not change except through hash functor assignment.
 The same seed is used to initialize the algorithm on each hash functor
 invocation. The seeded algorithm is then used to hash the entire message of the
 type <code>T</code>, even down to the scalars embedded in <code>T</code> or the
-sub-types of <code>T</code>.
+sub-types of <code>T</code>.  Now one simply uses the hash functor:
 </p>
+
+<blockquote><pre>
+unordered_set&lt;string, hardened_hash&lt;&gt;&gt; set1;  // randomly seeded, Spooky algorithm
+
+// deterministically seeded, FNV-1a algorithm
+constexpr size_t num_buckets = 1024;
+constexpr size_t seed = 23;
+unordered_set&lt;string, hardened_hash&lt;fnv1a&gt;&gt; set2(num_buckets, hardened_hash&lt;fnv1a&gt;{seed});
+</pre></blockquote>
 
 <p>
 One uses the same technique to apply
@@ -1772,7 +1820,7 @@ to the message of <code>T</code> by using additional calls to
 hash functor.
 </p>
 
-<a name="testing"></a><h3>How much does this cost, in terms of speed, and
+<a name="testing"></a><h3>How much does this cost, in terms of speed and
 hash quality, compared to the current N x M method of custom hash functor
 implementation?</h3>
 <!-- 
@@ -1808,14 +1856,14 @@ X::X()
 </pre></blockquote>
 
 <p>
-Given this, one can easily create a great number of random X's as shown in the
-loops above, and specify any hash algorithm.  One can also use the "Solution 2"
-N x M algorithm outlined early in this paper.  These two approaches are
-compared, using several different hashing algorithms.  Again, note that there is
-nothing in this proposal which in any way impedes a programmer from implementing
-"Solution 2" for any hashing algorithm of his choice.  This proposal simply
-gives the programmer an alternative that takes O(N) implementation work, instead
-of O(N*M) implementation work, to support N hashing algorithms.
+Given this, one can easily create a great number of random X's and specify any
+hash algorithm.  One can also use the "Solution 2" N x M algorithm outlined
+early in this paper.  These two approaches are compared, using several different
+hashing algorithms.  Again, note that there is nothing in this proposal which in
+any way impedes a programmer from implementing "Solution 2" for any hashing
+algorithm of his choice.  This proposal simply gives the programmer an
+alternative that takes O(N) implementation work, instead of O(N*M)
+implementation work, to support N hashing algorithms.
 </p>
 
 <p>
@@ -1937,7 +1985,7 @@ contiguously hashable, the results change fairly dramatically:
 </blockquote>
 
 <p>
-Now the speed test winner is the N x M implementation of FNV-1A., however the
+Now the speed test winner is the N x M implementation of FNV-1A, however the
 quality of the resulting hash is questionable by test 2.  If we pay a 13%
 performance penalty to get to the 2nd fastest hasher, we get a large boost in
 hash code quality, large enough that it can be considered about as good as any
@@ -2021,6 +2069,109 @@ template &lt;class T&gt; struct is_contiguously_hashable;                       
 template &lt;class Hasher&gt; void hash_append(Hasher&amp; h, T const&amp; t) noexcept;  // overloaded for each type T
 template &lt;class Hasher = <i>unspecified-default-hasher</i>&gt; struct uhash;         // A hashing functor
 </pre></blockquote>
+
+<a name="debugHasher"></a><h2>Appendix A: <code>debugHasher</code></h2>
+
+<p>
+Another interesting "hash algorithm" is <code>debugHasher</code>.  This is a
+small utility that can be used to help type authors debug their
+<code>hash_append</code> function.  This utility is not proposed.  It is simply
+presented herein to illustrate the utility of this overall hashing infrastructure
+design.
+</p>
+
+<blockquote><pre>
+#include &lt;iostream&gt;
+#include &lt;iomanip&gt;
+#include &lt;vector&gt;
+
+class debugHasher
+{
+    std::vector&lt;unsigned char&gt; buf_;
+public:
+    using result_type = std::size_t;
+
+    void
+    operator()(void const* key, std::size_t len) noexcept
+    {
+        unsigned char const* p = static_cast&lt;unsigned char const*&gt;(key);
+        unsigned char const* const e = p + len;
+        for (; p &lt; e; ++p)
+            buf_.push_back(*p);
+    }
+
+    explicit
+    operator std::size_t() noexcept
+    {
+        std::cout &lt;&lt; std::hex;
+        std::cout &lt;&lt; std::setfill('0');
+        unsigned int n = 0;
+        for (auto c : buf_)
+        {
+            std::cout &lt;&lt; std::setw(2) &lt;&lt; (unsigned)c &lt;&lt; ' ';
+            if (++n == 16)
+            {
+                std::cout &lt;&lt; '\n';
+                n = 0;
+            }
+        }
+        std::cout &lt;&lt; '\n';
+        std::cout &lt;&lt; std::dec;
+        std::cout &lt;&lt; std::setfill(' ');
+        return buf_.size();
+    }
+};
+</pre></blockquote>
+
+<p>
+<code>debugHasher</code> is a fake "hashing algorithm" that does nothing but
+collect the bytes sent to a hash by the entire collection of the calls to
+<code>hash_append</code> made by a key and all of its sub-types.  The collection
+of bytes is output to <code>cout</code> when the hasher is converted to its
+<code>result_type</code>.
+</p>
+
+<p>
+As can be readily seen, it is not difficult to create such a debugging tool.  It
+is then used, just as easily:
+</p>
+
+<blockquote><pre>
+std::vector&lt;std::vector&lt;std::pair&lt;int, std::string&gt;&gt;&gt; v {{{1, "abc"}},
+                                                         {{2, "bca"}, {3, "cba"}},
+                                                         {}};
+std::cout &lt;&lt; uhash&lt;debugHasher&gt;{}(v) &lt;&lt; '\n';
+</pre></blockquote>
+
+<p>
+Assuming a 32 bit <code>int</code>, 64 bit <code>size_t</code>, and little
+endian, this will reliably output:
+</p>
+
+<blockquote><pre>
+01 00 00 00 61 62 63 00 01 00 00 00 00 00 00 00 
+02 00 00 00 62 63 61 00 03 00 00 00 63 61 62 00 
+02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+03 00 00 00 00 00 00 00 
+56
+</pre></blockquote>
+
+<p>
+The last line is simply the number of bytes that have been sent to the
+<code>Hasher</code>.  The first 4 lines are those bytes, formatted as two hex
+digits per byte, with bytes separated by a space, and 16 bytes per line for
+readability.  If one carefully inspects this byte stream and compares it to the
+data structure which has been "hashed", and to the proposed
+<code>hash_append</code> above for <code>vector</code>, <code>string</code> and
+<code>pair</code>, one can verify that the byte stream is consistent with the
+specification.
+</p>
+
+<p>
+Improving <code>debugHasher</code> to collect useful statistics such as the
+number of times called, and the average number of bytes hashed per call, is left
+as a fun exercise for the reader.
+</p>
 
 <a name="Acknowledgments"></a><h2>Acknowledgments</h2>
 
