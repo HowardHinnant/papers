@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-26
+2014-04-27
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -70,6 +70,7 @@
 </li>
 <li><a href="#type_erased_hasher">Appendix A: <code>type_erased_hasher</code></a></li>
 <li><a href="#debugHasher">Appendix B: <code>debugHasher</code></a></li>
+<li><a href="#wording">Appendix C: Proposed Wording</a></li>
 <li><a href="#Acknowledgments">Acknowledgments</a></li>
 </ul>
 
@@ -232,14 +233,10 @@ struct hash&lt;mine::X&gt;
     size_t
     operator()(mine::X const&amp; x) const noexcept
     {
-        size_t h =      hash&lt;tuple_element&lt;0, decltype(x.date_)&gt;::type&gt;{}(get&lt;0&gt;(x.date_));
-        hash_combine(h, hash&lt;tuple_element&lt;1, decltype(x.date_)&gt;::type&gt;{}(get&lt;1&gt;(x.date_))
-                      , hash&lt;tuple_element&lt;2, decltype(x.date_)&gt;::type&gt;{}(get&lt;2&gt;(x.date_)));
+        size_t h = hash&lt;tuple_element&lt;0, decltype(x.date_)&gt;::type&gt;{}(get&lt;0&gt;(x.date_));
+        hash_combine(h, get&lt;1&gt;(x.date_), get&lt;2&gt;(x.date_));
         for (auto const&amp; p : x.data_)
-        {
-            hash_combine(h, hash&lt;decltype(x.data_)::value_type::first_type&gt;{} (p.first));
-            hash_combine(h, hash&lt;decltype(x.data_)::value_type::second_type&gt;{} (p.second));
-        }
+            hash_combine(h, p.first, p.second);
         return h;
     }
 };
@@ -258,9 +255,7 @@ friend struct std::hash&lt;X&gt;;
 </pre></blockquote>
 
 <p>
-This isn't terribly pretty code.  It is significantly more complicated than
-writing the <code>operator==</code> for X.  However without
-<code>hash_combine</code> from 
+Without <code>hash_combine</code> from 
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
 we would have to write our own <code>hash_combine</code>. This could easily
 result in a bad hash function as aptly described in
@@ -338,9 +333,8 @@ appropriate for the client's data set, then <b>everything</b> offered by both
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 and
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
-in the simplification department is for naught.  The author of X is on his own,
-starting from scratch, to build an alternate hashing algorithm -- even if just
-to experiment.
+is for naught.  The author of X is on his own, starting from scratch, to
+build an alternate hashing algorithm -- even if just to experiment.
 </p>
 
 <p>
@@ -374,7 +368,9 @@ the C++ code to hash X is the same:
 
 <blockquote><pre>
 template &lt;class Hasher&gt;
-friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
+friend
+void
+hash_append(Hasher&amp; h, X const&amp; x) noexcept
 {
     using std::hash_append;
     hash_append(h, x.date_, x.data_);
@@ -446,10 +442,9 @@ are consumed.
 
 <p>
 Not all, but many of the algorithms also have the property that they consume
-bytes in the order that they are received, possibly with a fixed sized internal
-buffer.  In the FNV-1a example, that internal buffer is reduced down to a
-single byte.  This characteristic can be taken advantage of in order to hash
-<i>discontiguous</i> memory.
+bytes in the order that they are received, possibly with a fixed sized
+internal buffer.  This characteristic can be taken advantage of in order to
+hash <i>discontiguous</i> memory.
 </p>
 
 <p>
@@ -491,9 +486,10 @@ should be possible.  But we start out with this simplest of algorithms.</li>
 <li>The algorithm consumes bytes in the <code>operator()(void const* key,
 std::size_t len)</code> function. Note that this function can be called any
 number of times.  In each call the hashed memory is contiguous.  But there is
-no requirement at all that separate calls refer to a single block of memory. 
-Note also that the internal state of the algorithm is updated on each
-call.</li>
+no requirement at all that separate calls refer to a single block of memory.
+On each call, the state of the algorithm is recalled from the previous call
+(or from the initialization step) and updated with the new <code>len</code>
+bytes located at <code>key</code>.</li>
 <li>The algorithm is finalized when the object is converted to a
 <code>result_type</code> (in this case a <code>size_t</code>).
 This is the finalization stage, which in this
@@ -623,9 +619,10 @@ or <a href="http://en.wikipedia.org/wiki/Padding_(cryptography)">padding</a>),
 <li>
 For applications other than unordered containers, and for hashing algorithms
 that support it, the programmer can easily create a hash functor that returns
-something besides a <code>size_t</code>.  For example, this could come in handy
-in computing a <a href="http://en.wikipedia.org/wiki/SHA-2">SHA-256</a>
-result.  And all without having to revisit each individual type!
+something besides a <code>size_t</code>.  For example, this could come in
+handy for computing a
+<a href="http://en.wikipedia.org/wiki/SHA-2">SHA-256</a> result.  And all
+without having to revisit each individual type!
 </li>
 </ol>
 
@@ -1517,7 +1514,7 @@ by a seed selected on a per-process basis:
 </p>
 
 <blockquote><pre>
-std::tuple&lt;std::uint64_t, std::uint64_t&gt;&amp;
+std::tuple&lt;std::uint64_t, std::uint64_t&gt;
 get_process_seed();
 
 template &lt;class Hasher = acme::siphash&gt;
@@ -1558,7 +1555,7 @@ init_seeds()
 
 }   // unnamed
 
-std::tuple&lt;std::uint64_t, std::uint64_t&gt;&amp;
+std::tuple&lt;std::uint64_t, std::uint64_t&gt;
 get_process_seed()
 {
     static std::tuple&lt;std::uint64_t, std::uint64_t&gt; seeds = init_seeds();
@@ -1603,7 +1600,7 @@ public:
     operator()(T const&amp; t) const noexcept
     {
         Hasher h(seed0_, seed1_);
-        using xstd::hash_append;
+        using std::hash_append;
         hash_append(h, t);
         return static_cast&lt;result_type&gt;(h);
     }
@@ -1616,16 +1613,6 @@ randomly_seeded_hash&lt;Hasher&gt;::mut_s;
 template &lt;class Hasher&gt;
 std::mt19937_64
 randomly_seeded_hash&lt;Hasher&gt;::rand_s{std::random_device{}()};
-</pre></blockquote>
-
-
-<blockquote><pre>
-unordered_set&lt;string, hardened_hash&lt;&gt;&gt; set1;  // randomly seeded, Spooky algorithm
-
-// deterministically seeded, FNV-1a algorithm
-constexpr size_t num_buckets = 1024;
-constexpr size_t seed = 23;
-unordered_set&lt;string, hardened_hash&lt;fnv1a&gt;&gt; set2(num_buckets, hardened_hash&lt;fnv1a&gt;{seed});
 </pre></blockquote>
 
 <p>
@@ -1644,7 +1631,7 @@ hash functor.
 
 <p>
 The unordered containers present a problem.  The problem is not specific to this
-infrastructure.
+infrastructure.  Neither
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 nor
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
@@ -1670,7 +1657,7 @@ of an unordered sequence?  Since <code>s1 == s2</code>, then <code>hash(s1)
 </p>
 
 <p>
-There are several answers to this dilemma that will work.  However we so no
+There are several answers to this dilemma that will work.  However there is no
 answer that is definitely better than all other answers.  Therefore we recommend
 that we <i>not</i> standardize a <code>hash_append</code> overload for any of
 the unordered containers.  If a client really wants to hash an unordered
@@ -1825,7 +1812,9 @@ difference above/below the ideal randomized result.
 This test hashes the hash codes into a list of buckets sized to the number of
 hash codes (load factor == 1).  It then returns the max collision count among
 all of the buckets.  This represents the maximum cost for a lookup of an
-element not found.
+element not found.  Assuming the not-found-key hashes to a random bucket,
+the average cost of looking up a not-found-key is simply the load factor (i.e.
+independent of the quality of the hash function distribution).
 </p></li>
 </ol>
 
@@ -1845,7 +1834,7 @@ these tests.  For each test, the smaller the result the better.
 <th></th><th>test 1</th> <th>test 2</th> <th>test 3</th> <th>test 4</th> <th>test 5</th> <th>total time (sec)</th>
 </tr>
 <tr>
-<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>4.60148e-05</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.485228s</td>
+<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>4.60148e-05</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.472963s</td>
 </tr>
 <tr>
 <th>llvm::hash_value</th> <td>0.012</td> <td>0</td> <td>0.000913715</td> <td>0.000254667</td> <td>8</td> <td>0.545283s</td>
@@ -1898,7 +1887,7 @@ random values assigned to each type.  Here are the results:
 <th></th><th>test 1</th> <th>test 2</th> <th>test 3</th> <th>test 4</th> <th>test 5</th> <th>total time (sec)</th>
 </tr>
 <tr>
-<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>4.60148e-05</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.47611s</td>
+<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>4.60148e-05</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.476888s</td>
 </tr>
 <tr>
 <th>llvm::hash_value</th> <td>0.0111664</td> <td>0</td> <td>0.00105212</td> <td>0.000167333</td> <td>8</td> <td>1.10327s</td>
@@ -2181,6 +2170,32 @@ Improving <code>debugHasher</code> to collect useful statistics such as the
 number of times called, and the average number of bytes hashed per call, is left
 as a fun exercise for the reader.
 </p>
+
+<a name="wording"></a><h2>Appendix C: Proposed Wording</h2>
+
+<p>
+Add a new section to [hash.requirements]:
+</p>
+
+<blockquote>
+<h3>HashAlgorithm requirements [hash.algo.rqmts]</h3>
+
+<p>
+A type <code>H</code> meets the <code>HashAlgorithm</code> requirements if
+the all of following are met:
+</p>
+
+<ul>
+<li><p>
+<code>H</code> meets the <code>Hash</code> requirements ([hash.requirements]).
+</p></li>
+<li><p>
+<code>H::result_type</code> exists and is a type.
+</p></li>
+
+</ul>
+
+</blockquote>
 
 <a name="Acknowledgments"></a><h2>Acknowledgments</h2>
 
