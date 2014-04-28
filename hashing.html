@@ -85,7 +85,7 @@ need not coordinate with each other:
 
 <ol>
 <li><p>
-Authors of types to be hashed (keys of type <code>K</code>) write their hashing
+Authors of hashable types (keys of type <code>K</code>) write their hashing
 support just once, using no specific hashing algorithm.  This code resembles
 (and is approximately the same amount of work as) <code>operator==</code> and
 <code>swap</code> for a type.
@@ -124,7 +124,7 @@ or
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 and
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n3876.pdf">N3876</a>
-contradict each other, and thus compete with each other.  Both can not be
+contradict each other, and thus compete with each other.  Both cannot be
 standardized.  This proposal, on the other hand, addresses a problem not addressed
 by 
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
@@ -1834,7 +1834,7 @@ these tests.  For each test, the smaller the result the better.
 <th></th><th>test 1</th> <th>test 2</th> <th>test 3</th> <th>test 4</th> <th>test 5</th> <th>total time (sec)</th>
 </tr>
 <tr>
-<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>4.60148e-05</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.472963s</td>
+<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>0.0000460148</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.472963s</td>
 </tr>
 <tr>
 <th>llvm::hash_value</th> <td>0.012</td> <td>0</td> <td>0.000913715</td> <td>0.000254667</td> <td>8</td> <td>0.545283s</td>
@@ -1887,7 +1887,7 @@ random values assigned to each type.  Here are the results:
 <th></th><th>test 1</th> <th>test 2</th> <th>test 3</th> <th>test 4</th> <th>test 5</th> <th>total time (sec)</th>
 </tr>
 <tr>
-<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>4.60148e-05</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.476888s</td>
+<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>0.0000460148e</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.476888s</td>
 </tr>
 <tr>
 <th>llvm::hash_value</th> <td>0.0111664</td> <td>0</td> <td>0.00105212</td> <td>0.000167333</td> <td>8</td> <td>1.10327s</td>
