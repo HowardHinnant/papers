@@ -2217,8 +2217,9 @@ void operator()(void const* key, std::size_t len);
 <blockquote><p>
 <i>Requires:</i> If <code>len &gt; 0</code>, <code>key</code> points to
 <code>len</code> contiguous bytes to be consumed by the
-<code>HashAlgorithm</code>.  The finalize operation has not been called on
-this object since construction, or since <code>*this</code> was assigned to.
+<code>HashAlgorithm</code>.  The conversion to <code>result_type</code> has
+not been called on this object since construction, or since
+<code>*this</code> was assigned to.
 </p>
 <p>
 <i>Effects:</i> Updates the state of the <code>HashAlgorithm</code> using the
@@ -2237,6 +2238,23 @@ the same state prior to an update operation, and given two equivalent keys
 len)</code> and <code>h2(k2, len)</code>, then <code>h1</code> and
 <code>h2</code> shall have the same updated state.
 </p>
+<p>
+Given a key <code>{k, len}</code> with <code>len &gt; 1</code>, one can
+create two keys each with <code>len &gt; 0</code>, where the first key has
+length <code>len1 &lt; len</code>: <code>{k, len1}</code> and
+<code>{k+len1, len-len1}</code>.  If two instances of
+<code>HashAlgorithm</code> (e.g. <code>h1</code> and <code>h2</code>) have
+the same state, then after:
+</p>
+<blockquote><pre>
+h1(k, len);
+h2(k, len1);
+h2(k+len1, len-len1);
+</pre></blockquote>
+<p>
+<code>h1</code> and <code>h2</code> shall still have equivalent state.
+</p>
+
 <p>
 The <code>HashAlgorithm</code> shall not access this memory range after the
 update operation returns. [<i>Note:</i> If <code>len == 0</code>, then
@@ -2433,14 +2451,18 @@ hash_append(HashAlgorithm&amp; h, T const&amp; t) noexcept;
 
 <p>
 For any scalar types <code>T</code>, except for member pointers, for which
-<code>is_contiguously_hashable&lt;T&gt;{}</code>
-evaluates to <code>false</code>, there shall exist an overload of
-<code>hash_append</code> similar to that shown above for <i>contiguously
-hashable</i> types except that the function will modify the state of
-<code>t</code> prior to forwarding it to <code>h</code> in such a way that
-the <i>contiguously hashable</i> condition is preserved.  It is unspecified
-exactly what signature such overloads will have, so it is not portable to form
-function pointers to these overloads.
+<code>is_contiguously_hashable&lt;T&gt;{}</code> evaluates to
+<code>false</code>, there shall exist an overload of <code>hash_append</code>
+similar to that shown above for <i>contiguously hashable</i> types. For each
+of these overloads for scalar types <code>T</code>, the implementation shall
+ensure that for two values of <code>T</code> (e.g. <code>t1</code> and
+<code>t2</code>), if <code>t1 == t2</code>, then <code>hash_append(h,
+t1)</code> shall update the state of <code>h</code> to the same state as does
+<code>hash_append(h, t2)</code>. And if <code>t1 != t2</code>, then
+<code>hash_append(h, t1)</code> should update the state of <code>h</code> to
+a different state as does <code>hash_append(h, t2)</code>. It is unspecified
+exactly what signature such overloads will have, so it is not portable to
+form function pointers to these overloads.
 </p>
 
 <p>
