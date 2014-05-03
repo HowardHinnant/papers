@@ -3288,6 +3288,32 @@ hash_append(h, x.size());
 </blockquote>
 
 <p>
+Add to the synopsis in [complex.syn]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm, class T&gt;
+    void hash_append(HashAlgorithm&amp; h, complex&lt;T&gt; const&amp; x) noexcept;
+</pre></blockquote>
+
+<p>
+Add to [complex.ops]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T&gt;
+    void hash_append(HashAlgorithm&amp; h, complex&lt;T&gt; const&amp; x) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i> Calls <code>hash_append(h, x.real(), x.imag())</code>.
+</p>
+</blockquote>
+
+</blockquote>
+
+<p>
 Add to the synopsis in [thread.thread.id]:
 </p>
 
