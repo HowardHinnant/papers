@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-04-27
+2014-05-03
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -60,6 +60,7 @@
     <li><a href="#switch_algorithm">What is involved in switching hashing algorithms?</a></li>
     <li><a href="#pimpl">How does one <code>hash_append</code> Pimpl designs?</a></li>
     <li><a href="#seeding">How does one apply random seeding?</a></li>
+    <li><a href="#unordered">What about unordered containers?</a></li>
     <li><a href="#testing">How does the quality of the resulting hash codes compare to the <code>hash_combine</code> solution?</a></li>
     </ul>
 </li>
@@ -1703,7 +1704,8 @@ hash_append(Hasher&amp; h, std::unordered_set&lt;Key, Hash, Pred, Alloc&gt; cons
 <p>
 And there are various other schemes.  They are all implementable.  But they each
 have their advantages and disadvantages.  Therefore this proposal proposes
-none of them.
+none of them.  Should the future expose the ideal <code>hash_append</code>
+specification for unordered containers, it can always be added at that time.
 </p>
 
 <a name="testing"></a><h3>How much does this cost, in terms of speed and
@@ -1887,7 +1889,7 @@ random values assigned to each type.  Here are the results:
 <th></th><th>test 1</th> <th>test 2</th> <th>test 3</th> <th>test 4</th> <th>test 5</th> <th>total time (sec)</th>
 </tr>
 <tr>
-<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>0.0000460148e</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.476888s</td>
+<th>std::hash&lt;X&gt;</th> <td>0.273744</td> <td>0.0000460148</td> <td>0.966285</td> <td>-0.000257333</td> <td>8</td> <td>0.476888s</td>
 </tr>
 <tr>
 <th>llvm::hash_value</th> <td>0.0111664</td> <td>0</td> <td>0.00105212</td> <td>0.000167333</td> <td>8</td> <td>1.10327s</td>
@@ -2182,20 +2184,1115 @@ Add a new section to [hash.requirements]:
 
 <p>
 A type <code>H</code> meets the <code>HashAlgorithm</code> requirements if
-the all of following are met:
+all of following are met:
 </p>
 
 <ul>
 <li><p>
-<code>H</code> meets the <code>Hash</code> requirements ([hash.requirements]).
-</p></li>
-<li><p>
 <code>H::result_type</code> exists and is a type.
 </p></li>
 
+<li><p>
+<code>H</code> is either default constructible, or constructible by some
+documented seed.  This construction shall initialize <code>H</code> to a
+deterministic state such that if two instances are constructed with the
+same arguments, then they have equivalent state.
+</p></li>
+
+<li><p>
+<code>H</code> is <code>CopyConstructible</code>.  Copies have equivalent
+state.  However updates to the state of one copy shall have no impact on
+any other copy.
+</p></li>
+
+<li><p>
+<code>H</code> is <code>CopyAssignable</code>.  Copies have equivalent
+state.  However updates to the state of one copy shall have no impact on
+any other copy.
+</p></li>
+
+<li><pre>
+void operator()(void const* key, std::size_t len);
+</pre>
+<blockquote><p>
+<i>Requires:</i> If <code>len &gt; 0</code>, <code>key</code> points to
+<code>len</code> contiguous bytes to be consumed by the
+<code>HashAlgorithm</code>.  The finalize operation has not been called on
+this object since construction, or since <code>*this</code> was assigned to.
+</p>
+<p>
+<i>Effects:</i> Updates the state of the <code>HashAlgorithm</code> using the
+<code>len</code> bytes referred to by <code>{key, len}</code>.
+</p>
+<p>
+If for two keys <code>{k1, len1}</code> and <code>{k2, len2}</code>, both
+<code>len1</code> and <code>len2 == 0</code>, then the two keys are
+considered equivalent.  If <code>len1 != len2</code>, the two keys are
+considered not equivalent. If <code>len1 == len2</code> and <code>len1 &gt;
+0</code>, and if <code>memcmp(k1, k2, len1) == 0</code>, the two keys are
+equivalent, else they are not equivalent. If two instances of
+<code>HashAlgorithm</code> (e.g. <code>h1</code> and <code>h2</code>) have
+the same state prior to an update operation, and given two equivalent keys
+<code>{k1, len}</code> and <code>{k2, len}</code>, then after <code>h1(k1,
+len)</code> and <code>h2(k2, len)</code>, then <code>h1</code> and
+<code>h2</code> shall have the same updated state.
+</p>
+<p>
+The <code>HashAlgorithm</code> shall not access this memory range after the
+update operation returns. [<i>Note:</i> If <code>len == 0</code>, then
+<code>key</code> may be <code>nullptr</code>.  If <code>len == 0</code>, it
+is unspecified if the state of the <code>HashAlgorithm</code> is changed
+during the update. &mdash; <i>end note</i>]
+</p></blockquote></li>
+
+<li>
+<pre>
+explicit operator result_type();
+</pre>
+<blockquote>
+<p>
+<i>Requires:</i> This operation has not been called on this object since
+construction or since <code>*this</code> was assigned to.
+</p>
+<p>
+<i>Effects:</i> Converts the state of the <code>HashAlgorithm</code> to a
+<code>result_type</code>.  Two instances of the same type of
+<code>HashAlgorithm</code>, with the same state, shall return the same value.
+ It is unspecified if this operation changes the state of the
+<code>HashAlgorithm</code>.
+</p>
+<p>
+<i>Returns:</i> The converted state.
+</p>
+</blockquote>
+</li>
 </ul>
 
 </blockquote>
+
+<p>
+Add a new section to [hash.requirements]:
+</p>
+
+<blockquote>
+<h3><code>HashAlgorithm</code>-based <code>Hash</code> requirements [hash.algo.hash.rqmts]</h3>
+
+<p>
+A type <code>H</code> meets the <code>HashAlgorithm</code>-based
+<code>Hash</code> requirements if all of following are met:
+</p>
+
+<ul>
+<li>
+<p>
+<code>H</code> meets the <code>Hash</code> requirements ([hash.requirements]).
+</p>
+</li>
+
+<li>
+<p>
+<code>H</code> is of the form
+</p>
+<blockquote><pre>
+template &lt;class HashAlgorithm, class ...&gt; struct H;
+</pre></blockquote>
+
+<p>
+and the first template parameter meets the
+<code>HashAlgorithm</code> requirements ([hash.algo.rqmts]).  This parameter
+may be defaulted.
+</p>
+</li>
+
+<li>
+<p>
+<code>H</code> has the nested type:
+</p>
+<blockquote>
+<code>using result_type = typename HashAlgorithm::result_type;</code>
+</blockquote>
+</li>
+
+<li>
+<p>
+<code>H</code> is either default constructible, or constructible by some
+documented seed.  This construction shall initialize <code>H</code>.
+<code>H</code> may be stateless or have state.  If not stateless, different
+default constructions, and different seeded constructions (even with the same
+seeds), are not required to initialize <code>H</code> to the same state.
+</p>
+</li>
+
+<li><p>
+<code>H</code> is <code>CopyConstructible</code>.  Copies have equivalent
+state.
+</p></li>
+
+<li><p>
+<code>H</code> is <code>CopyAssignable</code>.  Copies have equivalent
+state.
+</p></li>
+
+<li>
+<pre>
+template &lt;class T&gt;
+    result_type
+    operator()(T const&amp; t) const;
+</pre>
+<blockquote>
+<p>
+<i>Requires:</i> <code>HashAlgorithm</code> shall be constructible as
+specified by a concrete <code>H</code> type.
+</p>
+<p>
+<i>Effects:</i> Constructs a <code>HashAlgorithm h</code> with automatic
+storage.  Each concrete <code>H</code> type shall specifiy how <code>h</code>
+is constructed. However <code>h</code> shall be constructed to the same state
+for every invocation of <code>(*this)(t)</code>.  Updates the state of the
+<code>HashAlgorithm</code> in an unspecified manner, except that there shall
+be exactly one call to:
+</p>
+<blockquote><pre>
+using std::hash_append;
+hash_append(h, t);
+</pre></blockquote>
+<p>
+at some time during the update operation.  Furthermore, subsequent calls
+shall update the the local <code>h</code> with exactly the same state every
+time, except as changed by different values for <code>t</code>, unless there
+is an intervening assignment to <code>*this</code> between calls to this
+operator.
+</p>
+<p>
+<i>Returns:</i> <code>static_cast&lt;result_type&gt;(h)</code>.
+</p>
+<p>
+[<i>Note:</i>  For the same value of <code>t</code>, the same value is
+returned on subsequent calls unless there is an intervening assignment to
+<code>*this</code> between calls to this operator.  &mdash; <i>end note</i>]
+</p>
+</blockquote>
+</li>
+</ul>
+
+</blockquote>
+
+<p>
+Add a new row to Table 49 &mdash; Type property predicates in [meta.unary.prop]:
+</p>
+
+<blockquote>
+<table border="1">
+<tr>
+<th>Template</th> <th>Condition</th> <th>Preconditions</th>
+</tr>
+<tr>
+<td>
+<pre>
+template &lt;class T&gt;
+struct is_contiguously_hashable;
+</pre>
+</td>
+<td>
+A type <code>T</code> is contiguously hashable if for all combinations of two
+values of a type, say <code>x</code> and <code>y</code>, if <code>x ==
+y</code>, then it must also be true that <code>memcmp(addressof(x),
+addressof(y), sizeof(T)) == 0</code>.  It <code>T</code> is an array type,
+then <code>T</code> is contiguously hashable if
+<code>remove_extent_t&lt;T&gt;</code> is contiguously hashable.
+</td>
+<td>
+<code>T</code> shall be a complete object type.
+A program may specialize this trait if <code>T</code> is a user-defined type
+and the specialization conforms to the Condition.
+</td>
+</tr>
+</table>
+</blockquote>
+
+<p>
+Add a new section to [unord.hash]:
+</p>
+
+<blockquote>
+<h3><code>hash_append</code> [unord.hash_append]</h3>
+
+<pre>
+template &lt;class HashAlgorithm, class T&gt;
+enable_if_t
+&lt;
+    is_contiguously_hashable&lt;T&gt;{}
+&gt;
+hash_append(HashAlgorithm&amp; h, T const&amp; t) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> <code>h(addressof(t), sizeof(t))</code>.
+</blockquote>
+
+<p>
+For any scalar types <code>T</code>, except for member pointers, for which
+<code>is_contiguously_hashable&lt;T&gt;{}</code>
+evaluates to <code>false</code>, there shall exist an overload of
+<code>hash_append</code> similar to that shown above for <i>contiguously
+hashable</i> types except that the function will modify the state of
+<code>t</code> prior to forwarding it to <code>h</code> in such a way that
+the <i>contiguously hashable</i> condition is preserved.  It is unspecified
+exactly what signature such overloads will have, so it is not portable to form
+function pointers to these overloads.
+</p>
+
+<p>
+[<i>Note:</i>
+</p>
+<p>
+For example, here is a plausible implementation of <code>hash_append</code>
+for IEEE floating point:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm, class T&gt;
+enable_if_t
+&lt;
+    is_floating_point&lt;T&gt;{}
+&gt;
+hash_append(HashAlgorithm&amp; h, T t) noexcept
+{
+    if (t == 0)
+        t = 0;
+    h(&amp;t, sizeof(t));
+}
+</pre></blockquote>
+
+<p>
+This implementation accepts the <code>T</code> by value instead of by
+<code>const&amp;</code>, and gives -0. and 0. the same bit representation
+prior to forwarding the value to the <code>HashAlgorithm</code> (since these
+two values compare equal).
+</p>
+
+<p>
+And here is a plausible definition for <code>nullptr_t</code>:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm&gt;
+void
+hash_append(HashAlgorithm&amp; h, nullptr_t) noexcept
+{
+    void const* p = nullptr;
+    h(&amp;p, sizeof(p));
+}
+</pre></blockquote>
+
+<p>
+&mdash; <i>end note</i>]
+</p>
+
+<pre>
+template &lt;class HashAlgorithm, class T, size_t N&gt;
+enable_if_t
+&lt;
+    !is_contiguously_hashable&lt;T&gt;{}
+&gt;
+hash_append(HashAlgorithm&amp; h, T (&amp;a)[N]) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+for (auto const&amp; t : a)
+    hash_append(h, t);
+</pre></blockquote>
+
+<p>
+[<i>Note:</i>
+It is intentional that the <code>hash_append</code> for built-in arrays
+behave in exactly this way, sending a "message" to the
+<code>HashAlgorithm</code> of each element, in order, and nothing else.  This
+"message" to the <code>HashAlgorithm</code> is considered part of a built-in
+array's API.  It is also intentional that for arrays of <code>T</code> that
+are <i>contiguously hashable</i>, the exact same message is sent to the
+<code>HashAlgorithm</code>, except in one call instead of many.
+&mdash; <i>end note</i>]
+</p>
+
+</blockquote>
+
+</blockquote>
+
+<p>
+Add a new section to [unord.hash]:
+</p>
+
+<blockquote>
+<h3><code>uhash</code> [unord.hash.uhash]</h3>
+
+<pre>
+template &lt;class HashAlgorithm = <i>unspecified</i>&gt;
+struct uhash
+{
+    using result_type = typename HashAlgorithm::result_type;
+
+    template &lt;class T&gt;
+    result_type
+    operator()(T const&amp; t) const noexcept;
+};
+</pre>
+
+<p>
+Instantiations of <code>uhash</code> meet the
+<code>HashAlgorithm</code>-based <code>Hash</code> requirements
+([hash.algo.hash.rqmts]).
+</p>
+
+<p>
+The template parameter <code>HashAlgorithm</code> meets the 
+<code>HashAlgorithm</code> requirements ([hash.algo.rqmts]).  The unspecified
+default for this parameter refers to an implementation provided default
+<code>HashAlgorithm</code>.
+</p>
+
+<pre>
+template &lt;class HashAlgorithm&gt;
+template &lt;class T&gt;
+typename HashAlgorithm::result_type
+uhash&lt;HashAlgorithm&gt;::operator()(T const&amp; t) const noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> Default constructs a <code>HashAlgorithm</code> with
+automatic storage duration (for example named <code>h</code>), and
+calls <code>hash_append(h, t)</code> (unqualified).
+</p>
+<p>
+<i>Returns:</i> <code>static_cast&lt;result_type&gt;(h)</code>.
+</p>
+</blockquote>
+</blockquote>
+
+
+<p>
+Add to [type.info]:
+</p>
+
+<blockquote>
+<pre>
+class type_info {
+...
+};
+
+<ins>
+template &lt;HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, type_info const&amp; t) noexcept;
+</ins>
+</pre>
+
+<p>...</p>
+
+<pre>
+template &lt;HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, type_info const&amp; t) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+const char* p = t.name();
+for (; *p; ++p)
+    hash_append(h, *p);
+hash_append(h, *p);
+</pre></blockquote>
+
+<p>
+[<i>Note:</i> This may be optimized to:
+</p>
+
+<pre>
+char const char* const str = t.name();
+h(str, strlen(str)+1);
+</pre>
+
+<p>
+if <code>is_contiguously_hashable&lt;char&gt;{}</code> is
+<code>true</code></code>. &mdash; <i>end note</i>]
+</p>
+</blockquote>
+
+</blockquote>
+
+<p>
+Add to the synopsis in [syserr]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, error_code const&amp; ec) noexcept
+</pre></blockquote>
+
+<p>
+Add to [syserr.hash]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, error_code const&amp; ec) noexcept
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> <code>hash_append(h, ec.value(), &amp;ec.category());</code>
+</p>
+</blockquote>
+
+</blockquote>
+
+<p>
+Add to the synopsis in [utility]:
+</p>
+
+<blockquote><pre>
+template &lt;class T, class U&gt;
+struct is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;
+    : public integral_constant&lt;bool, is_contiguously_hashable&lt;T&gt;{} &amp;&amp; 
+                                     is_contiguously_hashable&lt;U&gt;{} &amp;&amp;
+                                     sizeof(T) + sizeof(U) == sizeof(pair&lt;T, U&gt;)&gt;
+    {};
+
+template &lt;class HashAlgorithm, class T, class U&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, pair&lt;T, U&gt; const&amp; p) noexcept
+</pre></blockquote>
+
+<p>
+Add a new section to [pairs]: [pairs.hash]:
+</p>
+
+<blockquote>
+<h3>Hashing pair [pairs.hash]</h3>
+
+<pre>
+template &lt;class HashAlgorithm, class T, class U&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, pair&lt;T, U&gt; const&amp; p) noexcept
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i> <code>hash_append(h, p.first, p.second);</code>
+</p>
+</blockquote>
+</blockquote>
+
+<p>
+Add to the synopsis in [tuple.general]:
+</p>
+
+<blockquote><pre>
+template &lt;class ...T&gt;
+    struct is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;;
+
+template &lt;class HashAlgorithm, class ...T&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, tuple&lt;T...&gt; const&amp; t) noexcept
+</pre></blockquote>
+
+
+<p>
+Add to [tuple.special]:
+</p>
+
+<blockquote>
+
+<pre>
+template &lt;class ...T&gt;
+    struct is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;;
+</pre>
+
+<blockquote>
+<p>
+Publicly derives from <code>true_type</code> if for each <code>Type</code> in
+<code>T...</code>, <code>is_contiguously_hashable&lt;Type&gt;{}</code> is
+<code>true</code>, and if the sum of all <code>sizeof(Type)</code> is equal
+to <code>sizeof(tuple&lt;T...&gt;)</code>, else publicly derives from
+<code>false_type</code>.
+</p>
+</blockquote>
+
+<pre>
+template &lt;class HashAlgorithm, class ...T&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, tuple&lt;T...&gt; const&amp; t) noexcept
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> Calls <code>hash_append(h, get&lt;I&gt;(t))</code> for each
+<code>I</code> in the range [0, sizeof...(T)).  If sizeof...(T) is 0, the
+function has no effects.
+</p>
+</blockquote>
+
+</blockquote>
+
+
+<p>
+Add to the synopsis in [template.bitset]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm, size_t N&gt;
+    void hash_append(HashAlgorithm&amp; h, bitset&lt;N&gt; const&amp; bs) noexcept
+</pre></blockquote>
+
+<p>
+Add to [bitset.hash]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, size_t N&gt;
+    void hash_append(HashAlgorithm&amp; h, bitset&lt;N&gt; const&amp; bs) noexcept
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> Calls <code>hash_append(h, w)</code> successively for some
+<code>w</code> integral type for which each bit in <code>w</code> corresponds
+to a bit value contained in <code>bs</code>.  The last <code>w</code> may
+contain padding bits which shall be set to 0.  After all bits have been
+appended to <code>h</code>, calls <code>hash_append(h, bs.size())</code>.
+</p>
+</blockquote>
+
+</blockquote>
+
+<p>
+Add to the synopsis in [memory.syn]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm, class T, class D&gt;
+    void hash_append(HashAlgorithm&amp; h, unique_ptr&lt;T, D&gt; const&amp; p) noexcept;
+template &lt;class HashAlgorithm, class T&gt;
+    void hash_append(HashAlgorithm&amp; h, shared_ptr&lt;T&gt; const&amp; p) noexcept;
+</pre></blockquote>
+
+<p>
+Add to [util.smartptr.hash]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class D&gt;
+    void hash_append(HashAlgorithm&amp; h, unique_ptr&lt;T, D&gt; const&amp; p) noexcept;
+template &lt;class HashAlgorithm, class T&gt;
+    void hash_append(HashAlgorithm&amp; h, shared_ptr&lt;T&gt; const&amp; p) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> <code>hash_append(h, p.get());</code>
+</p>
+</blockquote>
+
+</blockquote>
+
+<p>
+Add to the synopsis in [time.syn]:
+</p>
+
+<blockquote><pre>
+template &lt;class Rep, class Period&gt;
+struct is_contiguously_hashable&lt;duration&lt;Rep, Period&gt;&gt;
+    : public integral_constant&lt;bool, is_contiguously_hashable&lt;Rep&gt;{}&gt;
+    {};
+
+template &lt;class Clock, class Duration&gt;
+struct is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;
+    : public integral_constant&lt;bool, is_contiguously_hashable&lt;Duration&gt;{}&gt;
+    {};
+
+template &lt;class HashAlgorithm, class Rep, class Period&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;duration&lt;Rep, Period&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, duration&lt;Rep, Period&gt; const&amp; d) noexcept;
+
+template &lt;class HashAlgorithm, class Clock, class Duration&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, time_point&lt;Clock, Duration&gt; const&amp; tp) noexcept;
+</pre></blockquote>
+
+<p>
+Add a new section to [time.duration], [time.duration.hash]:
+</p>
+
+<blockquote>
+<h3>duration hash [time.duration.hash]</h3>
+<pre>
+template &lt;class HashAlgorithm, class Rep, class Period&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;duration&lt;Rep, Period&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, duration&lt;Rep, Period&gt; const&amp; d) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i> <code>hash_append(h, d.count())</code>.
+</p>
+</blockquote>
+</blockquote>
+
+<p>
+Add a new section to [time.point], [time.point.hash]:
+</p>
+
+<blockquote>
+<h3>time_point hash [time.point.hash]</h3>
+<pre>
+template &lt;class HashAlgorithm, class Clock, class Duration&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, time_point&lt;Clock, Duration&gt; const&amp; tp) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i> <code>hash_append(h, tp.time_since_epoch())</code>.
+</p>
+</blockquote>
+</blockquote>
+
+<p>
+Add to the synopsis in [type.index.synopsis]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, type_index const&amp; ti) noexcept;
+</pre></blockquote>
+
+<p>
+Add to [type.index.hash]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, type_index const&amp; ti) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> <code>hash_append(h, *ti.target);</code>
+</p>
+</blockquote>
+
+</blockquote>
+
+<p>
+Add to the synopsis in [string.classes]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm, class CharT, class Traits, class Alloc&gt;
+    void hash_append(HashAlgorithm&amp; h, basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept;
+</pre></blockquote>
+
+<p>
+Add to [basic.string.hash]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class CharT, class Traits, class Alloc&gt;
+    void hash_append(HashAlgorithm&amp; h, basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+for (auto c : s)
+    hash_append(h, c);
+hash_append(h, s.size());
+</pre></blockquote>
+
+<p>
+If <code>is_contiguously_hashable&lt;CharT&gt;{}</code> is <code>true</code>,
+then the following may replace the loop (as an optimization):
+</p>
+
+<blockquote><pre>
+h(s.data(), s.size()*sizeof(CharT));
+</pre></blockquote>
+
+</blockquote>
+
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;array&gt;</code> in [sequences.general]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class T, size_t N&gt;
+struct is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;
+    : public integral_constant&lt;bool, is_contiguously_hashable&lt;T&gt;{} &amp;&amp; 
+                                     sizeof(T)*N == sizeof(array&lt;T, N&gt;)&gt;
+    {};
+
+template &lt;class HashAlgorithm, class T, size_t N&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, array&lt;T, N&gt; const&amp; a) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;deque&gt;</code> in [sequences.general]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, deque&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;forward_list&gt;</code> in [sequences.general]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, forward_list&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;list&gt;</code> in [sequences.general]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, list&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;vector&gt;</code> in [sequences.general]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, vector&lt;T, Allocator&gt; const&amp; x) noexcept;
+
+template &lt;class HashAlgorithm, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, vector&lt;bool, Allocator&gt; const&amp; x) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to [array.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, size_t N&gt;
+    enable_if_t&lt;!is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;{}&gt;
+    hash_append(HashAlgorithm&amp; h, array&lt;T, N&gt; const&amp; a) noexcept;
+</pre>
+
+<blockquote>
+<i>Effects:</i>
+<blockquote><pre>
+for (auto const&amp; t : a)
+    hash_append(h, t);
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [deque.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, deque&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+
+<blockquote>
+<i>Effects:</i>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+<p>
+[<i>Note:</i> When <code>is_contiguously_hashable&lt;T&gt;{}</code> is
+<code>true</code>, an implementation may optimize by calling <code>h(p,
+s)</code> on suitable contiguous sub-blocks of the <code>deque</code>.
+&mdash; <i>end note</i>]
+</p>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [forwardlist.spec]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, forward_list&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+
+<blockquote>
+<i>Effects:</i>
+<blockquote><pre>
+typename forward_list&lt;T, Allocator&gt;::size_type s{};
+for (auto const&amp; t : x)
+{
+    hash_append(h, t);
+    ++s;
+}
+hash_append(h, s);
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [list.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, list&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+
+<blockquote>
+<i>Effects:</i>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [vector.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class T, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, vector&lt;T, Allocator&gt; const&amp; x) noexcept;
+</pre>
+
+<blockquote>
+<i>Effects:</i>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+<p>
+[<i>Note:</i> When <code>is_contiguously_hashable&lt;T&gt;{}</code> is
+<code>true</code>, an implementation may optimize by calling
+<code>h(x.data(), x.size()*sizeof(T))</code> in place of the loop. &mdash;
+<i>end note</i>]
+</p>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [vector.bool]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, vector&lt;bool, Allocator&gt; const&amp; x) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i> Calls <code>hash_append(h, w)</code> successively for some
+<code>w</code> integral type for which each bit in <code>w</code> corresponds
+to a bit value contained in <code>x</code>.  The last <code>w</code> may
+contain padding bits which shall be set to 0.  After all bits have been
+appended to <code>h</code>, calls <code>hash_append(h, x.size())</code>.
+</p>
+</blockquote>
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;map&gt;</code> in [associative.map.syn]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, map&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+
+template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, multimap&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to the synopsis of <code>&lt;set&gt;</code> in [associative.set.syn]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, set&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+
+template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, multiset&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+</pre>
+</blockquote>
+
+<p>
+Add to [map.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, map&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [multimap.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, multimap&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [set.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, set&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to [multiset.special]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
+    void
+    hash_append(HashAlgorithm&amp; h, multiset&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+</pre>
+<blockquote>
+<p>
+<i>Effects:</i>
+</p>
+<blockquote><pre>
+for (auto const&amp; t : x)
+    hash_append(h, t);
+hash_append(h, x.size());
+</pre></blockquote>
+</blockquote>
+</blockquote>
+
+<p>
+Add to the synopsis in [thread.thread.id]:
+</p>
+
+<blockquote><pre>
+template &lt;class HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, thread::id const&amp; id) noexcept;
+</pre></blockquote>
+
+<p>
+Add to [thread.thread.id]:
+</p>
+
+<blockquote>
+<pre>
+template &lt;class HashAlgorithm&gt;
+    void hash_append(HashAlgorithm&amp; h, thread::id const&amp; id) noexcept;
+</pre>
+
+<blockquote>
+<p>
+<i>Effects:</i>  Updates the state of <code>h</code> with <code>id</code>.
+</p>
+</blockquote>
+
+</blockquote>
+
+
 
 <a name="Acknowledgments"></a><h2>Acknowledgments</h2>
 
