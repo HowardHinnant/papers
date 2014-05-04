@@ -26,7 +26,7 @@
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
-2014-05-03
+2014-05-04
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -2226,41 +2226,39 @@ not been called on this object since construction, or since
 <code>len</code> bytes referred to by <code>{key, len}</code>.
 </p>
 <p>
-If for two keys <code>{k1, len1}</code> and <code>{k2, len2}</code>, both
-<code>len1</code> and <code>len2 == 0</code>, then the two keys are
-considered equivalent.  If <code>len1 != len2</code>, the two keys are
-considered not equivalent. If <code>len1 == len2</code> and <code>len1 &gt;
-0</code>, and if <code>memcmp(k1, k2, len1) == 0</code>, the two keys are
-equivalent, else they are not equivalent. If two instances of
-<code>HashAlgorithm</code> (e.g. <code>h1</code> and <code>h2</code>) have
-the same state prior to an update operation, and given two equivalent keys
-<code>{k1, len}</code> and <code>{k2, len}</code>, then after <code>h1(k1,
-len)</code> and <code>h2(k2, len)</code>, then <code>h1</code> and
-<code>h2</code> shall have the same updated state.
+If <code>len == 0</code> then <code>key</code> is not dereferenced, and there
+are no effects.
 </p>
 <p>
-Given a key <code>{k, len}</code> with <code>len &gt; 1</code>, one can
-create two keys each with <code>len &gt; 0</code>, where the first key has
-length <code>len1 &lt; len</code>: <code>{k, len1}</code> and
-<code>{k+len1, len-len1}</code>.  If two instances of
-<code>HashAlgorithm</code> (e.g. <code>h1</code> and <code>h2</code>) have
-the same state, then after:
+Consider two keys <code>{k1, len1}</code> and <code>{k2, len2}</code>, with
+both <code>len1</code> and <code>len2 &gt; 0</code>. If <code>len1 !=
+len2</code>, the two keys are considered not equivalent. If <code>len1 ==
+len2</code> and if <code>memcmp(k1, k2, len1) == 0</code>, the two keys are
+equivalent, else they are not equivalent.
 </p>
-<blockquote><pre>
-h1(k, len);
-h2(k, len1);
-h2(k+len1, len-len1);
-</pre></blockquote>
 <p>
-<code>h1</code> and <code>h2</code> shall still have equivalent state.
+ If two instances of <code>HashAlgorithm</code> (e.g. <code>h1</code> and
+ <code>h2</code>) have the same state prior to an update operation, and given
+ two equivalent keys <code>{k1, len}</code> and <code>{k2, len}</code>, then
+ after <code>h1(k1, len)</code> and <code>h2(k2, len)</code>, then
+ <code>h1</code> and <code>h2</code> shall have the same updated state. If
+ <code>{k1, len1}</code> and <code>{k2, len2}</code> are not equivalent, then
+ after <code>h1(k1, len1)</code> and <code>h2(k2, len2)</code>, 
+ <code>h1</code> and <code>h2</code> should have different updated state.
 </p>
-
+<p>
+Given a key <code>{k, len}</code> with <code>len &gt; 0</code>, one can
+create multiple keys each with length <i>l<sub>i</sub></i>, where the first
+key <i>k<sub>0</sub></i> <code>== k</code>, and subsequent keys
+<i>k<sub>i</sub></i> == <i>k<sub>i-1</sub></i> + <i>l<sub>i-1</sub></i>. 
+Combined with a constraint that &sum;  <i>l<sub>i</sub></i> <code>==
+len</code>, the single key <code>{k, len}</code> shall be equivalent to the
+application of all of the keys <code>{</code><i>k<sub>i</sub></i>,
+<i>l<sub>i</sub></i><code>}</code> applied in order.
+</p>
 <p>
 The <code>HashAlgorithm</code> shall not access this memory range after the
-update operation returns. [<i>Note:</i> If <code>len == 0</code>, then
-<code>key</code> may be <code>nullptr</code>.  If <code>len == 0</code>, it
-is unspecified if the state of the <code>HashAlgorithm</code> is changed
-during the update. &mdash; <i>end note</i>]
+update operation returns.
 </p></blockquote></li>
 
 <li>
@@ -2943,13 +2941,17 @@ hash_append(h, s.size());
 </pre></blockquote>
 
 <p>
-If <code>is_contiguously_hashable&lt;CharT&gt;{}</code> is <code>true</code>,
+[<i>Note:</i> If <code>is_contiguously_hashable&lt;CharT&gt;{}</code> is <code>true</code>,
 then the following may replace the loop (as an optimization):
 </p>
 
 <blockquote><pre>
 h(s.data(), s.size()*sizeof(CharT));
 </pre></blockquote>
+
+<p>
+&mdash; <i>end note</i>]
+</p>
 
 </blockquote>
 
