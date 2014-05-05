@@ -364,15 +364,16 @@ one is tied down.
 
 <p>
 This paper demonstrates infrastructure allowing the author of X to switch
-hashing algorithms with O(1) work.  No matter what hashing algorithm is used,
-the C++ code to hash X is the same:
+hashing algorithms with O(1) work, regardless of how many sub-types of X need
+to be hashed.  No matter what hashing algorithm is used, the C++ code to hash
+X is the same:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher&gt;
+template &lt;class HashAlgorithm&gt;
 friend
 void
-hash_append(Hasher&amp; h, X const&amp; x) noexcept
+hash_append(HashAlgorithm&amp; h, X const&amp; x) noexcept
 {
     using std::hash_append;
     hash_append(h, x.date_, x.data_);
@@ -382,7 +383,7 @@ hash_append(Hasher&amp; h, X const&amp; x) noexcept
 <p>
 With this proposal, the author of X gets simplicity, without being heavily invested
 in any single hashing algorithm.  The hashing algorithm is completely encapsulated
-in the templated parameter <code>Hasher</code>, and the author of X remains
+in the templated parameter <code>HashAlgorithm</code>, and the author of X remains
 fully and gratefully ignorant of any specific hashing algorithm.
 </p>
 
@@ -541,48 +542,48 @@ assert((hash_contiguous(data) == hash_discontiguous(5, 3, 8)));
 
 <p>
 We can say that <code>fnv1a</code> meets the requirements of a
-<code>Hasher</code>.  A <code>Hasher</code> is a class type that can be
-constructed (default, or possibly with seeding), has an <code>operator()</code>
-member function with the signature represented above.  The
-<code>operator()</code> member function processes bytes, updating the internal
-state of the <code>Hasher</code>.  This internal state can be arbitrarily
-complex.  Indeed an extreme example of internal state could be a copy of every
-chunk of memory supplied to the <code>Hasher</code>.  And finally a
-<code>Hasher</code> can be explicitly converted to the nested type
-<code>result_type</code>, which when used with the unordered containers should
-be an alias for <code>size_t</code>.
+<code>HashAlgorithm</code>.  A <code>HashAlgorithm</code> is a class type
+that can be constructed (default, or possibly with seeding), has an
+<code>operator()</code> member function with the signature represented above.
+ The <code>operator()</code> member function processes bytes, updating the
+internal state of the <code>HashAlgorithm</code>.  This internal state can be
+arbitrarily complex.  Indeed an extreme example of internal state could be a
+copy of every chunk of memory supplied to the <code>HashAlgorithm</code>. 
+And finally a <code>HashAlgorithm</code> can be explicitly converted to the
+nested type <code>result_type</code>, which when used with the unordered
+containers should be an alias for <code>size_t</code>.
 </p>
 
 <p>
-At all times during its lifetime, a <code>Hasher</code> is
+At all times during its lifetime, a <code>HashAlgorithm</code> is
 <code>CopyConstructible</code> and <code>CopyAssignable</code>, with each
 copy getting an independent copy of the state from the right-hand-side of the
 copy (value semantics -- no aliasing among copies).  Thus if one knew that
 two sequences of data shared a common prefix, one could hash the prefix in
-just one sequence, make a copy of the <code>Hasher</code>, and then continue
-after the prefix in each sequence with the two independent
-<code>Hasher</code>s.  This would be a pure optimization, getting the same
-results as if one had hashed each sequence in full.
+just one sequence, make a copy of the <code>HashAlgorithm</code>, and then
+continue after the prefix in each sequence with the two independent
+<code>HashAlgorithm</code>s.  This would be a pure optimization, getting the
+same results as if one had hashed each sequence in full.
 </p>
 
 <a name="Universal"></a><h3>Introducing the Universal hash function!</h3>
 
 <p>
-Given the concept of <code>Hasher</code>, a universal hash functor, which
-takes <b>any</b> type <code>T</code> can now be written (almost):
+Given the concept of <code>HashAlgorithm</code>, a universal hash functor,
+which takes <b>any</b> type <code>T</code> can now be written (almost):
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher&gt;
+template &lt;class HashAlgorithm&gt;
 struct uhash
 {
-    using result_type = typename Hasher::result_type;
+    using result_type = typename HashAlgorithm::result_type;
 
     template &lt;class T&gt;
     result_type
     operator()(T const&amp; t) const noexcept
     {
-        Hasher h;
+        HashAlgorithm h;
         using std::hash_append;
         hash_append(h, t);
         return static_cast&lt;result_type&gt;(h);
@@ -605,9 +606,9 @@ First note several important attributes of <code>uhash</code>:
 
 <ol>
 <li>
-<code>uhash</code> depends only on the hashing algorithm, which is encapsulated
-in the <code>Hasher</code>.  <code>uhash</code> does not depend upon the
-type <code>T</code> being hashed.
+<code>uhash</code> depends only on the hashing algorithm, which is
+encapsulated in the <code>HashAlgorithm</code>.  <code>uhash</code> does not
+depend upon the type <code>T</code> being hashed.
 </li>
 <li>
 <code>uhash</code> is simple.  Though such a utility should certainly be 
@@ -634,9 +635,9 @@ Let's walk through <code>uhash</code> one step at a time.
 
 <ol>
 <li><p>
-The <code>Hasher</code> is constructed (default constructed in this example, but
-that is not the only possibility).  This step initializes the hashing algorithm
-encapsulated in the <code>Hasher</code>.
+The <code>HashAlgorithm</code> is constructed (default constructed in this
+example, but that is not the only possibility).  This step initializes the
+hashing algorithm encapsulated in the <code>HashAlgorithm</code>.
 </p></li>
 <li><p>
 It is appended to using <code>t</code> as a key.  The function
@@ -647,8 +648,8 @@ namespace, but there are implementations in namespace std for most scalars
 (just like <code>swap</code>).
 </p></li>
 <li><p>
-And then the <code>Hasher</code> is explicitly converted to the desired result.
-This is where the algorithm is "finalized."
+And then the <code>HashAlgorithm</code> is explicitly converted to the
+desired result. This is where the algorithm is "finalized."
 </p></li>
 </ol>
 
@@ -659,7 +660,7 @@ even be defaulted to use your favorite hash algorithm:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher = fnv1a&gt; struct uhash;
+template &lt;class HashAlgorithm = fnv1a&gt; struct uhash;
 </pre></blockquote>
 
 <p>
@@ -688,16 +689,16 @@ my::unordered_map&lt;MyKey, std::string&gt; the_map;  // uses std::uhash&lt;&gt;
 
 <p>
 The <code>hash_append</code> function is the way that individual types
-communicate with the <code>Hasher</code>.
+communicate with the <code>HashAlgorithm</code>.
 </p>
 
 <p>
 Each type <code>T</code> is responsible only for exposing its hash-worthy state
-to the <code>Hasher</code> in the function  <code>hash_append</code>.
+to the <code>HashAlgorithm</code> in the function  <code>hash_append</code>.
 <code>T</code> is <i>not</i> responsible for combining hash codes.  Nor is it
 responsible for any hashing arithmetic whatsoever.  It is only responsible for
 pointing out where its data is, how many different chunks of data there are,
-and what order they should be presented to the <code>Hasher</code>.
+and what order they should be presented to the <code>HashAlgorithm</code>.
 </p>
 
 <p>
@@ -718,8 +719,8 @@ public:
     }
 
     <b>// Hook into the system like this
-    template &lt;class Hasher&gt;
-    friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
+    template &lt;class HashAlgorithm&gt;
+    friend void hash_append(HashAlgorithm&amp; h, X const&amp; x) noexcept
     {
         using std::hash_append;
         hash_append(h, x.date_);
@@ -731,13 +732,13 @@ public:
 <p>
 Like <code>swap</code>, <code>hash_append</code> is a customization point for
 each type.  Only a type knows what parts of itself it should expose to a
-<code>Hasher</code>, even though the type has no idea what algorithm is being
-used to do the hashing.  Note that X need not concern itself with details like
-whether or not its sub-types are <i>contiguously hashable</i>.  Those details
-will be handled by the <code>hash_append</code> for the individual sub-types.
-The <i>only</i> information the <code>hash_append</code> overload for X must
-implement is what sub-types need to be presented to the <code>Hasher</code>,
-and in what order.
+<code>HashAlgorithm</code>, even though the type has no idea what algorithm
+is being used to do the hashing.  Note that X need not concern itself with
+details like whether or not its sub-types are <i>contiguously hashable</i>. 
+Those details will be handled by the <code>hash_append</code> for the
+individual sub-types. The <i>only</i> information the
+<code>hash_append</code> overload for X must implement is what sub-types need
+to be presented to the <code>HashAlgorithm</code>, and in what order.
 Furthermore the <code>hash_append</code> function is intimately tied to the
 <code>operator==</code> for the same type.  For example if for some reason
 <code>x.data_</code> did not participate in the equality computation, then it
@@ -755,12 +756,14 @@ closely as possible:
 
 <ol>
 <li><p>
-If <code>x == y</code>, then both <code>x</code> and <code>y</code> <i>shall</i>
-send the same message to the <code>Hasher</code> in <code>hash_append</code>.
+If <code>x == y</code>, then both <code>x</code> and <code>y</code>
+<i>shall</i> send the same message to the <code>HashAlgorithm</code> in
+<code>hash_append</code>.
 </p></li>
 <li><p>
 If <code>x != y</code>, then <code>x</code> and <code>y</code> <i>should</i>
-send different messages to the <code>Hasher</code> in <code>hash_append</code>.
+send different messages to the <code>HashAlgorithm</code> in
+<code>hash_append</code>.
 </p></li>
 </ol>
 
@@ -771,8 +774,9 @@ class template.  Failure to follow the first rule will mean that equal values
 hash to different codes.  Clients such as unordered containers will simply
 fail to work, resulting in run time errors if this rule is violated.  Failure
 to follow the second guideline will result in hash collisions for the two
-different values that send identical messages to the <code>Hasher</code>, and
-will thus degrade the performance of clients such as unordered containers.
+different values that send identical messages to the
+<code>HashAlgorithm</code>, and will thus degrade the performance of clients
+such as unordered containers.
 </p>
 
 <a name="hash_append_vector"></a><h3><code>hash_append</code> for <code>vector&lt;T, A&gt;</code></h3>
@@ -787,7 +791,7 @@ since this value also does not participate in the equality computation.
 
 <p>
 Should <code>vector</code> expose its <code>size()</code> to the
-<code>Hasher</code>? To find out, lets look closer at the
+<code>HashAlgorithm</code>? To find out, lets look closer at the
 <code>operator==</code> for <code>vector</code>:
 </p>
 
@@ -798,11 +802,12 @@ Two <code>vector</code>'s <code>x</code> and <code>y</code> compare equal if
 </p></blockquote>
 
 <p>
-To meet <a href="#hash_append_rules">rule 1</a>, it is sufficient that every element in the <code>vector</code>
-be sent to the <code>Hasher</code> as part of the <code>vector</code>'s message.
-A logical convention is that the elements will be sent in order from
-<code>begin()</code> to <code>end()</code>.  But this alone will not satisfy
-<a href="#hash_append_rules">rule 2</a>.  Consider:
+To meet <a href="#hash_append_rules">rule 1</a>, it is sufficient that every
+element in the <code>vector</code> be sent to the <code>HashAlgorithm</code>
+as part of the <code>vector</code>'s message. A logical convention is that
+the elements will be sent in order from <code>begin()</code> to
+<code>end()</code>.  But this alone will not satisfy <a
+href="#hash_append_rules">rule 2</a>.  Consider:
 </p>
 
 <blockquote><pre>
@@ -812,13 +817,14 @@ assert(v1 != v2);
 </pre></blockquote>
 
 <p>
-<code>v1</code> and <code>v2</code> are not equal.  <code>v1.size() == 0</code>
-and  <code>v2.size() == 1</code>.  However <code>v2.front().size() == 0</code>.
-If an empty <code>vector&lt;int&gt;</code> sends no message at all to the
-<code>Hasher</code>, then <code>v2</code>, even though it is not empty, also
-sends no message to the <code>Hasher</code>.  And therefore <code>v1</code> and
-<code>v2</code> send the same (0 length) message to the <code>Hasher</code>,
-violating <a href="#hash_append_rules">rule 2</a>.
+<code>v1</code> and <code>v2</code> are not equal.  <code>v1.size() ==
+0</code> and  <code>v2.size() == 1</code>.  However <code>v2.front().size()
+== 0</code>. If an empty <code>vector&lt;int&gt;</code> sends no message at
+all to the <code>HashAlgorithm</code>, then <code>v2</code>, even though it
+is not empty, also sends no message to the <code>HashAlgorithm</code>.  And
+therefore <code>v1</code> and <code>v2</code> send the same (0 length)
+message to the <code>HashAlgorithm</code>, violating <a
+href="#hash_append_rules">rule 2</a>.
 </p>
 
 <p>
@@ -830,30 +836,32 @@ but for <code>vector&lt;int&gt;</code>.
 </p>
 
 <p>
-The right way to fix this problem is to have  <code>vector&lt;T&gt;</code> send
-its <code>size()</code> in addition to sending all of its members to the
-<code>Hasher</code>.  Now the only question is:  Should it send its
-<code>size</code> before or after sending its members to the <code>Hasher</code>?
+The right way to fix this problem is to have  <code>vector&lt;T&gt;</code>
+send its <code>size()</code> in addition to sending all of its members to the
+<code>HashAlgorithm</code>.  Now the only question is:  Should it send its
+<code>size</code> before or after sending its members to the
+<code>HashAlgorithm</code>?
 </p>
 
 <p>
 To answer this last question, consider another sequence container:
 <code>forward_list&lt;T&gt;</code>.  It has the exact same issues as we have
-been discussing for <code>vector&lt;T&gt;</code>, but <code>forward_list&lt;T&gt;</code>
-has no <code>size()</code> member.  In order to send its <code>size()</code>,
-<code>forward_list&lt;T&gt;</code> has to loop through all of its members to
-first compute <code>size()</code>.  In order to avoid the requirement that
-<code>hash_append</code> for <code>forward_list&lt;T&gt;</code> make two
-passes through the list, we should specify that the <code>size()</code> of the
-container is sent to the <code>Hasher</code> <i>after</i> all of the elements
-are sent.  And for consistency, we should do this for all std-containers for
-which <code>hash_append</code> is defined.
+been discussing for <code>vector&lt;T&gt;</code>, but
+<code>forward_list&lt;T&gt;</code> has no <code>size()</code> member.  In
+order to send its <code>size()</code>, <code>forward_list&lt;T&gt;</code> has
+to loop through all of its members to first compute <code>size()</code>.  In
+order to avoid the requirement that <code>hash_append</code> for
+<code>forward_list&lt;T&gt;</code> make two passes through the list, we
+should specify that the <code>size()</code> of the container is sent to the
+<code>HashAlgorithm</code> <i>after</i> all of the elements are sent.  And
+for consistency, we should do this for all std-containers for which
+<code>hash_append</code> is defined.
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class T, class Alloc&gt;
+template &lt;class HashAlgorithm, class T, class Alloc&gt;
 void
-hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
+hash_append(HashAlgorithm&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     for (auto const&amp; t : v)
         hash_append(h, t);
@@ -864,8 +872,8 @@ hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 <p>
 I.e. <code>vector</code> considers itself a message composed of 0 or more
 sub-messages, and appends each sub-message (in order) to the state of the
-generic <code>Hasher</code>.  And this is followed with a final message
-consisting of the <code>size()</code> of the <code>vector</code>.
+generic <code>HashAlgorithm</code>.  And this is followed with a final
+message consisting of the <code>size()</code> of the <code>vector</code>.
 </p>
 
 <p>
@@ -881,13 +889,13 @@ states that this is a detail that the <code>hash_append</code> for
 
 <p><b>Emphasis</b></p>
 <blockquote><p>
-The message a type sends to a <code>Hasher</code> is part of its public API.
-E.g. whether or not a container includes its <code>size()</code> in its
-<code>hash_append</code> message, and if so, whether the  <code>size()</code> is
-prepended or appended to the message, is critical information a type's client
-needs to know, in order to ensure that their composition of some type's message
-with another type's message doesn't produce an ambiguous message (doesn't create
-collisions).
+The message a type sends to a <code>HashAlgorithm</code> is part of its
+public API. E.g. whether or not a container includes its <code>size()</code>
+in its <code>hash_append</code> message, and if so, whether the 
+<code>size()</code> is prepended or appended to the message, is critical
+information a type's client needs to know, in order to ensure that their
+composition of some type's message with another type's message doesn't
+produce an ambiguous message (doesn't create collisions).
 </p><p>
 The standard should clearly document the message emanating from every
 <code>hash_append</code> it defines, to the extent possible. It might not be
@@ -904,9 +912,9 @@ The situation is simpler for <code>std::pair&lt;T, U&gt;</code>:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class T, class U&gt;
+template &lt;class HashAlgorithm, class T, class U&gt;
 void
-hash_append (Hasher&amp; h, std::pair&lt;T, U&gt; const&amp; p) noexcept
+hash_append (HashAlgorithm&amp; h, std::pair&lt;T, U&gt; const&amp; p) noexcept
 {
     hash_append (h, p.first);
     hash_append (h, p.second);
@@ -926,9 +934,9 @@ Eventually <code>hash_append</code> will drill down to a scalar type such as
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher&gt;
+template &lt;class HashAlgorithm&gt;
 void
-hash_append(Hasher&amp; h, int const&amp; i) noexcept
+hash_append(HashAlgorithm&amp; h, int const&amp; i) noexcept
 {
     h(&amp;i, sizeof(i));
 }
@@ -936,12 +944,13 @@ hash_append(Hasher&amp; h, int const&amp; i) noexcept
 
 <p>
 Whereupon a contiguous chunk of memory is actually accumulated by the
-<code>Hasher</code>, using the <code>Hasher</code>'s <code>operator()</code>.
- Recall that the <code>Hasher</code> has a member function
-<code>operator()(const void* key, std::size_t len) noexcept</code>.  And the
-<code>int</code> is just a chunk of <i>contiguous</i> memory that is
-<i>hashable</i>.  It is now prudent to deeply consider what it means to say
-that a type (such as <code>int</code>) is <i>contiguously hashable</i>.
+<code>HashAlgorithm</code>, using the <code>HashAlgorithm</code>'s
+<code>operator()</code>. Recall that the <code>HashAlgorithm</code> has a
+member function <code>operator()(const void* key, std::size_t len)
+noexcept</code>.  And the <code>int</code> is just a chunk of
+<i>contiguous</i> memory that is <i>hashable</i>.  It is now prudent to
+deeply consider what it means to say that a type (such as <code>int</code>)
+is <i>contiguously hashable</i>.
 </p>
 
 <p>
@@ -978,13 +987,13 @@ hashable types:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class T&gt;
+template &lt;class HashAlgorithm, class T&gt;
 inline
 std::enable_if_t
 &lt;
     is_contiguously_hashable&lt;T&gt;::value
 &gt;
-hash_append(Hasher&amp; h, T const&amp; t) noexcept
+hash_append(HashAlgorithm&amp; h, T const&amp; t) noexcept
 {
     h(addressof(t), sizeof(t));
 }
@@ -1009,13 +1018,13 @@ done like so:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class T&gt;
+template &lt;class HashAlgorithm, class T&gt;
 inline
 std::enable_if_t
 &lt;
     std::is_floating_point&lt;T&gt;::value
 &gt;
-hash_append(Hasher&amp; h, T t) noexcept
+hash_append(HashAlgorithm&amp; h, T t) noexcept
 {
     if (t == 0)
         t = 0;
@@ -1069,11 +1078,12 @@ hashable, and if the size of the two members is the same size as the
 <p>
 This same logic can be applied to <code>array</code>, <code>tuple</code>, and
 possibly user-defined types as well (but only with the user-defined type's
-author's permission).  Consequently, a great many types can be easily and safely
-classified as contiguously hashable.  This is important because with modern hash
-algorithm implementations, the bigger the chunk of contiguous memory you can
-send to the <code>Hasher</code> at one time, the higher the performance (in
-terms of bytes-hashed/second) the <code>Hasher</code> is likely to perform.
+author's permission).  Consequently, a great many types can be easily and
+safely classified as contiguously hashable.  This is important because with
+modern hash algorithm implementations, the bigger the chunk of contiguous
+memory you can send to the <code>HashAlgorithm</code> at one time, the higher
+the performance (in terms of bytes-hashed/second) the
+<code>HashAlgorithm</code> is likely to perform.
 </p>
 
 <p>
@@ -1082,26 +1092,26 @@ With that in mind (the bigger the memory chunk the better), consider again
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class T, class Alloc&gt;
+template &lt;class HashAlgorithm, class T, class Alloc&gt;
 inline
 std::enable_if_t
 &lt;
     !is_contiguously_hashable&lt;T&gt;::value
 &gt;
-hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
+hash_append(HashAlgorithm&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     for (auto const&amp; t : v)
         hash_append(h, t);
     hash_append(h, v.size());
 }
 
-template &lt;class Hasher, class T, class Alloc&gt;
+template &lt;class HashAlgorithm, class T, class Alloc&gt;
 inline
 std::enable_if_t
 &lt;
     is_contiguously_hashable&lt;T&gt;::value
 &gt;
-hash_append(Hasher&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
+hash_append(HashAlgorithm&amp; h, std::vector&lt;T, Alloc&gt; const&amp; v) noexcept
 {
     h(v.data(), v.size()*sizeof(T));
     hash_append(h, v.size());
@@ -1116,10 +1126,11 @@ buffer to <code>hash_append</code>.
 </p>
 
 <p>
-Note that this <b>is</b> a pure optimization.  I.e. the <code>Hasher</code>
-sees the <i>exact</i> same sequence of bytes, in the same order, whether or
-not this optimization for <code>vector</code> is done.  But if it is done,
-then the <code>Hasher</code> sees almost all of the bytes at once.
+Note that this <b>is</b> a pure optimization.  I.e. the
+<code>HashAlgorithm</code> sees the <i>exact</i> same sequence of bytes, in
+the same order, whether or not this optimization for <code>vector</code> is
+done.  But if it is done, then the <code>HashAlgorithm</code> sees almost all
+of the bytes at once.
 </p>
 
 <p>
@@ -1187,13 +1198,14 @@ hashing algorithm to decide how to combine later bytes with earlier bytes.
 serialization?</h3>
 
 <p>
-It is very closely related.  Close enough that there may be a way to elegantly
-combine the two.  Each type can expose its state to a <code>Hasher</code> or
-<code>Serializer</code>.  However there <i>are</i> differences.  IEEE floating
-point is our poster-child for the difference.  For hashing, IEEE floating point
-needs to hide the difference between -0. and 0.  For serialization one needs to
-keep these two values distinct.  Combining these two functions, for now, remains
-beyond the scope of this paper.
+It is very closely related.  Close enough that there may be a way to
+elegantly combine the two.  Each type can expose its state to a
+<code>HashAlgorithm</code> or <code>Serializer</code>.  However there
+<i>are</i> differences.  IEEE floating point is our poster-child for the
+difference.  For hashing, IEEE floating point needs to hide the difference
+between -0. and 0.  For serialization one needs to keep these two values
+distinct.  Combining these two functions, for now, remains beyond the scope
+of this paper.
 </p>
 
 <a name="variadic"></a><h3>Is there a variadic version of <code>hash_append</code>?</h3>
@@ -1203,10 +1215,10 @@ Yes, this is easily written as:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class T0, class T1, class ...T&gt;
+template &lt;class HashAlgorithm, class T0, class T1, class ...T&gt;
 inline
 void
-hash_append (Hasher&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t) noexcept
+hash_append (HashAlgorithm&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t) noexcept
 {
     hash_append (h, t0);
     hash_append (h, t1, t...);
@@ -1218,8 +1230,8 @@ This allows <code>hash_append</code> for X (for example) to be rewritten as:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher&gt;
-friend void hash_append(Hasher&amp; h, X const&amp; x) noexcept
+template &lt;class HashAlgorithm&gt;
+friend void hash_append(HashAlgorithm&amp; h, X const&amp; x) noexcept
 {
     using std::hash_append;
     hash_append(h, x.date_, x.data_);
@@ -1369,10 +1381,11 @@ been solved!
 
 <p>
 So far, every <code>hash_append</code> function shown must be templated on
-<code>Hasher</code> so as to handle any hashing algorithm requested by some
-unknown, far away client.  But with the 
+<code>HashAlgorithm</code> so as to handle any hashing algorithm requested by
+some unknown, far away client.  But with the 
 <a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">Pimpl</a> design, one
-can not send a templated <code>Hasher</code> past the implementation firewall.
+can not send a templated <code>HashAlgorithm</code> past the implementation
+firewall.
 </p>
 
 <p>
@@ -1380,9 +1393,9 @@ Or can you ... ?
 </p>
 
 <p>
-With the help of <code>std::function</code> one
-can <i>type erase</i> the templated <code>Hasher</code>, adapting it to a type
-with a concrete type, and pass that concrete <code>Hasher</code> through the
+With the help of <code>std::function</code> one can <i>type erase</i> the
+templated <code>HashAlgorithm</code>, adapting it to a type with a concrete
+type, and pass that concrete <code>HashAlgorithm</code> through the
 implementation firewall.  Imagine a class as shown
 <a href="http://en.wikipedia.org/wiki/Pimpl#C.2B.2B">here</a>.
 Here is how it can support arbitrary hash algorithms with the proposed
@@ -1405,10 +1418,10 @@ public:
     void
     hash_append(type_erased_hasher&amp;, CheshireCat const&amp;);
 
-    template &lt;class Hasher&gt;
+    template &lt;class HashAlgorithm&gt;
     friend
     void
-    hash_append(Hasher&amp; h, Handle const&amp; x)
+    hash_append(HashAlgorithm&amp; h, Handle const&amp; x)
     {
         using std::hash_append;
         if (x.smile == nullptr)
@@ -1417,7 +1430,7 @@ public:
         {
             type_erased_hasher temp(std::move(h));
             hash_append(temp, *x.smile);
-            h = std::move(*temp.target&lt;Hasher&gt;());
+            h = std::move(*temp.target&lt;HashAlgorithm&gt;());
         }
     }
 };
@@ -1441,35 +1454,36 @@ hash_append(Handle::type_erased_hasher&amp; h, CheshireCat const&amp; c)
 </pre></blockquote>
 
 <p>
-Besides the type of the <code>Hasher</code>, <code>hash_append</code> for
-<code>CheshireCat</code> looks just like any other <code>hash_append</code>.
+Besides the type of the <code>HashAlgorithm</code>, <code>hash_append</code>
+for <code>CheshireCat</code> looks just like any other
+<code>hash_append</code>.
 </p>
 
 <p>
-The magic is in <code>acme::type_erased_hasher&lt;std::size_t&gt;</code>,
-not proposed (thus the namespace <code>acme</code>).  <a href="#type_erased_hasher">Appendix A</a> outlines
-exactly how to code <code>acme::type_erased_hasher&lt;std::size_t&gt;</code>.
-In a nutshell, this is a <code>Hasher</code> <i>adaptor</i>, which takes any
-<code>Hasher</code>, stores it in a
-<code>std::function&lt;void(void const*, std::size_t)&gt;</code>, and makes the
-<code>std::function</code> behave like a <code>Hasher</code>.
+The magic is in <code>acme::type_erased_hasher&lt;std::size_t&gt;</code>, not
+proposed (thus the namespace <code>acme</code>).
+<a href="#type_erased_hasher">Appendix A</a> outlines exactly how to code
+<code>acme::type_erased_hasher&lt;std::size_t&gt;</code>. In a nutshell, this
+is a <code>HashAlgorithm</code> <i>adaptor</i>, which takes any
+<code>HashAlgorithm</code>, stores it in a <code>std::function&lt;void(void
+const*, std::size_t)&gt;</code>, and makes the <code>std::function</code>
+behave like a <code>HashAlgorithm</code>.
 </p>
 
 <p>
-Think about what has just happened here.  You've compiled CheshireCat.cpp today.
- And <i>tomorrow</i>, when somebody invents a brand new hash algorithm, your
-CheshireCat.cpp uses it, with no re-compile necessary, for the cost of a virtual
-function call (or many such calls) to the
-<code>Hasher</code>.  And yet no other client of this new
-<code>Hasher</code> (outside of those called by <code>CheshireCat</code>), is
-forced to access the new hashing algorithm via a virtual function call. That
-borders on magic!
+Think about what has just happened here.  You've compiled CheshireCat.cpp
+today. And <i>tomorrow</i>, when somebody invents a brand new hash algorithm,
+your CheshireCat.cpp uses it, with no re-compile necessary, for the cost of a
+virtual function call (or many such calls) to the <code>HashAlgorithm</code>.
+ And yet no other client of this new <code>HashAlgorithm</code> (outside of
+those called by <code>CheshireCat</code>), is forced to access the new
+hashing algorithm via a virtual function call. That borders on magic!
 </p>
 
 <p>
 It is this very concern (hashing of Pimpl's) that decided the name of the
-member function of <code>Hasher</code>s which appends state to the hash
-algorithm:
+member function of <code>HashAlgorithm</code>s which appends state to the
+hash algorithm:
 </p>
 
 <blockquote><pre>
@@ -1486,7 +1500,7 @@ void append(void const* key, std::size_t len) noexcept;
 
 <p>
 then programmers would not be able to use <code>std::function</code> to
-create a type-erased wrapper around a templated <code>Hasher</code>.
+create a type-erased wrapper around a templated <code>HashAlgorithm</code>.
 </p>
 
 <a name="seeding"></a><h3>How does one apply random seeding?</h3>
@@ -1506,10 +1520,10 @@ attacks when the application must hash keys supplied by an untrusted source.
 
 <p>
 This is remarkably easily done with this proposal.  One codes <i>one</i> new
-hash functor, which can be used with <i>any</i> <code>Hasher</code> which
-accepts a seed, and for <i>any</i> type which already has <code>hash_append</code>
-implemented (even those <code>CheshireCat</code>s which have already been
-compiled, and can not be recompiled).
+hash functor, which can be used with <i>any</i> <code>HashAlgorithm</code>
+which accepts a seed, and for <i>any</i> type which already has
+<code>hash_append</code> implemented (even those <code>CheshireCat</code>s
+which have already been compiled, and can not be recompiled).
 </p>
 
 <p>
@@ -1521,11 +1535,11 @@ by a seed selected on a per-process basis:
 std::tuple&lt;std::uint64_t, std::uint64_t&gt;
 get_process_seed();
 
-template &lt;class Hasher = acme::siphash&gt;
+template &lt;class HashAlgorithm = acme::siphash&gt;
 class process_seeded_hash
 {
 public:
-    using result_type = typename Hasher::result_type;
+    using result_type = typename HashAlgorithm::result_type;
 
     template &lt;class T&gt;
     result_type
@@ -1534,7 +1548,7 @@ public:
         std::uint64_t seed0;
         std::uint64_t seed1;
         std::tie(seed0, seed1) = get_process_seed();
-        Hasher h(seed0, seed1);
+        HashAlgorithm h(seed0, seed1);
         using std::hash_append;
         hash_append(h, t);
         return static_cast&lt;result_type&gt;(h);
@@ -1580,7 +1594,7 @@ construction:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher = acme::siphash&gt;
+template &lt;class HashAlgorithm = acme::siphash&gt;
 class randomly_seeded_hash
 {
 private:
@@ -1590,7 +1604,7 @@ private:
     std::size_t seed0_;
     std::size_t seed1_;
 public:
-    using result_type = typename Hasher::result_type;
+    using result_type = typename HashAlgorithm::result_type;
 
     randomly_seeded_hash()
     {
@@ -1603,20 +1617,20 @@ public:
     result_type
     operator()(T const&amp; t) const noexcept
     {
-        Hasher h(seed0_, seed1_);
+        HashAlgorithm h(seed0_, seed1_);
         using std::hash_append;
         hash_append(h, t);
         return static_cast&lt;result_type&gt;(h);
     }
 };
 
-template &lt;class Hasher&gt;
+template &lt;class HashAlgorithm&gt;
 std::mutex
-randomly_seeded_hash&lt;Hasher&gt;::mut_s;
+randomly_seeded_hash&lt;HashAlgorithm&gt;::mut_s;
 
-template &lt;class Hasher&gt;
+template &lt;class HashAlgorithm&gt;
 std::mt19937_64
-randomly_seeded_hash&lt;Hasher&gt;::rand_s{std::random_device{}()};
+randomly_seeded_hash&lt;HashAlgorithm&gt;::rand_s{std::random_device{}()};
 </pre></blockquote>
 
 <p>
@@ -1670,20 +1684,20 @@ container, then they can choose a technique that works for them, and do so.
 
 <p>
 For example, one could hash each element using a copy of the
-<code>Hasher</code>, and then append the sum of all hash codes to the state
-of the original <code>Hasher</code>:
+<code>HashAlgorithm</code>, and then append the sum of all hash codes to the
+state of the original <code>HashAlgorithm</code>:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class Key, class Hash, class Pred, class Alloc&gt;
+template &lt;class HashAlgorithm, class Key, class Hash, class Pred, class Alloc&gt;
 void
-hash_append(Hasher&amp; h, std::unordered_set&lt;Key, Hash, Pred, Alloc&gt; const&amp; s)
+hash_append(HashAlgorithm&amp; h, std::unordered_set&lt;Key, Hash, Pred, Alloc&gt; const&amp; s)
 {
-    using result_type = typename Hasher::result_type;
+    using result_type = typename HashAlgorithm::result_type;
     result_type k{};
     for (auto const&amp; x : s)
     {
-        Hasher htemp{h};
+        HashAlgorithm htemp{h};
         hash_append(htemp, x);
         k += static_cast&lt;result_type&gt;(htemp);
     }
@@ -1696,9 +1710,9 @@ Or one could sort all the elements and hash the elements in sorted order:
 </p>
 
 <blockquote><pre>
-template &lt;class Hasher, class Key, class Hash, class Pred, class Alloc&gt;
+template &lt;class HashAlgorithm, class Key, class Hash, class Pred, class Alloc&gt;
 void
-hash_append(Hasher&amp; h, std::unordered_set&lt;Key, Hash, Pred, Alloc&gt; const&amp; s)
+hash_append(HashAlgorithm&amp; h, std::unordered_set&lt;Key, Hash, Pred, Alloc&gt; const&amp; s)
 {
     hash_append(h, std::set&lt;Key&gt;(s.begin(), s.end()));
 }
@@ -1951,9 +1965,9 @@ spanning discontiguous memory.</li>
 <a name="proposedinfrastructure"></a><h3>Summary of proposed infrastructure</h3>
 
 <blockquote><pre>
-template &lt;class T&gt; struct is_contiguously_hashable;                        // A type property trait
-template &lt;class Hasher&gt; void hash_append(Hasher&amp; h, T const&amp; t) noexcept;  // overloaded for each type T
-template &lt;class Hasher = <i>unspecified-default-hasher</i>&gt; struct uhash;         // A hashing functor
+template &lt;class T&gt; struct is_contiguously_hashable;                                     // A type property trait
+template &lt;class HashAlgorithm&gt; void hash_append(HashAlgorithm&amp; h, T const&amp; t) noexcept; // overloaded for each type T
+template &lt;class HashAlgorithm = <i>unspecified-default-hasher</i>&gt; struct uhash;               // A hashing functor
 </pre></blockquote>
 
 <p>
@@ -1986,18 +2000,18 @@ private:
     result_type (*convert_)(function&amp;);
 
 public:
-    template &lt;class Hasher,
+    template &lt;class HashAlgorithm,
                  class = std::enable_if_t
                  &lt;
-                      std::is_constructible&lt;function, Hasher&gt;{} &amp;&amp;
-                      std::is_same&lt;typename std::decay_t&lt;Hasher&gt;::result_type,
+                      std::is_constructible&lt;function, HashAlgorithm&gt;{} &amp;&amp;
+                      std::is_same&lt;typename std::decay_t&lt;HashAlgorithm&gt;::result_type,
                                    result_type&gt;{}
                  &gt;
              &gt;
     explicit
-    type_erased_hasher(Hasher&amp;&amp; h)
-        : hasher_(std::forward&lt;Hasher&gt;(h))
-        , convert_(convert&lt;std::decay_t&lt;Hasher&gt;&gt;)
+    type_erased_hasher(HashAlgorithm&amp;&amp; h)
+        : hasher_(std::forward&lt;HashAlgorithm&gt;(h))
+        , convert_(convert&lt;std::decay_t&lt;HashAlgorithm&gt;&gt;)
     {
     }
 
@@ -2021,12 +2035,12 @@ public:
     }
 
 private:
-    template &lt;class Hasher&gt;
+    template &lt;class HashAlgorithm&gt;
     static
     result_type
     convert(function&amp; f) noexcept
     {
-        return static_cast&lt;result_type&gt;(*f.target&lt;Hasher&gt;());;
+        return static_cast&lt;result_type&gt;(*f.target&lt;HashAlgorithm&gt;());;
     }
 };
 </pre></blockquote>
@@ -2041,19 +2055,19 @@ explicit conversion operator to that type.
 The <code>type_erased_hasher</code> stores a <code>std::function&lt;void(void
 const*, std::size_t)&gt;</code>, and a pointer to a function taking such a
 <code>function</code> and returning a <code>result_type</code>. The latter is
-necessary to capture the type of the <code>Hasher</code> in the
+necessary to capture the type of the <code>HashAlgorithm</code> in the
 <code>type_erased_hasher</code> constructor, so that the same
-<code>Hasher</code> type can later be used in the conversion to
+<code>HashAlgorithm</code> type can later be used in the conversion to
 <code>result_type</code>.
 </p>
 
 <p>
-The constructor is naturally templated on <code>Hasher</code>, which can be
-perfectly forwarded to the underlying <code>std::function</code>.  The
+The constructor is naturally templated on <code>HashAlgorithm</code>, which
+can be perfectly forwarded to the underlying <code>std::function</code>.  The
 constructor also initialized the function pointer <code>convert_</code> using
-the decayed type of <code>Hasher</code>.  The pointed-to function will
-extract the <code>Hasher</code> from the <code>std::function</code> and
-explicitly convert it to the <code>result_type</code>.
+the decayed type of <code>HashAlgorithm</code>.  The pointed-to function will
+extract the <code>HashAlgorithm</code> from the <code>std::function</code>
+and explicitly convert it to the <code>result_type</code>.
 </p>
 
 <p>
@@ -2068,9 +2082,10 @@ an unordered sequence container.
 
 <p>
 The <a href="#pimpl">Pimpl</a> example does need access to the stored
-<code>Hasher</code> after the call to <code>hash_append</code> to recover its
-state.  This is accomplished with the <code>target</code> function which
-simply forwards to <code>std::function</code>'s <code>target</code> function.
+<code>HashAlgorithm</code> after the call to <code>hash_append</code> to
+recover its state.  This is accomplished with the <code>target</code>
+function which simply forwards to <code>std::function</code>'s
+<code>target</code> function.
 </p>
 
 <a name="debugHasher"></a><h2>Appendix B: <code>debugHasher</code></h2>
@@ -2161,13 +2176,13 @@ endian, this will reliably output:
 
 <p>
 The last line is simply the number of bytes that have been sent to the
-<code>Hasher</code>.  The first 4 lines are those bytes, formatted as two hex
-digits per byte, with bytes separated by a space, and 16 bytes per line for
-readability.  If one carefully inspects this byte stream and compares it to the
-data structure which has been "hashed", and to the proposed
-<code>hash_append</code> above for <code>vector</code>, <code>string</code> and
-<code>pair</code>, one can verify that the byte stream is consistent with the
-specification.
+<code>HashAlgorithm</code>.  The first 4 lines are those bytes, formatted as
+two hex digits per byte, with bytes separated by a space, and 16 bytes per
+line for readability.  If one carefully inspects this byte stream and
+compares it to the data structure which has been "hashed", and to the
+proposed <code>hash_append</code> above for <code>vector</code>,
+<code>string</code> and <code>pair</code>, one can verify that the byte
+stream is consistent with the specification.
 </p>
 
 <p>
@@ -2546,10 +2561,10 @@ are <i>contiguously hashable</i>, the exact same message is sent to the
 </blockquote>
 
 <pre>
-template &lt;class Hasher, class T0, class T1, class ...T&gt;
+template &lt;class HashAlgorithm, class T0, class T1, class ...T&gt;
 inline
 void
-hash_append (Hasher&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t) noexcept;
+hash_append (HashAlgorithm&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t) noexcept;
 </pre>
 
 <blockquote>
@@ -3372,10 +3387,11 @@ zero-length containers with no message.
 </p>
 
 <p>
-Thanks to Dix Lorenz (et al.) for pointing out that the <code>result_type</code> of the
-<code>Hasher</code> need not be <code>size_t</code>, and indeed, can not be
-if we want this infrastructure to fully handle cryptographic hash functions
-(which produce results larger than a <code>size_t</code>).
+Thanks to Dix Lorenz (et al.) for pointing out that the
+<code>result_type</code> of the <code>HashAlgorithm</code> need not be
+<code>size_t</code>, and indeed, can not be if we want this infrastructure to
+fully handle cryptographic hash functions (which produce results larger than
+a <code>size_t</code>).
 </p>
 
 <p>
