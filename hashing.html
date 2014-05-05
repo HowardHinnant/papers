@@ -1031,7 +1031,8 @@ hash the resulting bits.
 <p>
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3333.html">N3333</a>
 also introduced a very similar <code>is_contiguous_layout</code> trait. 
-Although the paper did not make it perfectly clear, we believe this is
+Although the paper did not make it perfectly clear, we believe
+<code>is_contiguously_hashable</code> is
 approximately the same trait, but with a better name.  Just because a type
 has a <i>contiguous layout</i> does not necessarily imply that a type is
 <i>contiguously hashable</i>.  IEEE floating point is a case in point.  IEEE
@@ -1458,7 +1459,8 @@ In a nutshell, this is a <code>Hasher</code> <i>adaptor</i>, which takes any
 Think about what has just happened here.  You've compiled CheshireCat.cpp today.
  And <i>tomorrow</i>, when somebody invents a brand new hash algorithm, your
 CheshireCat.cpp uses it, with no re-compile necessary, for the cost of a virtual
-function call to the <code>Hasher</code>.  And yet no other client of this new
+function call (or many such calls) to the
+<code>Hasher</code>.  And yet no other client of this new
 <code>Hasher</code> (outside of those called by <code>CheshireCat</code>), is
 forced to access the new hashing algorithm via a virtual function call. That
 borders on magic!
