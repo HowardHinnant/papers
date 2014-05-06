@@ -22,12 +22,13 @@
 <body>
 
 <address align=right>
+Document number: D3980
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
 <a href="mailto:j.bytheway@gmail.com">John Bytheway</a><br/>
-2014-05-04
+2014-05-05
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -444,7 +445,7 @@ are consumed.
 </ul>
 
 <p>
-Not all, but many of the algorithms also have the property that they consume
+Not all, but most of the algorithms also have the property that they consume
 bytes in the order that they are received, possibly with a fixed sized
 internal buffer.  This characteristic can be taken advantage of in order to
 hash <i>discontiguous</i> memory.
@@ -1582,6 +1583,14 @@ get_process_seed()
 </pre></blockquote>
 
 <p>
+And then use it:
+</p>
+
+<blockquote><pre>
+std::unordered_set&lt;MyType, process_seeded_hash&lt;&gt;&gt; my_set;
+</pre></blockquote>
+
+<p>
 In this example, the hashing algorithm is initialized with a random seed when
 <code>process_seeded_hash</code> is invoked.  The same seed is used to
 initialize the algorithm on each hash functor invocation, and for all copies
@@ -1634,6 +1643,15 @@ randomly_seeded_hash&lt;HashAlgorithm&gt;::rand_s{std::random_device{}()};
 </pre></blockquote>
 
 <p>
+Perhaps using it like:
+</p>
+
+<blockquote><pre>
+std::unordered_set&lt;MyType, randomly_seeded_hash&lt;acme::spooky&gt;&gt; my_set;
+</pre></blockquote>
+
+
+<p>
 One uses the same technique to apply
 <a href="http://en.wikipedia.org/wiki/Salt_(cryptography)">salting</a>,
 or <a href="http://en.wikipedia.org/wiki/Padding_(cryptography)">padding</a>
@@ -1644,6 +1662,27 @@ to the message of <code>T</code> by using additional calls to
 <code>hash_append</code> in the <code>operator()(T const&amp; t)</code> of the
 hash functor.
 </p>
+
+<p><b>Emphasis</b></p>
+<blockquote><p>
+There is no need for the standard to specify a random seeding policy or
+interface, because using this infrastructure the client can very easily
+specify his own random seeding policy <b>without</b> having to revisit every
+type that needs to be hashed, and <b>without</b> having to heavily invest in
+any given hashing algorithm.  It can be done with only a few dozen lines of
+code.  And he can easily do so in a per-use manner: I.e. in use-case A we
+need to randomly seed the hashing of types X and Y. And in use-case B we need
+to <i>not</i> seed the hashing of types Y and Z. Type Y is correctly handled
+in both use-cases, and without having to revisit Y or Y's sub-types.  Y
+remains ignorant of the detail as to whether it is being hashed with a random
+seed or not (or even with what hashing algorithm).
+</p>
+Flexibility is built into this system in exactly the right places so as to
+achieve maximum options for the programmer with an absolute minimum of
+programmer intervention.  The std::lib merely has to set up the right
+infrastructure, and provide a simple default.
+<p>
+</p></blockquote>
 
 <a name="unordered"></a><h3>What about unordered containers?</h3>
 
