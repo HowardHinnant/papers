@@ -912,7 +912,7 @@ main()
             t.join();
         auto t1 = std::chrono::high_resolution_clock::now();
         using secs = std::chrono::duration&lt;float&gt;;
-        std::cout &lt;&lt; "nt = " &lt;&lt; nt &lt;&lt; " : " &lt;&lt; secs(t1-t0).count() &lt;&lt; '\n';
+        std::cout &lt;&lt; "nt = " &lt;&lt; nt &lt;&lt; " : " &lt;&lt; secs(t1-t0).count() &lt;&lt; std::endl;
     }
 }
 </pre></blockquote>
