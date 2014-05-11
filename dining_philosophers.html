@@ -25,7 +25,7 @@
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
-2014-05-10<br/>
+2014-05-11<br/>
 <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
 <img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br />
 This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
@@ -57,6 +57,7 @@ This work is licensed under a <a rel="license" href="http://creativecommons.org/
 <li><a href="#Summary">Summary</a></li>
 <li><a href="#codeA">Appendix A: Round Table Code</a></li>
 <li><a href="#codeB">Appendix B: 3-D Table Code</a></li>
+<li><a href="#Acknowledgments">Acknowledgments</a></li>
 </ul>
 
 <a name="Introduction"></a><h2>Introduction</h2>
@@ -348,34 +349,34 @@ lock(L0&amp; l0, L1&amp; l1)
 <p>
 This algorithm still contains a theoretical infinite loop.  However it will
 go through this loop rather slowly, as each <code>mutex</code> locked besides
-the very first is one for which the thread has just failed a call
+the very first, is one for which the thread has just failed a call to
 <code>try_lock()</code> (and so the subsequent <code>lock()</code> is likely
 to block).
 </p>
 
 <p>
-Some people have expressed a great deal of concern about
-<a href="http://en.wikipedia.org/wiki/Deadlock#Livelock"><i>livelock</i></a>
+Some people have expressed a great deal of concern about <a
+href="http://en.wikipedia.org/wiki/Deadlock#Livelock"><i>livelock</i></a>
 with this algorithm.  And indeed experiments have revealed a very small
-amount of <i>temporary</i> livelock can occur under high-contention conditions
-as emphasized by the tests herein.  The 4th algorithm is design to reduce this
-small amount of experimentally observed livelock to zero.
+amount of <i>temporary</i> livelock can occur under high-contention
+conditions as emphasized by the tests herein.  The 4th algorithm is designed
+to reduce this small amount of experimentally observed livelock to zero.
 </p>
 </li>
 
 <li>
 <a name="Polite"></a><h3>Smart &amp; Polite</h3>
 <p>
-This algorithm is a minor variant of the  <a href="#Smart">smart</a> algorithm.
-It has experimentally shown a small performance advantages over the
-<a href="#Smart">smart</a> algorithm on
-<a href="http://www.apple.com/osx/">OS X</a>.
-After the thread has failed a <code>try_lock()</code> on a
-<code>mutex</code>, but prior to blocking on that <code>mutex</code>, yield
-the processor to anyone else who might need it.  Results may be different on
-other OS's.  But on OS X, it is just the polite thing to do.  And the system
-as a whole (though not the individual <code>Philosopher</code>) benefits under
-conditions where processing power is already maxed out.
+This algorithm is a minor variant of the  <a href="#Smart">smart</a>
+algorithm. It has experimentally shown small performance advantages over the
+<a href="#Smart">smart</a> algorithm on <a
+href="http://www.apple.com/osx/">OS X</a>. After the thread has failed a
+<code>try_lock()</code> on a <code>mutex</code>, but prior to blocking on
+that <code>mutex</code>, yield the processor to anyone else who might need
+it.  Results may be different on other OS's.  But on OS X, it is just the
+polite thing to do.  And the system as a whole (though not the individual
+<code>Philosopher</code>) benefits under conditions where processing power is
+already maxed out.
 </p>
 <blockquote><pre>
 template &lt;class L0, class L1&gt;
@@ -583,7 +584,7 @@ imagine that there is a fork at the middle of each edge.
 </p>
 
 <p>
-Due to the limits of both Euclidean geometry, and my visualization limitations,
+Due to the limits of both Euclidean geometry, and my visualization abilities,
 this experiment will take on only 3 forms:
 </p>
 
@@ -1230,6 +1231,12 @@ main()
     std::cout &lt;&lt; secs(t1-t0).count() &lt;&lt; '\n';
 }
 </pre></blockquote>
+
+<a name="Acknowledgments"></a><h2>Acknowledgments</h2>
+
+<p>
+Thanks to Jonathan Wakely for his careful review.
+</p>
 
 </body>
 </html>
