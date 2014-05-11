@@ -28,7 +28,7 @@ Document number: D3980
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:vinnie.falco@gmail.com">Vinnie Falco</a><br/>
 <a href="mailto:j.bytheway@gmail.com">John Bytheway</a><br/>
-2014-05-05
+2014-05-11
 </address>
 <hr/>
 <h1 align=center>Types Don't Know #</h1>
@@ -2241,12 +2241,12 @@ Add a new section to [hash.requirements]:
 
 <p>
 A type <code>H</code> meets the <code>HashAlgorithm</code> requirements if
-all of following are met:
+all of the following are met:
 </p>
 
 <ul>
 <li><p>
-<code>H::result_type</code> exists and is a type.
+<code>H::result_type</code> is valid and denotes a type (14.8.2 [temp.deduct]).
 </p></li>
 
 <li><p>
@@ -2257,15 +2257,13 @@ same arguments, then they have equivalent state.
 </p></li>
 
 <li><p>
-<code>H</code> is <code>CopyConstructible</code>.  Copies have equivalent
-state.  However updates to the state of one copy shall have no impact on
-any other copy.
+<code>H</code> is <code>CopyConstructible</code>.  Updates to the state of
+one copy shall have no impact on any other copy.
 </p></li>
 
 <li><p>
-<code>H</code> is <code>CopyAssignable</code>.  Copies have equivalent
-state.  However updates to the state of one copy shall have no impact on
-any other copy.
+<code>H</code> is <code>CopyAssignable</code>.  Updates to the state of one
+copy shall have no impact on any other copy.
 </p></li>
 
 <li><pre>
@@ -2288,7 +2286,7 @@ are no effects.
 </p>
 <p>
 Consider two keys <code>{k1, len1}</code> and <code>{k2, len2}</code>, with
-both <code>len1</code> and <code>len2 &gt; 0</code>. If <code>len1 !=
+<code>len1 &gt; 0</code> and <code>len2 &gt; 0</code>. If <code>len1 !=
 len2</code>, the two keys are considered not equivalent. If <code>len1 ==
 len2</code> and if <code>memcmp(k1, k2, len1) == 0</code>, the two keys are
 equivalent, else they are not equivalent.
@@ -2364,16 +2362,16 @@ A type <code>H</code> meets the <code>HashAlgorithm</code>-based
 
 <li>
 <p>
-<code>H</code> is of the form
+<code>H</code> is a class template instantiation of the form
 </p>
 <blockquote><pre>
-template &lt;class HashAlgorithm, class ...&gt; struct H;
+template &lt;class HashAlgorithm, class Args&gt; struct H;
 </pre></blockquote>
 
 <p>
-and the first template parameter meets the
-<code>HashAlgorithm</code> requirements ([hash.algo.rqmts]).  This parameter
-may be defaulted.
+where Args is zero or more type arguments, and the first template parameter
+meets the <code>HashAlgorithm</code> requirements ([hash.algo.rqmts]).  The
+<code>HashAlgorithm</code> parameter may be defaulted.
 </p>
 </li>
 
@@ -2397,13 +2395,11 @@ seeds), are not required to initialize <code>H</code> to the same state.
 </li>
 
 <li><p>
-<code>H</code> is <code>CopyConstructible</code>.  Copies have equivalent
-state.
+<code>H</code> is <code>CopyConstructible</code>.
 </p></li>
 
 <li><p>
-<code>H</code> is <code>CopyAssignable</code>.  Copies have equivalent
-state.
+<code>H</code> is <code>CopyAssignable</code>.
 </p></li>
 
 <li>
@@ -2467,8 +2463,8 @@ struct is_contiguously_hashable;
 </pre>
 </td>
 <td>
-A type <code>T</code> is contiguously hashable if for all combinations of two
-values of a type, say <code>x</code> and <code>y</code>, if <code>x ==
+A type <code>T</code> is contiguously hashable if for any two
+values <code>x</code> and <code>y</code> of a type, if <code>x ==
 y</code>, then it must also be true that <code>memcmp(addressof(x),
 addressof(y), sizeof(T)) == 0</code>.  It <code>T</code> is an array type,
 then <code>T</code> is contiguously hashable if
@@ -2492,16 +2488,18 @@ Add a new section to [unord.hash]:
 
 <pre>
 template &lt;class HashAlgorithm, class T&gt;
-enable_if_t
-&lt;
-    is_contiguously_hashable&lt;T&gt;{}
-&gt;
-hash_append(HashAlgorithm&amp; h, T const&amp; t) noexcept;
+void
+hash_append(HashAlgorithm&amp; h, T const&amp; t);
 </pre>
 
 <blockquote>
 <p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;T&gt;::value</code> is <code>true</code>.
+</p>
+<p>
 <i>Effects:</i> <code>h(addressof(t), sizeof(t))</code>.
+</p>
 </blockquote>
 
 <p>
@@ -2534,7 +2532,7 @@ enable_if_t
 &lt;
     is_floating_point&lt;T&gt;{}
 &gt;
-hash_append(HashAlgorithm&amp; h, T t) noexcept
+hash_append(HashAlgorithm&amp; h, T t)
 {
     if (t == 0)
         t = 0;
@@ -2556,7 +2554,7 @@ And here is a plausible definition for <code>nullptr_t</code>:
 <blockquote><pre>
 template &lt;class HashAlgorithm&gt;
 void
-hash_append(HashAlgorithm&amp; h, nullptr_t) noexcept
+hash_append(HashAlgorithm&amp; h, nullptr_t)
 {
     void const* p = nullptr;
     h(&amp;p, sizeof(p));
@@ -2569,14 +2567,15 @@ hash_append(HashAlgorithm&amp; h, nullptr_t) noexcept
 
 <pre>
 template &lt;class HashAlgorithm, class T, size_t N&gt;
-enable_if_t
-&lt;
-    !is_contiguously_hashable&lt;T&gt;{}
-&gt;
-hash_append(HashAlgorithm&amp; h, T (&amp;a)[N]) noexcept;
+void
+hash_append(HashAlgorithm&amp; h, T (&amp;a)[N]);
 </pre>
 
 <blockquote>
+<p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;T&gt;::value</code> is <code>false</code>.
+</p>
 <p>
 <i>Effects:</i>
 </p>
@@ -2603,7 +2602,7 @@ are <i>contiguously hashable</i>, the exact same message is sent to the
 template &lt;class HashAlgorithm, class T0, class T1, class ...T&gt;
 inline
 void
-hash_append (HashAlgorithm&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t) noexcept;
+hash_append (HashAlgorithm&amp; h, T0 const&amp; t0, T1 const&amp; t1, T const&amp; ...t);
 </pre>
 
 <blockquote>
@@ -2633,7 +2632,7 @@ struct uhash
 
     template &lt;class T&gt;
     result_type
-    operator()(T const&amp; t) const noexcept;
+    operator()(T const&amp; t) const;
 };
 </pre>
 
@@ -2654,7 +2653,7 @@ default for this parameter refers to an implementation provided default
 template &lt;class HashAlgorithm&gt;
 template &lt;class T&gt;
 typename HashAlgorithm::result_type
-uhash&lt;HashAlgorithm&gt;::operator()(T const&amp; t) const noexcept;
+uhash&lt;HashAlgorithm&gt;::operator()(T const&amp; t) const;
 </pre>
 
 <blockquote>
@@ -2682,7 +2681,7 @@ class type_info {
 
 <ins>
 template &lt;HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, type_info const&amp; t) noexcept;
+    void hash_append(HashAlgorithm&amp; h, type_info const&amp; t);
 </ins>
 </pre>
 
@@ -2690,32 +2689,14 @@ template &lt;HashAlgorithm&gt;
 
 <pre>
 template &lt;HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, type_info const&amp; t) noexcept;
+    void hash_append(HashAlgorithm&amp; h, type_info const&amp; t);
 </pre>
 
 <blockquote>
 <p>
-<i>Effects:</i>
-</p>
-<blockquote><pre>
-const char* p = t.name();
-for (; *p; ++p)
-    hash_append(h, *p);
-hash_append(h, *p);
-</pre></blockquote>
-
-<p>
-[<i>Note:</i> This may be optimized to:
-</p>
-
-<pre>
-char const char* const str = t.name();
-h(str, strlen(str)+1);
-</pre>
-
-<p>
-if <code>is_contiguously_hashable&lt;char&gt;{}</code> is
-<code>true</code></code>. &mdash; <i>end note</i>]
+<i>Effects:</i>  Updates the state of <code>h</code> with data that is
+unique to <code>t</code> with respect to all other <code>type_info</code>s
+that compare not equal to <code>t</code>.
 </p>
 </blockquote>
 
@@ -2727,7 +2708,7 @@ Add to the synopsis in [syserr]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, error_code const&amp; ec) noexcept
+    void hash_append(HashAlgorithm&amp; h, error_code const&amp; ec)
 </pre></blockquote>
 
 <p>
@@ -2737,7 +2718,7 @@ Add to [syserr.hash]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, error_code const&amp; ec) noexcept
+    void hash_append(HashAlgorithm&amp; h, error_code const&amp; ec)
 </pre>
 
 <blockquote>
@@ -2761,8 +2742,8 @@ struct is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;
     {};
 
 template &lt;class HashAlgorithm, class T, class U&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, pair&lt;T, U&gt; const&amp; p) noexcept
+    void
+    hash_append(HashAlgorithm&amp; h, pair&lt;T, U&gt; const&amp; p)
 </pre></blockquote>
 
 <p>
@@ -2774,10 +2755,15 @@ Add a new section to [pairs]: [pairs.hash]:
 
 <pre>
 template &lt;class HashAlgorithm, class T, class U&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, pair&lt;T, U&gt; const&amp; p) noexcept
+    void
+    hash_append(HashAlgorithm&amp; h, pair&lt;T, U&gt; const&amp; p)
 </pre>
 <blockquote>
+<p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;pair&lt;T, U&gt;&gt;::value</code>
+is <code>false</code>.
+</p>
 <p>
 <i>Effects:</i> <code>hash_append(h, p.first, p.second);</code>
 </p>
@@ -2793,8 +2779,8 @@ template &lt;class ...T&gt;
     struct is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;;
 
 template &lt;class HashAlgorithm, class ...T&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, tuple&lt;T...&gt; const&amp; t) noexcept
+    void
+    hash_append(HashAlgorithm&amp; h, tuple&lt;T...&gt; const&amp; t)
 </pre></blockquote>
 
 
@@ -2821,11 +2807,16 @@ to <code>sizeof(tuple&lt;T...&gt;)</code>, else publicly derives from
 
 <pre>
 template &lt;class HashAlgorithm, class ...T&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, tuple&lt;T...&gt; const&amp; t) noexcept
+    void
+    hash_append(HashAlgorithm&amp; h, tuple&lt;T...&gt; const&amp; t)
 </pre>
 
 <blockquote>
+<p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;tuple&lt;T...&gt;&gt;::value</code>
+is <code>false</code>.
+</p>
 <p>
 <i>Effects:</i> Calls <code>hash_append(h, get&lt;I&gt;(t))</code> for each
 <code>I</code> in the range [0, sizeof...(T)).  If sizeof...(T) is 0, the
@@ -2842,7 +2833,7 @@ Add to the synopsis in [template.bitset]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm, size_t N&gt;
-    void hash_append(HashAlgorithm&amp; h, bitset&lt;N&gt; const&amp; bs) noexcept
+    void hash_append(HashAlgorithm&amp; h, bitset&lt;N&gt; const&amp; bs)
 </pre></blockquote>
 
 <p>
@@ -2852,7 +2843,7 @@ Add to [bitset.hash]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm, size_t N&gt;
-    void hash_append(HashAlgorithm&amp; h, bitset&lt;N&gt; const&amp; bs) noexcept
+    void hash_append(HashAlgorithm&amp; h, bitset&lt;N&gt; const&amp; bs)
 </pre>
 
 <blockquote>
@@ -2873,9 +2864,9 @@ Add to the synopsis in [memory.syn]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm, class T, class D&gt;
-    void hash_append(HashAlgorithm&amp; h, unique_ptr&lt;T, D&gt; const&amp; p) noexcept;
+    void hash_append(HashAlgorithm&amp; h, unique_ptr&lt;T, D&gt; const&amp; p);
 template &lt;class HashAlgorithm, class T&gt;
-    void hash_append(HashAlgorithm&amp; h, shared_ptr&lt;T&gt; const&amp; p) noexcept;
+    void hash_append(HashAlgorithm&amp; h, shared_ptr&lt;T&gt; const&amp; p);
 </pre></blockquote>
 
 <p>
@@ -2885,9 +2876,9 @@ Add to [util.smartptr.hash]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm, class T, class D&gt;
-    void hash_append(HashAlgorithm&amp; h, unique_ptr&lt;T, D&gt; const&amp; p) noexcept;
+    void hash_append(HashAlgorithm&amp; h, unique_ptr&lt;T, D&gt; const&amp; p);
 template &lt;class HashAlgorithm, class T&gt;
-    void hash_append(HashAlgorithm&amp; h, shared_ptr&lt;T&gt; const&amp; p) noexcept;
+    void hash_append(HashAlgorithm&amp; h, shared_ptr&lt;T&gt; const&amp; p);
 </pre>
 
 <blockquote>
@@ -2914,12 +2905,12 @@ struct is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;
     {};
 
 template &lt;class HashAlgorithm, class Rep, class Period&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;duration&lt;Rep, Period&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, duration&lt;Rep, Period&gt; const&amp; d) noexcept;
+    void
+    hash_append(HashAlgorithm&amp; h, duration&lt;Rep, Period&gt; const&amp; d);
 
 template &lt;class HashAlgorithm, class Clock, class Duration&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, time_point&lt;Clock, Duration&gt; const&amp; tp) noexcept;
+    void
+    hash_append(HashAlgorithm&amp; h, time_point&lt;Clock, Duration&gt; const&amp; tp);
 </pre></blockquote>
 
 <p>
@@ -2930,10 +2921,15 @@ Add a new section to [time.duration], [time.duration.hash]:
 <h3>duration hash [time.duration.hash]</h3>
 <pre>
 template &lt;class HashAlgorithm, class Rep, class Period&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;duration&lt;Rep, Period&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, duration&lt;Rep, Period&gt; const&amp; d) noexcept;
+    void
+    hash_append(HashAlgorithm&amp; h, duration&lt;Rep, Period&gt; const&amp; d);
 </pre>
 <blockquote>
+<p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;duration&lt;Rep, Period&gt;&gt;::value</code>
+is <code>false</code>.
+</p>
 <p>
 <i>Effects:</i> <code>hash_append(h, d.count())</code>.
 </p>
@@ -2948,10 +2944,15 @@ Add a new section to [time.point], [time.point.hash]:
 <h3>time_point hash [time.point.hash]</h3>
 <pre>
 template &lt;class HashAlgorithm, class Clock, class Duration&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, time_point&lt;Clock, Duration&gt; const&amp; tp) noexcept;
+    void
+    hash_append(HashAlgorithm&amp; h, time_point&lt;Clock, Duration&gt; const&amp; tp);
 </pre>
 <blockquote>
+<p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;time_point&lt;Clock, Duration&gt;&gt;::value</code>
+is <code>false</code>.
+</p>
 <p>
 <i>Effects:</i> <code>hash_append(h, tp.time_since_epoch())</code>.
 </p>
@@ -2964,7 +2965,7 @@ Add to the synopsis in [type.index.synopsis]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, type_index const&amp; ti) noexcept;
+    void hash_append(HashAlgorithm&amp; h, type_index const&amp; ti);
 </pre></blockquote>
 
 <p>
@@ -2974,7 +2975,7 @@ Add to [type.index.hash]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, type_index const&amp; ti) noexcept;
+    void hash_append(HashAlgorithm&amp; h, type_index const&amp; ti);
 </pre>
 
 <blockquote>
@@ -2991,7 +2992,7 @@ Add to the synopsis in [string.classes]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm, class CharT, class Traits, class Alloc&gt;
-    void hash_append(HashAlgorithm&amp; h, basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept;
+    void hash_append(HashAlgorithm&amp; h, basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s);
 </pre></blockquote>
 
 <p>
@@ -3001,7 +3002,7 @@ Add to [basic.string.hash]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm, class CharT, class Traits, class Alloc&gt;
-    void hash_append(HashAlgorithm&amp; h, basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s) noexcept;
+    void hash_append(HashAlgorithm&amp; h, basic_string&lt;CharT, Traits, Alloc&gt; const&amp; s);
 </pre>
 
 <blockquote>
@@ -3044,8 +3045,8 @@ struct is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;
     {};
 
 template &lt;class HashAlgorithm, class T, size_t N&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, array&lt;T, N&gt; const&amp; a) noexcept;
+    void
+    hash_append(HashAlgorithm&amp; h, array&lt;T, N&gt; const&amp; a);
 </pre>
 </blockquote>
 
@@ -3057,7 +3058,7 @@ Add to the synopsis of <code>&lt;deque&gt;</code> in [sequences.general]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, deque&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, deque&lt;T, Allocator&gt; const&amp; x);
 </pre>
 </blockquote>
 
@@ -3069,7 +3070,7 @@ Add to the synopsis of <code>&lt;forward_list&gt;</code> in [sequences.general]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, forward_list&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, forward_list&lt;T, Allocator&gt; const&amp; x);
 </pre>
 </blockquote>
 
@@ -3081,7 +3082,7 @@ Add to the synopsis of <code>&lt;list&gt;</code> in [sequences.general]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, list&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, list&lt;T, Allocator&gt; const&amp; x);
 </pre>
 </blockquote>
 
@@ -3093,11 +3094,11 @@ Add to the synopsis of <code>&lt;vector&gt;</code> in [sequences.general]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, vector&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, vector&lt;T, Allocator&gt; const&amp; x);
 
 template &lt;class HashAlgorithm, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, vector&lt;bool, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, vector&lt;bool, Allocator&gt; const&amp; x);
 </pre>
 </blockquote>
 
@@ -3108,16 +3109,23 @@ Add to [array.special]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm, class T, size_t N&gt;
-    enable_if_t&lt;!is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;{}&gt;
-    hash_append(HashAlgorithm&amp; h, array&lt;T, N&gt; const&amp; a) noexcept;
+    void
+    hash_append(HashAlgorithm&amp; h, array&lt;T, N&gt; const&amp; a);
 </pre>
 
 <blockquote>
+<p>
+<i>Remarks:</i> This function shall not participate in overload resolution,
+unless <code>is_contiguously_hashable&lt;array&lt;T, N&gt;&gt;::value</code>
+is <code>false</code>.
+</p>
+<p>
 <i>Effects:</i>
 <blockquote><pre>
 for (auto const&amp; t : a)
     hash_append(h, t);
 </pre></blockquote>
+</p>
 </blockquote>
 </blockquote>
 
@@ -3129,7 +3137,7 @@ Add to [deque.special]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, deque&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, deque&lt;T, Allocator&gt; const&amp; x);
 </pre>
 
 <blockquote>
@@ -3156,7 +3164,7 @@ Add to [forwardlist.spec]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, forward_list&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, forward_list&lt;T, Allocator&gt; const&amp; x);
 </pre>
 
 <blockquote>
@@ -3181,7 +3189,7 @@ Add to [list.special]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, list&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, list&lt;T, Allocator&gt; const&amp; x);
 </pre>
 
 <blockquote>
@@ -3202,7 +3210,7 @@ Add to [vector.special]:
 <pre>
 template &lt;class HashAlgorithm, class T, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, vector&lt;T, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, vector&lt;T, Allocator&gt; const&amp; x);
 </pre>
 
 <blockquote>
@@ -3229,7 +3237,7 @@ Add to [vector.bool]:
 <pre>
 template &lt;class HashAlgorithm, class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, vector&lt;bool, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, vector&lt;bool, Allocator&gt; const&amp; x);
 </pre>
 
 <blockquote>
@@ -3251,11 +3259,11 @@ Add to the synopsis of <code>&lt;map&gt;</code> in [associative.map.syn]:
 <pre>
 template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, map&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, map&lt;Key, T, Compare, Allocator&gt; const&amp; x);
 
 template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, multimap&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, multimap&lt;Key, T, Compare, Allocator&gt; const&amp; x);
 </pre>
 </blockquote>
 
@@ -3267,11 +3275,11 @@ Add to the synopsis of <code>&lt;set&gt;</code> in [associative.set.syn]:
 <pre>
 template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, set&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, set&lt;Key, Compare, Allocator&gt; const&amp; x);
 
 template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, multiset&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, multiset&lt;Key, Compare, Allocator&gt; const&amp; x);
 </pre>
 </blockquote>
 
@@ -3283,7 +3291,7 @@ Add to [map.special]:
 <pre>
 template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, map&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, map&lt;Key, T, Compare, Allocator&gt; const&amp; x);
 </pre>
 <blockquote>
 <p>
@@ -3305,7 +3313,7 @@ Add to [multimap.special]:
 <pre>
 template &lt;class HashAlgorithm, class Key, class T, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, multimap&lt;Key, T, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, multimap&lt;Key, T, Compare, Allocator&gt; const&amp; x);
 </pre>
 <blockquote>
 <p>
@@ -3327,7 +3335,7 @@ Add to [set.special]:
 <pre>
 template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, set&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, set&lt;Key, Compare, Allocator&gt; const&amp; x);
 </pre>
 <blockquote>
 <p>
@@ -3349,7 +3357,7 @@ Add to [multiset.special]:
 <pre>
 template &lt;class HashAlgorithm, class Key, class Compare class Allocator&gt;
     void
-    hash_append(HashAlgorithm&amp; h, multiset&lt;Key, Compare, Allocator&gt; const&amp; x) noexcept;
+    hash_append(HashAlgorithm&amp; h, multiset&lt;Key, Compare, Allocator&gt; const&amp; x);
 </pre>
 <blockquote>
 <p>
@@ -3369,7 +3377,7 @@ Add to the synopsis in [complex.syn]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm, class T&gt;
-    void hash_append(HashAlgorithm&amp; h, complex&lt;T&gt; const&amp; x) noexcept;
+    void hash_append(HashAlgorithm&amp; h, complex&lt;T&gt; const&amp; x);
 </pre></blockquote>
 
 <p>
@@ -3379,7 +3387,7 @@ Add to [complex.ops]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm, class T&gt;
-    void hash_append(HashAlgorithm&amp; h, complex&lt;T&gt; const&amp; x) noexcept;
+    void hash_append(HashAlgorithm&amp; h, complex&lt;T&gt; const&amp; x);
 </pre>
 <blockquote>
 <p>
@@ -3395,7 +3403,7 @@ Add to the synopsis in [thread.thread.id]:
 
 <blockquote><pre>
 template &lt;class HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, thread::id const&amp; id) noexcept;
+    void hash_append(HashAlgorithm&amp; h, thread::id const&amp; id);
 </pre></blockquote>
 
 <p>
@@ -3405,7 +3413,7 @@ Add to [thread.thread.id]:
 <blockquote>
 <pre>
 template &lt;class HashAlgorithm&gt;
-    void hash_append(HashAlgorithm&amp; h, thread::id const&amp; id) noexcept;
+    void hash_append(HashAlgorithm&amp; h, thread::id const&amp; id);
 </pre>
 
 <blockquote>
@@ -3440,8 +3448,8 @@ to Jeremy and Chris Jefferson for their guidance on hashing unordered sequences.
 </p>
 
 <p>
-Additional thanks to Walter Brown and Richard Smith for their invaluable review
-and guidance.
+Additional thanks to Walter Brown, Daniel Kr&uuml;gler, and Richard Smith for
+their invaluable review and guidance.
 </p>
 
 <p>
