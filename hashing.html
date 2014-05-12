@@ -72,8 +72,9 @@ Document number: D3980
     </ul>
 </li>
 <li><a href="#type_erased_hasher">Appendix A: <code>type_erased_hasher</code></a></li>
-<li><a href="#debugHasher">Appendix B: <code>debugHasher</code></a></li>
-<li><a href="#wording">Appendix C: Proposed Wording</a></li>
+<li><a href="#bikeshed">Appendix B: B is for Bike Shed</a></li>
+<li><a href="#debugHasher">Appendix C: <code>debugHasher</code></a></li>
+<li><a href="#wording">Appendix D: Proposed Wording</a></li>
 <li><a href="#Acknowledgments">Acknowledgments</a></li>
 </ul>
 
@@ -2127,7 +2128,21 @@ function which simply forwards to <code>std::function</code>'s
 <code>target</code> function.
 </p>
 
-<a name="debugHasher"></a><h2>Appendix B: <code>debugHasher</code></h2>
+<a name="bikeshed"></a><h2>Appendix B: B is for Bike Shed</h2>
+
+<ul>
+<li>
+<p>
+In Elements of Programming, Stepanov uses the term <i>uniquely represented</i> for
+the property this paper refers to as <i>contiguously hashable</i>.
+Therefore another good name name for <code>is_contiguously_hashable</code> is
+<code>is_uniquely_represented</code>.
+</p>
+</li>
+
+</ul>
+
+<a name="debugHasher"></a><h2>Appendix C: <code>debugHasher</code></h2>
 
 <p>
 Another interesting "hash algorithm" is <code>debugHasher</code>.  This is a
@@ -2230,7 +2245,7 @@ number of times called, and the average number of bytes hashed per call, is left
 as a fun exercise for the reader.
 </p>
 
-<a name="wording"></a><h2>Appendix C: Proposed Wording</h2>
+<a name="wording"></a><h2>Appendix D: Proposed Wording</h2>
 
 <p>
 Add a new section to [hash.requirements]:
