@@ -25,7 +25,7 @@
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
-2014-05-11<br/>
+2014-05-18<br/>
 <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
 <img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br />
 This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
@@ -50,6 +50,7 @@ This work is licensed under a <a rel="license" href="http://creativecommons.org/
 <ul>
     <li><a href="#2dp4">Round Table on a 4 Core Machine</a></li>
     <li><a href="#d2p8">Round Table on a 8 Core Machine</a></li>
+    <li><a href="#Explanation">Explanation</a></li>
     <li><a href="#3dp4">A 3-D Table on a 4 Core Machine</a></li>
     <li><a href="#3dp8">A 3-D Table on an 8 Core Machine</a></li>
 </ul>
@@ -554,6 +555,101 @@ href="#codeA">this test</a> on your own machine and publicly report your
 results.
 </p></li>
 </ul>
+
+
+<table style="border-spacing:20px">
+<tr>
+<td>
+<a name="Explanation"></a><h3>Explanation</h3>
+<p>
+To help visualize the problem, lets concentrate on the case of five
+philosophers.  And to simplify the analysis, assume we have enough
+cores to give each philosopher a dedicated processor.
+</p>
+<p>
+Imagine that all five philosophers try to initiate grabbing their lower-numbered
+fork at once.  Philosophers 2, 3 and 4 will lock mutexes 1, 2 and 3 respectively.
+Philosophers 0 and 1 will race to get mutex 0.  One of them will succeed, and
+the other will block.
+</p>
+<p>
+Next, the non-blocked philosophers (say 0, 2, 3 and 4) will try to lock their
+higher-numbered mutex.  Philosophers 2 and 3 will block when they do this,
+because their higher-numbered mutex is already owned by the philosopher to
+their right.  Philosophers 0 and 4 will race to obtain mutex 4.  One of them
+will get the mutex, and the other will block.
+</p>
+<p>
+The end result is that out of the 5 philosophers, 4 of them will be blocked,
+waiting for the 1 runnable philosopher to finish eating.
+</p>
+<p>
+This doesn't <i>always</i> happen.  Otherwise the graphs above would show this
+case taking 150 seconds (5 x 30 seconds) instead of about 95 seconds.  However
+the 95 second result indicates that one philosopher is blocking the other four
+from eating about half the time. 
+</p>
+<p>
+Ideally, two philosophers should be able to eat at once, 100% of the time.
+</p>
+</td>
+<td>
+<video width="480" height="360" controls>
+  <source src="dining_philosophers.m4v" type="video/mp4">
+Your browser does not support the video tag.
+</video>
+</td>
+</tr>
+
+<tr>
+<td>
+<p>
+Using the "smart" locking algorithm, asume we start out the same way as
+the ordered algorithm, with philosophers 2, 3 and 4 obtaining mutexes 1, 2
+and 3 respectively, and philosophers 0 and 1 racing to lock mutex 0.  Note
+that we don't have to start out this way.  The philosophers can try to grab
+either mutex with this algorithm.  But for the moment, assume things start
+out the same.
+</p>
+<p>
+Next, the non-blocked philosophers (say 0, 2, 3 and 4) will try to lock their
+other mutex, which in this example just happens to be their higher-numbered
+mutex (just like in the ordered algorithm).  But this is where things begin
+to deviate from the ordered algorithm.
+</p>
+<p>
+Assume that in the race between philosopher 0 and philosopher 4 for mutex 4,
+philosopher 0 wins.  If this were the ordered algorithm, philosopher 2, 3 and
+4 would block on failing to get their second mutex.  However in this algorithm
+the result is a failed <code>try_lock</code>.  The response of philosophers 2,
+3 and 4 is to unlock their first mutex and <code>lock</code> their second.
+When this happens, only philosopher 4 blocks as mutex 4 is already owned by
+philosopher 0.  Philosophers 2 and 3 succeed in locking mutexes 2 and 3
+respectively.
+</p>
+<p>
+Now philosophers 2 and 3 attempt to lock mutexes 1 and 2 respectively.
+Philosopher 2 succeeds and philosopher 3 fails, and in response philosopher 3
+unlocks mutex 3.  Philosopher 3 then blocks on attempting to lock mutex 2.
+</p>
+<p>
+At this point philosophers 0 and 2 are eating, and philosophers 1, 3 and 4
+are blocked.  For this topology, 2 philosophers eating while the other 3 are
+blocked is an optimum.  The smart locking algorithm will quickly find this
+optimum in every situation.  This is evidenced by the experimental result of
+75 seconds: exactly half of the purely sequential result of 150 seconds.
+</p>
+</td>
+<td>
+<video width="480" height="360" controls>
+  <source src="dining_philosophers2.m4v" type="video/mp4">
+Your browser does not support the video tag.
+</video>
+</td>
+</tr>
+
+</table>
+
 
 <p>
 The next question to naturally arise is:
