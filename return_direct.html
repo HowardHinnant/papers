@@ -263,6 +263,56 @@ N4029 implemented) is:
 2ns
 </pre></blockquote>
 
+<p>
+The error is this line that parses "min" after the count:
+</p>
+
+<blockquote><pre>
+                        return count;
+</pre></blockquote>
+
+<p>
+which should read:
+</p>
+
+<blockquote><pre>
+                        return minutes(count);
+</pre></blockquote>
+
+<p>
+Or if you prefer:
+</p>
+
+<blockquote><pre>
+                        return minutes{count};
+</pre></blockquote>
+
+<p>
+Note that:
+</p>
+
+<blockquote><pre>
+                        return {count};
+</pre></blockquote>
+
+<p>
+does not help at all.  It converts the same compile-time error into the same
+run-time error, with or without the explicit <code>{}</code>.
+</p>
+
+<p>
+Once the error is corrected, the correct output of the test is:
+</p>
+
+<blockquote><pre>
+7200000000000ns
+120000000000ns
+2000000000ns
+2000000ns
+2000ns
+2ns
+</pre></blockquote>
+
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
