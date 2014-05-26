@@ -1,0 +1,289 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Response To: Let return Be Direct and explicit</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+<br/>
+<br/>
+<a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
+2014-05-26<br/>
+<a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
+<img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br />
+This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
+</address>
+<hr/>
+<h1 align=center>Response To: Let <code>return</code> Be Direct and <code>explicit</code></h1>
+
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#Introduction">Introduction</a></li>
+<li><a href="#Example">The Counter-Example</a></li>
+<li><a href="#Summary">Summary</a></li>
+</ul>
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+This paper is in response to:
+</p>
+
+<blockquote><p>
+<a href="https://isocpp.org/files/papers/n4029.pdf">N4026: Let <code>return</code> Be Direct and <code>explicit</code></a>
+</p></blockquote>
+
+<p>
+N4026 proposes (with the best of intentions) to ignore the
+<code>explicit</code> qualifier on conversions when the conversion would take
+place on a <code>return</code> statement.  For example:
+</p>
+
+<blockquote><pre>
+struct Type2 { explicit Type2(int){} };
+
+Type2 f2_braces()
+{
+    Type2 local2{2};
+    return {2}; // error now, ok with adoption of N4026.
+}
+
+Type2 f2_parens()
+{
+    Type2 local2(2);
+    return 2;    // error now, ok with adoption of N4026.
+    return (2);  // error now, ok with adoption of N4026.
+}
+</pre></blockquote>
+
+<p>
+The motivation for this change is:
+</p>
+
+<blockquote>
+<p>
+I believe this is inconsistent because the named return type is just as
+"explicit" a type as a named local automatic variable type. Requiring the
+user to express the type is by definition redundant &mdash; there is no other
+type it could be.
+</p>
+<p>
+This is falls into the (arguably most) hated category of C++ compiler
+diagnostics: "I know exactly what you meant. My error message even tells you
+exactly what you must type. But I will make you type it."
+</p>
+</blockquote>
+
+<p>
+I can relate.  Unnecessary typing <i>is</i> frustrating.  However I believe
+it is possible that ignoring the <code>explicit</code> qualifier on type
+conversions, even if only restricted to <code>return</code> statements, could
+turn <i>compile-time</i> errors into <i>run-time</i> errors.  Possibly
+<i>very subtle run-time</i> errors (the worst kind).
+</p>
+
+<p>
+How likely is it that such run-time errors might be introduced?
+<i>&lt;shrug&gt;</i> Such conjecture is always highly speculative.  But in this
+instance, I can offer a realistic example where exactly this would happen.
+And it happens very close to our home: by ignoring the <code>explicit</code>
+qualifier of the constructor of a <b>std-defined</b> class type.
+</p>
+
+<a name="Example"></a><h2>The Counter-Example</h2>
+
+<p>
+Bear with me while I set up the likelihood of this counter-example actually
+happening in the wild...
+</p>
+
+<p>
+Today in <code>&lt;string&gt;</code> we have the following functions which
+turn a <code>std::string</code> into an arithmetic type:
+</p>
+
+<blockquote><pre>
+int                stoi  (const string&amp; str, size_t* idx = 0, int base = 10);
+long               stol  (const string&amp; str, size_t* idx = 0, int base = 10);
+unsigned long      stoul (const string&amp; str, size_t* idx = 0, int base = 10);
+long long          stoll (const string&amp; str, size_t* idx = 0, int base = 10);
+unsigned long long stoull(const string&amp; str, size_t* idx = 0, int base = 10);
+
+float       stof (const string&amp; str, size_t* idx = 0);
+double      stod (const string&amp; str, size_t* idx = 0);
+long double stold(const string&amp; str, size_t* idx = 0);
+</pre></blockquote>
+
+<p>
+It seems quite reasonable that a programmer might say to himself:
+</p>
+
+<blockquote>
+<p>
+I would like to write a function that turns a <code>std::string</code> into
+a <code>std::chrono::duration</code>.
+</p>
+</blockquote>
+
+<p>
+Which <code>duration</code>?  Well, let's keep it simple and say: any one of the
+six "predefined" <code>duration</code>s: <code>hours</code>, <code>minutes</code>,
+<code>seconds</code>, <code>milliseconds</code>, <code>microseconds</code>,
+or <code>nanoseconds</code>.
+</p>
+
+<p>
+What would be the syntax for doing this?  Well, it would be quite reasonable
+to follow the same syntax we already have for <code>duration</code> literals:
+</p>
+
+<blockquote><pre>
+2h     // 2 hours
+2min   // 2 minutes
+2s     // 2 seconds
+2ms    // 2 milliseconds
+2us    // 2 microseconds
+2ns    // 2 nanoseconds
+</pre></blockquote>
+
+<p>
+And here is quite reasonable code for doing this:
+</p>
+
+<blockquote><pre>
+std::chrono::nanoseconds
+stons(std::string const&amp; str)
+{
+    using namespace std::chrono;
+    auto errno_save = errno;
+    errno = 0;
+    char* endptr;
+    auto count = std::strtoll(str.data(), &amp;endptr, 10);
+    std::swap(errno, errno_save);
+    if (errno_save != 0)
+        throw std::runtime_error("error parsing duration");
+    if (str.data() &lt; endptr &amp;&amp; endptr &lt; str.data() + str.size())
+    {
+        switch (*endptr)
+        {
+        case 'h':
+            return hours(count);
+        case 'm':
+            if (endptr + 1 &lt; str.data() + str.size())
+            {
+                switch (endptr[1])
+                {
+                case 'i':
+                    if (endptr + 2 &lt; str.data() + str.size() &amp;&amp; endptr[2] == 'n')
+                        return count;
+                    break;
+                case 's':
+                    return milliseconds(count);
+                }
+            }
+            break;
+        case 's':
+            return seconds(count);
+        case 'u':
+            return microseconds(count);
+        case 'n':
+            return nanoseconds(count);
+        }
+    }
+    throw std::runtime_error("error parsing duration");
+}
+</pre></blockquote>
+
+<p>
+Here is a simplistic "are you breathing" test for this code:
+</p>
+
+<blockquote><pre>
+int
+main()
+{
+    using namespace std;
+    using namespace std::chrono;
+    cout &lt;&lt; strtons("2h").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; strtons("2min").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; strtons("2s").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; strtons("2ms").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; strtons("2us").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; strtons("2ns").count() &lt;&lt; "ns\n";
+}
+</pre></blockquote>
+
+<p>
+Ok, so what is my point?
+</p>
+
+<p>
+There is a careless type-o / bug in <code>stons</code>.  Do you see it yet?
+<code>stons</code> is not trivial.  But neither is it horribly complicated.
+Nor is it contrived.  Nor is the bug in it contrived.  It is a type of bug
+that occurs commonly.
+</p>
+
+<p>
+Today the bug in <code>stons</code> results in a compile-time error.  This
+compile-time error was intended by the designers of the
+<code>&lt;chrono&gt;</code> library.
+</p>
+
+<p>
+If we accept N4026, the bug in <code>stons</code> becomes a run-time error.
+Have you spotted it yet?  Here is a clue.  The output of the test (with
+N4026 implemented) is:
+</p>
+
+<blockquote><pre>
+7200000000000ns
+2ns
+2000000000ns
+2000000ns
+2000ns
+2ns
+</pre></blockquote>
+
+<a name="Summary"></a><h2>Summary</h2>
+
+<p>
+For me, this example stresses the point that when a type author writes
+"<code>explicit</code>", we should never ignore it.  Not on a <code>return</code>
+statement.  Not anywhere.  The type author knows best.  He had the option to
+not make his conversion <code>explicit</code>, and he felt strongly enough
+about the decision to <i>opt-in</i> to an <code>explicit</code> conversion.
+</p>
+
+<p>
+I recall that when <code>&lt;chrono&gt;</code> was going through the
+standardization process, the entire committee felt <i>very strongly</i> that
+<code>int</code> should never implicitly convert to a <code>duration</code>.
+</p>
+
+<p>
+Surely there are plenty of other examples in the wild where the type authors
+opt-in to an explicit conversion, with just as strong feelings about their
+decision as we felt about <code>int</code> and <code>&lt;chrono&gt;</code>.
+</p>
+
+</body>
+</html>
