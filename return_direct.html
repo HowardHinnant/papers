@@ -48,11 +48,11 @@ This paper is in response to:
 </p>
 
 <blockquote><p>
-<a href="https://isocpp.org/files/papers/n4029.pdf">N4026: Let <code>return</code> Be Direct and <code>explicit</code></a>
+<a href="https://isocpp.org/files/papers/n4029.pdf">N4029: Let <code>return</code> Be Direct and <code>explicit</code></a>
 </p></blockquote>
 
 <p>
-N4026 proposes (with the best of intentions) to ignore the
+N4029 proposes (with the best of intentions) to ignore the
 <code>explicit</code> qualifier on conversions when the conversion would take
 place on a <code>return</code> statement.  For example:
 </p>
@@ -63,14 +63,14 @@ struct Type2 { explicit Type2(int){} };
 Type2 f2_braces()
 {
     Type2 local2{2};
-    return {2}; // error now, ok with adoption of N4026.
+    return {2}; // error now, ok with adoption of N4029.
 }
 
 Type2 f2_parens()
 {
     Type2 local2(2);
-    return 2;    // error now, ok with adoption of N4026.
-    return (2);  // error now, ok with adoption of N4026.
+    return 2;    // error now, ok with adoption of N4029.
+    return (2);  // error now, ok with adoption of N4029.
 }
 </pre></blockquote>
 
@@ -249,9 +249,9 @@ compile-time error was intended by the designers of the
 </p>
 
 <p>
-If we accept N4026, the bug in <code>stons</code> becomes a run-time error.
+If we accept N4029, the bug in <code>stons</code> becomes a run-time error.
 Have you spotted it yet?  Here is a clue.  The output of the test (with
-N4026 implemented) is:
+N4029 implemented) is:
 </p>
 
 <blockquote><pre>
