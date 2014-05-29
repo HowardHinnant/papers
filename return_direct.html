@@ -25,7 +25,7 @@
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
-2014-05-26<br/>
+2014-05-28<br/>
 <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
 <img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br />
 This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
@@ -203,9 +203,13 @@ stons(std::string const&amp; str)
         case 's':
             return seconds(count);
         case 'u':
-            return microseconds(count);
+            if (endptr + 1 &lt; str.data() + str.size() &amp;&amp; endptr[1] == 's')
+                return microseconds(count);
+            break;
         case 'n':
-            return nanoseconds(count);
+            if (endptr + 1 &lt; str.data() + str.size() &amp;&amp; endptr[1] == 's')
+                return nanoseconds(count);
+            break;
         }
     }
     throw std::runtime_error("error parsing duration");
