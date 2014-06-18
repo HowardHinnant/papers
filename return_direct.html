@@ -384,7 +384,7 @@ with no further verification.
 However verifying the data is expensive.  Sometimes <code>Data</code> comes
 from a trusted source.  So the author of <code>OperatesOnData</code> has set
 up an <b>explicit</b> constructor that takes <code>Data</code>.  Clients know
-that <code>OperatesOnData</code> can't verify <code>OperatesOnData</code> all
+that <code>OperatesOnData</code> can't verify <code>Data</code> all
 the time because of performance concerns.  So when they know that their
 <code>Data</code> need not be verified, they can use an explicit conversion
 to <code>OperatesOnData</code> to communicate that fact.
@@ -497,7 +497,7 @@ test.cpp:14:14: note: constructor declared here
 
 <p>
 But through a series of mistakes, both by the programmers, and by the committee,
-none of which by them self is a fatal mistake, a serious run time error (perhaps
+none of which by itself is a fatal mistake, a serious run time error (perhaps
 a security breach) has been created.
 </p>
 
