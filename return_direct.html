@@ -39,6 +39,7 @@ This work is licensed under a <a rel="license" href="http://creativecommons.org/
 <li><a href="#Introduction">Introduction</a></li>
 <li><a href="#Example">The Counter-Example</a></li>
 <li><a href="#ExamplePair">The <code>pair</code> Counter-Example</a></li>
+<li><a href="#AnotherExample">Another Example</a></li>
 <li><a href="#Summary">Summary</a></li>
 </ul>
 
@@ -349,10 +350,166 @@ operator).  To change the language to ignore <code>explicit</code> in some
 places is a dangerous direction.
 </p>
 
+<a name="AnotherExample"></a><h2>Another Example</h2>
+
+<p>
+Perhaps there is some defective quality about <code>chrono::duration</code>
+which is causing the problem.  Is <code>chrono::duration</code> the <i>only</i>
+problematic example?
+</p>
+
+<p>
+Consider a class <code>OperatesOnData</code>.
+</p>
+
+<blockquote><pre>
+class OperatesOnData
+{
+public:
+    OperatesOnData(VerifiedData);  // knows that the Data has been verified
+    // Use this constructor ONLY with verified data!
+    explicit OperatesOnData(Data); // trusts that the Data has been verified
+};
+</pre></blockquote>
+
+<p>
+<code>Data</code> that comes from untrusted sources must first be verified to
+make sure it is in the proper form, all invariants are met, etc.  This
+unverified <code>Data</code> is verified with the type <code>VerifiedData</code>.
+This <code>VerifiedData</code> can then be safely sent to <code>OperatesOnData</code>
+with no further verification.
+</p>
+
+<p>
+However verifying the data is expensive.  Sometimes <code>Data</code> comes
+from a trusted source.  So the author of <code>OperatesOnData</code> has set
+up an <b>explicit</b> constructor that takes <code>Data</code>.  Clients know
+that <code>OperatesOnData</code> can't verify <code>OperatesOnData</code> all
+the time because of performance concerns.  So when they know that their
+<code>Data</code> need not be verified, they can use an explicit conversion
+to <code>OperatesOnData</code> to communicate that fact.
+</p>
+
+<p>
+Is this the best design in the world?  That's beside the point.  This is a
+reasonable design one might find coded in C++.
+</p>
+
+<p>
+Now we need to get the <code>Data</code> and start working on it:
+</p>
+
+<blockquote><pre>
+VerifiedData getData();
+
+OperatesOnData
+startOperation()
+{
+    return getData();
+}
+</pre></blockquote>
+
+<p>
+So far so good.
+</p>
+
+<p>
+Three years go by, and the programmers responsible for this code change. 
+C++17 decides that <code>return explicit {x};</code> (or whatever) is a good
+idea.  And our maintenance programmer wants everyone to know that he's up
+with the most recent recommended practice from the C++ committee.  The code
+changes to:
+</p>
+
+<blockquote><pre>
+VerifiedData getData();
+
+OperatesOnData
+startOperation()
+{
+    return {getData()};           // This, or
+    return explicit {getData()};  // This, or whatever we decide...
+}
+</pre></blockquote>
+
+<p>
+No harm done.  The programmer doesn't really understand, and from reading the code,
+it isn't really clear that any semantic change has occurred.
+</p>
+
+<p>
+I belatedly realize with no small amount of horror that this compiles today:
+</p>
+
+<blockquote><pre>
+VerifiedData getData();
+
+OperatesOnData
+startOperation()
+{
+    return {getData()};
+}
+</pre></blockquote>
+
+<p>
+My horror isn't that it compiles, nor that it has well-specified behavior. My
+horror is that we're seriously considering changing the semantics of that
+<i>existing</i> behavior. So this variant of <code>startOperation</code>
+already exists today, with no encouragement needed from C++17 (already
+encouraged by C++11).
+</p>
+
+<p>
+Another three years goes by, and another turnover in maintenance
+happens.  Because of some changes on the other side of a million line program,
+it is now too expensive for <code>getData()</code> to do the verification as
+it has acquired some new clients that must do verification anyway.  So
+<code>getData()</code> changes to:
+</p>
+
+<blockquote><pre>
+Data getData();
+</pre></blockquote>
+
+<p>
+Bam.  Unverified data gets silently sent to <code>OperatesOnData</code>.
+The original code was designed <i>precisely</i> to catch this very error
+<i>at compile time</i>.
+</p>
+
+<blockquote><pre>
+Data getData();
+
+OperatesOnData
+startOperation()
+{
+    return {getData()};
+}
+
+test.cpp:23:12: error: chosen constructor is explicit in copy-initialization
+    return {getData()};
+           ^~~~~~~~~~~
+test.cpp:14:14: note: constructor declared here
+    explicit OperatesOnData(Data); // trusts that the Data has been verified
+             ^
+1 error generated.
+</pre></blockquote>
+
+<p>
+But through a series of mistakes, both by the programmers, and by the committee,
+none of which by them self is a fatal mistake, a serious run time error (perhaps
+a security breach) has been created.
+</p>
+
+<p>
+It always takes more than one mistake to make something really bad happen
+(airplane crash, nuclear accident, security breach at the bank, etc.).
+</p>
+
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
-For me, this example stresses the point that when a type author writes
+For me, these examples stress the point that when a type author writes
 "<code>explicit</code>", we should never ignore it.  Not on a <code>return</code>
 statement.  Not anywhere.  The type author knows best.  He had the option to
 not make his conversion <code>explicit</code>, and he felt strongly enough
