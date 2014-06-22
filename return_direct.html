@@ -602,7 +602,13 @@ standardization process, the entire committee felt <i>very strongly</i> that
 If we want more conversions to be implicit, then we should not mark those
 conversions with the <code>explicit</code> qualifier.  This is a far superior
 solution compared to marking a conversion explicit, and then treating the
-conversion as implicit in a few places.
+conversion as implicit in a few places.  And this is the direction of
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>.
+Instead of changing the rules for every type,
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>
+removes the <code>explicit</code> qualifier from specific types where it is
+undesirable to have it, while keeping the <code>explicit</code> qualifier in
+places that respect the type author's wishes.
 </p>
 
 </body>
