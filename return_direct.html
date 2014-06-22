@@ -2,7 +2,7 @@
         "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-	<title>Response To: Let return Be Direct and explicit</title>
+	<title>Response To: Let return Be Explicit</title>
 
 	<style>
 	p {text-align:justify}
@@ -22,23 +22,21 @@
 <body>
 
 <address align=right>
+Document number: Dxxxx
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
-2014-06-18<br/>
-<a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
-<img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br />
-This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
+2014-06-22<br/>
 </address>
 <hr/>
-<h1 align=center>Response To: Let <code>return</code> Be Direct and <code>explicit</code></h1>
+<h1 align=center>Response To: Let <code>return {expr}</code> Be Explicit</h1>
 
 <h2>Contents</h2>
 
 <ul>
 <li><a href="#Introduction">Introduction</a></li>
 <li><a href="#Example">The Counter-Example</a></li>
-<li><a href="#ExamplePair">The <code>pair</code> Counter-Example</a></li>
+<li><a href="#ExampleTuple">The <code>tuple</code> Counter-Example</a></li>
 <li><a href="#AnotherExample">Another Example</a></li>
 <li><a href="#Summary">Summary</a></li>
 </ul>
@@ -50,34 +48,52 @@ This paper is in response to:
 </p>
 
 <blockquote><p>
-<a href="https://isocpp.org/files/papers/n4029.pdf">N4029: Let <code>return</code> Be Direct and <code>explicit</code></a>
+<a href="https://isocpp.org/files/papers/n4xxx.pdf">N4xxx: Let <code>return {expr}</code> Be Explicit</a>
 </p></blockquote>
 
 <p>
-N4029 proposes (with the best of intentions) to ignore the
+N4xxx proposes (with the best of intentions) to ignore the
 <code>explicit</code> qualifier on conversions when the conversion would take
-place on a <code>return</code> statement.  For example:
+place on a <code>return</code> statement and is surrounded with curly braces.
+For example:
 </p>
 
 <blockquote><pre>
-struct Type2 { explicit Type2(int){} };
-
-Type2 f2_braces()
+struct Type2
 {
-    Type2 local2{2};
-    return {2}; // error now, ok with adoption of N4029.
-}
+    explicit Type2(int) {}
+};
 
-Type2 f2_parens()
+Type2
+makeType2(int i)
 {
-    Type2 local2(2);
-    return 2;    // error now, ok with adoption of N4029.
-    return (2);  // error now, ok with adoption of N4029.
+    return {i}; // error now, ok with adoption of N4xxx.
 }
 </pre></blockquote>
 
 <p>
-The motivation for this change is:
+Note that this code today results in a compile-time error, not because of the
+braces, but because of the <code>explicit</code> qualifier on the <codeType2</code>
+constructor taking an <code>int</code>.  Remove that <code>explicit</code>
+qualifier as in the example below, and the code compiles today:
+</p>
+
+<blockquote><pre>
+struct Type1
+{
+    Type1(int) {}
+};
+
+Type1
+makeType1(int i)
+{
+    return {i}; // ok, implicit conversion from int to Type1
+}
+</pre></blockquote>
+
+<p>
+The motivation for this change comes from the original of N4xxx,
+<a href="https://isocpp.org/files/papers/n4029.pdf">N4029</a>:
 </p>
 
 <blockquote>
@@ -97,9 +113,10 @@ exactly what you must type. But I will make you type it."
 <p>
 I can relate.  Unnecessary typing <i>is</i> frustrating.  However I believe
 it is possible that ignoring the <code>explicit</code> qualifier on type
-conversions, even if only restricted to <code>return</code> statements, could
-turn <i>compile-time</i> errors into <i>run-time</i> errors.  Possibly
-<i>very subtle run-time</i> errors (the worst kind).
+conversions, even if only restricted to <code>return</code> statements
+enclosed with curly braces, could turn <i>compile-time</i> errors into
+<i>run-time</i> errors.  Possibly <i>very subtle run-time</i> errors (the
+worst kind).
 </p>
 
 <p>
@@ -146,10 +163,11 @@ a <code>std::chrono::duration</code>.
 </blockquote>
 
 <p>
-Which <code>duration</code>?  Well, let's keep it simple and say: any one of the
-six "predefined" <code>duration</code>s: <code>hours</code>, <code>minutes</code>,
-<code>seconds</code>, <code>milliseconds</code>, <code>microseconds</code>,
-or <code>nanoseconds</code>.
+Which <code>duration</code>?  Well, let's keep it simple and say: any one of
+the six "predefined" <code>duration</code>s: <code>hours</code>,
+<code>minutes</code>, <code>seconds</code>, <code>milliseconds</code>,
+<code>microseconds</code>, or <code>nanoseconds</code> can be parsed and
+returned as <code>nanoseconds</code>.
 </p>
 
 <p>
@@ -187,7 +205,7 @@ stons(std::string const&amp; str)
         switch (*endptr)
         {
         case 'h':
-            return hours(count);
+            return hours{count};
         case 'm':
             if (endptr + 1 &lt; str.data() + str.size())
             {
@@ -195,22 +213,22 @@ stons(std::string const&amp; str)
                 {
                 case 'i':
                     if (endptr + 2 &lt; str.data() + str.size() &amp;&amp; endptr[2] == 'n')
-                        return count;
+                        return {count};
                     break;
                 case 's':
-                    return milliseconds(count);
+                    return milliseconds{count};
                 }
             }
             break;
         case 's':
-            return seconds(count);
+            return seconds{count};
         case 'u':
             if (endptr + 1 &lt; str.data() + str.size() &amp;&amp; endptr[1] == 's')
-                return microseconds(count);
+                return microseconds{count};
             break;
         case 'n':
             if (endptr + 1 &lt; str.data() + str.size() &amp;&amp; endptr[1] == 's')
-                return nanoseconds(count);
+                return nanoseconds{count};
             break;
         }
     }
@@ -255,9 +273,9 @@ compile-time error was intended by the designers of the
 </p>
 
 <p>
-If we accept N4029, the bug in <code>stons</code> becomes a run-time error.
+If we accept N4xxx, the bug in <code>stons</code> becomes a run-time error.
 Have you spotted it yet?  Here is a clue.  The output of the test (with
-N4029 implemented) is:
+N4xxx implemented) is:
 </p>
 
 <blockquote><pre>
@@ -274,7 +292,7 @@ The error is this line that parses "min" after the count:
 </p>
 
 <blockquote><pre>
-                        return count;
+                        return {count};
 </pre></blockquote>
 
 <p>
@@ -282,29 +300,8 @@ which should read:
 </p>
 
 <blockquote><pre>
-                        return minutes(count);
-</pre></blockquote>
-
-<p>
-Or if you prefer:
-</p>
-
-<blockquote><pre>
                         return minutes{count};
 </pre></blockquote>
-
-<p>
-Note that:
-</p>
-
-<blockquote><pre>
-                        return {count};
-</pre></blockquote>
-
-<p>
-does not help at all.  It converts the same compile-time error into the same
-run-time error, with or without the explicit <code>{}</code>.
-</p>
 
 <p>
 Once the error is corrected, the correct output of the test is:
@@ -319,7 +316,7 @@ Once the error is corrected, the correct output of the test is:
 2ns
 </pre></blockquote>
 
-<a name="ExamplePair"></a><h2>The <code>pair</code> Counter-Example</h2>
+<a name="ExampleTuple"></a><h2>The <code>tuple</code> Counter-Example</h2>
 
 <p>
 What if the return isn't a scalar?  For example is this just as unsafe?
@@ -330,14 +327,14 @@ return {5, 23};
 </pre></blockquote>
 
 <p>
-If the return type is <code>pair&lt;chrono::seconds, chrono::nanoseconds&gt;</code>
-(which still do not want to construct implicitly from <code>int</code>), then
+If the return type is <code>tuple&lt;seconds, nanoseconds&gt;</code> (which
+we still do not want to construct implicitly from <code>int</code>), then
 this would <b>definitely not</b> be safe!
 </p>
 
 <p>
-We never, never, never want to implicitly construct a <code>chrono::duration</code>
-from an <code>int</code>.  Here is how we say that in C++:
+We never want to implicitly construct a <code>duration</code> from an
+<code>int</code>.  Here is how we say that in C++:
 </p>
 
 <blockquote><pre>
@@ -348,6 +345,55 @@ template &lt;class Rep2&gt; constexpr <b>explicit</b> duration(const Rep2&amp; r
 That is, we put <code>explicit</code> on the constructor (or on a conversion
 operator).  To change the language to ignore <code>explicit</code> in some
 places is a dangerous direction.
+</p>
+
+<p>
+All that being said, if the constructions are <i>implicit</i> then they are
+safe.  For example:
+</p>
+
+<blockquote><pre>
+tuple&lt;seconds, nanoseconds&gt;
+test1()
+{
+    return {3, 4};  // unsafe, 3 does not implicitly convert to seconds
+                    //         4 does not implicitly convert to nanoseconds
+}
+
+tuple&lt;seconds, nanoseconds&gt;
+test2()
+{
+    return {3h, 4ms};  // safe, 3h does implicitly convert to seconds
+                       //       4ms does implicitly convert to nanoseconds
+}
+
+tuple&lt;int, float, string&gt;
+test3()
+{
+    return {3, 4.5, "text"};  // safe, 3 does implicitly convert to int
+                              //       4.5 does implicitly convert to float
+                              //       "text" does implicitly convert to string
+}
+</pre></blockquote>
+
+<p>
+None of the three examples compile today according to C++14 because the
+<code>std::tuple</code> constructor invoked is marked <code>explicit</code>.
+However <code>test2</code> and <code>test3</code> are both perfectly safe.  It
+is unambiguous what is intended in these latter two cases.  And they would
+indeed compile if the <code>tuple</code> constructor invoked was not marked
+<code>explicit</code>.
+</p>
+
+<p>
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>
+is a proposal which makes <code>test2</code> and <code>test3</code> legal,
+while keeping <code>test1</code> a compile-time error.  I fully support this
+proposal. Indeed I implemented this proposal in <a
+href="http://libcxx.llvm.org">libc++</a> years ago, for precisely the same
+reasons that N4xxx is now proposed:  To ease the syntax burden on the
+programmer.  But unlike N4xxx, N3739 never disregards the <code>explicit</code>
+keyword that the programmer has qualified one of his constructors with.
 </p>
 
 <a name="AnotherExample"></a><h2>Another Example</h2>
@@ -405,63 +451,22 @@ VerifiedData getData();
 OperatesOnData
 startOperation()
 {
-    return getData();
-}
-</pre></blockquote>
-
-<p>
-So far so good.
-</p>
-
-<p>
-Three years go by, and the programmers responsible for this code change. 
-C++17 decides that <code>return explicit {x};</code> (or whatever) is a good
-idea.  And our maintenance programmer wants everyone to know that he's up
-with the most recent recommended practice from the C++ committee.  The code
-changes to:
-</p>
-
-<blockquote><pre>
-VerifiedData getData();
-
-OperatesOnData
-startOperation()
-{
-    return {getData()};           // This, or
-    return explicit {getData()};  // This, or whatever we decide...
-}
-</pre></blockquote>
-
-<p>
-No harm done.  The programmer doesn't really understand, and from reading the code,
-it isn't really clear that any semantic change has occurred.
-</p>
-
-<p>
-I belatedly realize with no small amount of horror that this compiles today:
-</p>
-
-<blockquote><pre>
-VerifiedData getData();
-
-OperatesOnData
-startOperation()
-{
     return {getData()};
 }
 </pre></blockquote>
 
 <p>
-My horror isn't that it compiles, nor that it has well-specified behavior. My
-horror is that we're seriously considering changing the semantics of that
-<i>existing</i> behavior. So this variant of <code>startOperation</code>
-already exists today, with no encouragement needed from C++17 (already
-encouraged by C++11).
+So far so good.  This is valid and working C++14 code.
 </p>
 
 <p>
-Another three years goes by, and another turnover in maintenance
-happens.  Because of some changes on the other side of a million line program,
+Three years go by, and the programmers responsible for this code change.
+C++17 decides that making <code>return {x};</code> bind to explicit
+conversions is a good idea.
+</p>
+
+<p>
+Now, because of some changes on the other side of a million line program,
 it is now too expensive for <code>getData()</code> to do the verification as
 it has acquired some new clients that must do verification anyway.  So
 <code>getData()</code> changes to:
@@ -496,14 +501,76 @@ test.cpp:14:14: note: constructor declared here
 </pre></blockquote>
 
 <p>
-But through a series of mistakes, both by the programmers, and by the committee,
-none of which by itself is a fatal mistake, a serious run time error (perhaps
-a security breach) has been created.
+But because the committee has redefined what <code>return {getData()}</code>
+means between C++11 and C++17 (a period of 6 years), a serious run time error
+(perhaps a security breach) has been created.
 </p>
 
 <p>
-It always takes more than one mistake to make something really bad happen
-(airplane crash, nuclear accident, security breach at the bank, etc.).
+This example highlights the fact that the return type of an expression is not
+always clear at the point of the <code>return</code> statement, nor in direct
+control of the function author.  When what is being returned is the result of
+some other function, declared and defined far away, there is potential for
+error. If explicit conversions are implicitly allowed between these two
+independently written pieces of code, the potential for error increases
+greatly:
+</p>
+
+<blockquote><pre>
+shared_ptr&lt;BigGraphNode&gt;
+makeBigGraphNode()
+{
+    return {allocateBigGraphNode()};
+}
+</pre></blockquote>
+
+<p>
+What type does <code>allocateBigGraphNode()</code> return?  Today, if this
+compiles, we are assured that it is some type that is implicitly convertible
+to <code>shared_ptr&lt;BigGraphNode&gt;</code>.  Implicit conversions are
+conversions that the author of <code>shared_ptr</code> deemed safe enough that
+the conversion need not be explicitly called out at the point of use.
+</p>
+
+<p>
+Explicit conversions on the other hand are not as safe as implicit conversions.
+And for whatever reasons, the author of <code>shared_ptr</code> deemed the
+conversions of some types to <code>shared_ptr</code> sufficiently dangerous
+that they should be called out explicitly when used.
+</p>
+
+<p>
+I ask again:  What type does <code>allocateBigGraphNode()</code> return? 
+</p>
+
+<p>
+The answer today is that we don't know without further investigation, but it
+is some type that implicitly converts to
+<code>shared_ptr&lt;BigGraphNode&gt;</code>.  And I think that is a much
+better answer than "some type that will convert to
+<code>shared_ptr&lt;BigGraphNode&gt;</code> explicitly or implicitly."  This
+latter set includes <code>BigGraphNode*</code>.  If the above code is written
+today, and the meaning of that return statement changes tomorrow.  And the next
+day the return type of <code>allocateBigGraphNode()</code> changes, there is a
+very real potential for turning compile-time errors into run-time errors.
+</p>
+
+<p>
+The above potential for error is <b>exactly</b> the same as it is for this
+code:
+</p>
+
+<blockquote><pre>
+void acceptBigGraphNode(shared_ptr&lt;BigGraphNode&gt;)
+// ...
+acceptBigGraphNode(allocateBigGraphNode());
+</pre></blockquote>
+
+<p>
+If performing explicit conversions is dangerous in one of the above two
+examples, then it is dangerous in both.  The presence of curly braces in the
+first example makes zero difference, as illustrated by the <code>stons</code>
+example.
 </p>
 
 <a name="Summary"></a><h2>Summary</h2>
@@ -523,9 +590,10 @@ standardization process, the entire committee felt <i>very strongly</i> that
 </p>
 
 <p>
-Surely there are plenty of other examples in the wild where the type authors
-opt-in to an explicit conversion, with just as strong feelings about their
-decision as we felt about <code>int</code> and <code>&lt;chrono&gt;</code>.
+If we want more conversions to be implicit, then we should not mark those
+conversions with the <code>explicit</code> qualifier.  This is a far superior
+solution compared to marking a conversion explicit, and then treating the
+conversion as implicit in a few places.
 </p>
 
 </body>
