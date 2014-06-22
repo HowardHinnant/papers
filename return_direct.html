@@ -561,7 +561,7 @@ code:
 </p>
 
 <blockquote><pre>
-void acceptBigGraphNode(shared_ptr&lt;BigGraphNode&gt;)
+void acceptBigGraphNode(shared_ptr&lt;BigGraphNode&gt;);
 // ...
 acceptBigGraphNode(allocateBigGraphNode());
 </pre></blockquote>
@@ -570,7 +570,16 @@ acceptBigGraphNode(allocateBigGraphNode());
 If performing explicit conversions is dangerous in one of the above two
 examples, then it is dangerous in both.  The presence of curly braces in the
 first example makes zero difference, as illustrated by the <code>stons</code>
-example.
+example.  Indeed, the presence of curly braces is today legal in the second
+example: 
+</p>
+
+<blockquote><pre>
+acceptBigGraphNode({allocateBigGraphNode()});
+</pre></blockquote>
+
+<p>
+but only <b>if</b> the conversion is implicit.
 </p>
 
 <a name="Summary"></a><h2>Summary</h2>
