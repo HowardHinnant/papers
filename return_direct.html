@@ -36,6 +36,7 @@ Document number: Dxxxx
 <ul>
 <li><a href="#Introduction">Introduction</a></li>
 <li><a href="#Example">The Counter-Example</a></li>
+<li><a href="#ExistingCode">Does anyone actually use curly braces on <code>return</code>?</a></li>
 <li><a href="#ExampleTuple">The <code>tuple</code> Counter-Example</a></li>
 <li><a href="#AnotherExample">Another Example</a></li>
 <li><a href="#Summary">Summary</a></li>
@@ -61,7 +62,7 @@ For example:
 <blockquote><pre>
 struct Type2
 {
-    explicit Type2(int) {}
+    <ins>explicit</ins> Type2(int) {}
 };
 
 Type2
@@ -81,13 +82,13 @@ qualifier as in the example below, and the code compiles today:
 <blockquote><pre>
 struct Type1
 {
-    Type1(int) {}
+    <del>explicit</del> Type1(int) {}
 };
 
 Type1
 makeType1(int i)
 {
-    return {i}; // ok, implicit conversion from int to Type1
+    return {i}; // ok since C++11, implicit conversion from int to Type1
 }
 </pre></blockquote>
 
@@ -315,6 +316,34 @@ Once the error is corrected, the correct output of the test is:
 2000ns
 2ns
 </pre></blockquote>
+
+<a name="ExistingCode"></a><h2>Does anyone actually use curly braces on <code>return</code>?</h2>
+
+<p>
+The expression <code>return {x};</code> has only been legal since C++11. 
+There have only been 3 (official) years for it to be adopted by programmers. 
+Is there any evidence anyone is actually using this syntax?
+</p>
+
+<p>
+Yes.
+</p>
+
+<ul>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/db/table_properties_collector.cc#L42">rocksdb</a></li>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/table/block_based_table_reader.cc#L727">rocksdb</a></li>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/table/block_based_table_reader.cc#L732">rocksdb</a></li>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/table/block_based_table_reader.cc#L779">rocksdb</a></li>
+<li><a href="http://stackoverflow.com/search?q=%5Bc%2B%2B11%5D+%22return+%7B%22">98 hits on stackoverflow</a></li>
+<li><a href="http://codereview.stackexchange.com/search?q=%5Bc%2B%2B%5D+%22return+%7B%22">15 hits on Code Review</a></li>
+</ul>
+
+<p>
+These were just the ones I was able to find.  Searching for
+<code>"return[\s]*{"</code> is exceedingly challenging.  But just the above
+results clearly demonstrate a use that is significantly greater than
+"vanishingly rare."
+</p>
 
 <a name="ExampleTuple"></a><h2>The <code>tuple</code> Counter-Example</h2>
 
