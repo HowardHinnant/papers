@@ -26,6 +26,7 @@ Document number: D4094
 <br/>
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
 2014-06-23<br/>
 </address>
 <hr/>
@@ -39,6 +40,8 @@ Document number: D4094
 <li><a href="#ExistingCode">Does anyone actually use curly braces on <code>return</code>?</a></li>
 <li><a href="#ExampleTuple">The <code>tuple</code> Counter-Example</a></li>
 <li><a href="#AnotherExample">Another Example</a></li>
+<li><a href="#MoreSmartPointers">More about smart pointers</a></li>
+<li><a href="#Illogical">Choosing braces to mean "non-explicit" is illogical</a></li>
 <li><a href="#Summary">Summary</a></li>
 </ul>
 
@@ -611,6 +614,73 @@ acceptBigGraphNode({allocateBigGraphNode()});
 but only <b>if</b> the conversion is implicit.
 </p>
 
+<a name="MoreSmartPointers"</a><h2>More about smart pointers</h2>
+
+<p>
+In <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2014/n4029.pdf">N4029</a>, Sutter responds to the concerns about implicit ownership transfer by saying "it's okay", and continues</p>
+<p>
+<blockquote>
+I believe <code>return p;</code> is reasonable "what else could I possibly 
+have meant" code, with the most developer-infuriating kind of diagnostic 
+(being able to spell out exactly what the developer has to redundantly
+write to make the code compile, yet forcing the developer to type
+it out), and I think that it’s unreasonable that I be forced to repeat
+std::unique_ptr&lt;T>{} here.
+</blockquote>
+</p>
+<p>
+It's not at all clear that it's "obvious" what the programmer meant. It's
+NOT about knowing the <b>return</b> type. It's about knowing the <b>source</b>
+type and its semantics. As it happens, with a raw pointer, we do not know
+its ownership semantics, because it doesn't have any. We do not know where
+it came from - it may be a result of a malloc inside a legacy API. It may
+be a result of a strdup (same difference, really). It might not be a
+pointer to a resource dynamically-allocated with a default_delete-compatible
+allocator.
+</p>
+<p>
+The implementation diagnostic is not saying "write the following boiler-plate".
+It's saying "stop and think". It's specifically saying "you're about to
+cross the border between no ownership semantics and strict ownership semantics,
+please make sure you're doing what you think you're doing".
+</p>
+<p>
+It also seems questionable that we would break the design expectations
+of smart pointers well older than a decade just to make interfacing with
+legacy raw pointers easier. Modern C++ code uses make_unique and make_shared,
+not plain new. And such modern C++ code uses smart pointers as return types
+for factory functions that create the resources, not smart pointers. Even
+worse, this proposal means that the most convenient (since shortest) way
+to create a unique_ptr&lt;T> from arguments of T is not</p>
+<p>
+<code>return make_unique&lt;T>(args);</code>
+</p>
+<p>
+but rather</p>
+<p>
+<code>return {new T{args}};</code>
+</p>
+<p>
+The Finnish experts pull no punches when they say such a thing is the
+wrong evolution path to take. They have voiced vocal astonishment to
+the proposed core language change just to support use cases that should 
+be or at the very least should become rare and legacy, especially when 
+that change breaks design expectations of tons of libraries.
+</p>
+
+<a name="Illogical"</a><h2>Choosing braces to mean "non-explicit" is illogical</h2>
+<p>
+Returning a braced-list has a meaning today. Consider:</p>
+<p>
+<code>
+char f() {int x = 0; return {x};} // error: narrowing conversion of 'x' from 'int' to 'char' inside { }
+</code>
+</p>
+<p>People learn that in order to avoid potentially-corrupting narrowing
+conversions between built-in types, they can use braces. It seems very
+illogical that for library types with explicit conversions, braces
+suddenly bypass similar checking for potentially-corrupting cases!</p>
+
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
@@ -639,6 +709,13 @@ removes the <code>explicit</code> qualifier from specific types where it is
 undesirable to have it, while keeping the <code>explicit</code> qualifier in
 places that respect the type author's wishes.
 </p>
-
+<p>
+All of the chrono, tuple and smart pointer examples are practical cases of a 
+general conceptual case: a conversion from a type with no semantics to a type 
+with strict semantics. Bypassing the explicitness of such conversions is 
+exceedingly dangerous, especially when it happens after-the-fact that the
+designers of those library types chose to mark such conversions explicit.
+The proposed change is moving the earth under the library designers' feet.
+</p>
 </body>
 </html>
