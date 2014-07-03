@@ -624,8 +624,8 @@ I believe <code>return p;</code> is reasonable "what else could I possibly
 have meant" code, with the most developer-infuriating kind of diagnostic 
 (being able to spell out exactly what the developer has to redundantly
 write to make the code compile, yet forcing the developer to type
-it out), and I think that it’s unreasonable that I be forced to repeat
-std::unique_ptr&lt;T>{} here.
+it out), and I think that it's unreasonable that I be forced to repeat
+<code>std::unique_ptr&lt;T&gt;{}</code> here.
 </blockquote>
 </p>
 <p>
@@ -635,7 +635,7 @@ type and its semantics. As it happens, with a raw pointer, we do not know
 its ownership semantics, because it doesn't have any. We do not know where
 it came from - it may be a result of a malloc inside a legacy API. It may
 be a result of a strdup (same difference, really). It might not be a
-pointer to a resource dynamically-allocated with a default_delete-compatible
+pointer to a resource dynamically-allocated with a <code>default_delete</code>-compatible
 allocator.
 </p>
 <p>
@@ -647,19 +647,19 @@ please make sure you're doing what you think you're doing".
 <p>
 It also seems questionable that we would break the design expectations
 of smart pointers well older than a decade just to make interfacing with
-legacy raw pointers easier. Modern C++ code uses make_unique and make_shared,
-not plain new. And such modern C++ code uses smart pointers as return types
+legacy raw pointers easier. Modern C++ code uses <code>make_unique</code> and <code>make_shared</code>,
+not plain <code>new</code>. And such modern C++ code uses smart pointers as return types
 for factory functions that create the resources, not raw pointers. Even
 worse, this proposal means that the most convenient (since shortest) way
-to create a unique_ptr&lt;T> from arguments of T is not</p>
-<p>
-<code>return make_unique&lt;T>(args);</code>
-</p>
+to create a <code>unique_ptr&lt;T&gt;</code> from arguments of <code>T</code> is not</p>
+<blockquote><pre>
+return make_unique&lt;T&gt;(args);
+</pre></blockquote>
 <p>
 but rather</p>
-<p>
-<code>return {new T{args}};</code>
-</p>
+<blockquote><pre>
+return {new T{args}};
+</pre></blockquote>
 <p>
 The Finnish experts pull no punches when they say such a thing is the
 wrong evolution path to take. They have voiced vocal astonishment to
@@ -671,11 +671,11 @@ that change breaks design expectations of tons of libraries.
 <a name="Illogical"</a><h2>Choosing braces to mean "non-explicit" is illogical</h2>
 <p>
 Returning a braced-list has a meaning today. Consider:</p>
-<p>
-<code>
+
+<blockquote><pre>
 char f() {int x = 0; return {x};} // error: narrowing conversion of 'x' from 'int' to 'char' inside { }
-</code>
-</p>
+</pre></blockquote>
+
 <p>People learn that in order to avoid potentially-corrupting narrowing
 conversions between built-in types, they can use braces. It seems very
 illogical that for library types with explicit conversions, braces
