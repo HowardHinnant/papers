@@ -52,11 +52,11 @@ This paper is in response to:
 </p>
 
 <blockquote><p>
-<a href="https://isocpp.org/files/papers/n4xxx.pdf">N4xxx: Let <code>return {expr}</code> Be Explicit</a>
+<a href="https://isocpp.org/files/papers/n4074.pdf">N4074: Let <code>return {expr}</code> Be Explicit</a>
 </p></blockquote>
 
 <p>
-N4xxx proposes (with the best of intentions) to ignore the
+N4074 proposes (with the best of intentions) to ignore the
 <code>explicit</code> qualifier on conversions when the conversion would take
 place on a <code>return</code> statement and is surrounded with curly braces.
 For example:
@@ -71,7 +71,7 @@ struct Type2
 Type2
 makeType2(int i)
 {
-    return {i}; // error now, ok with adoption of N4xxx.
+    return {i}; // error now, ok with adoption of N4074.
 }
 </pre></blockquote>
 
@@ -96,7 +96,7 @@ makeType1(int i)
 </pre></blockquote>
 
 <p>
-The motivation for this change comes from the original of N4xxx,
+The motivation for this change comes from the original of N4074,
 <a href="https://isocpp.org/files/papers/n4029.pdf">N4029</a>:
 </p>
 
@@ -277,9 +277,9 @@ compile-time error was intended by the designers of the
 </p>
 
 <p>
-If we accept N4xxx, the bug in <code>stons</code> becomes a run-time error.
+If we accept N4074, the bug in <code>stons</code> becomes a run-time error.
 Have you spotted it yet?  Here is a clue.  The output of the test (with
-N4xxx implemented) is:
+N4074 implemented) is:
 </p>
 
 <blockquote><pre>
@@ -423,8 +423,8 @@ is a proposal which makes <code>test2</code> and <code>test3</code> legal,
 while keeping <code>test1</code> a compile-time error.  We fully support this
 proposal. Indeed Howard implemented this proposal in <a
 href="http://libcxx.llvm.org">libc++</a> years ago, for precisely the same
-reasons that N4xxx is now proposed:  To ease the syntax burden on the
-programmer.  But unlike N4xxx, N3739 never disregards the <code>explicit</code>
+reasons that N4074 is now proposed:  To ease the syntax burden on the
+programmer.  But unlike N4074, N3739 never disregards the <code>explicit</code>
 keyword that the programmer has qualified one of his constructors with.
 </p>
 
