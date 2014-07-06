@@ -27,7 +27,7 @@ Document number: D4094
 <br/>
 <a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
 <a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
-2014-06-23<br/>
+2014-07-06<br/>
 </address>
 <hr/>
 <h1 align=center>Response To: Let <code>return {expr}</code> Be Explicit</h1>
@@ -115,7 +115,7 @@ exactly what you must type. But I will make you type it."
 </blockquote>
 
 <p>
-I can relate.  Unnecessary typing <i>is</i> frustrating.  However I believe
+We can relate.  Unnecessary typing <i>is</i> frustrating.  However we believe
 it is possible that ignoring the <code>explicit</code> qualifier on type
 conversions, even if only restricted to <code>return</code> statements
 enclosed with curly braces, could turn <i>compile-time</i> errors into
@@ -126,7 +126,7 @@ worst kind).
 <p>
 How likely is it that such run-time errors might be introduced?
 <i>&lt;shrug&gt;</i> Such conjecture is always highly speculative.  But in this
-instance, I can offer a realistic example where exactly this would happen.
+instance, we can offer a realistic example where exactly this would happen.
 And it happens very close to our home: by ignoring the <code>explicit</code>
 qualifier of the constructor of a <b>std-defined</b> class type.
 </p>
@@ -134,7 +134,7 @@ qualifier of the constructor of a <b>std-defined</b> class type.
 <a name="Example"></a><h2>The Counter-Example</h2>
 
 <p>
-Bear with me while I set up the likelihood of this counter-example actually
+Bear with us while we set up the likelihood of this counter-example actually
 happening in the wild...
 </p>
 
@@ -260,7 +260,7 @@ main()
 </pre></blockquote>
 
 <p>
-Ok, so what is my point?
+Ok, so what is our point?
 </p>
 
 <p>
@@ -342,7 +342,7 @@ Yes.
 </ul>
 
 <p>
-These were just the ones I was able to find.  Searching for
+These were just the ones we were able to find.  Searching for
 <code>"return[\s]*{"</code> is exceedingly challenging.  But just the above
 results clearly demonstrate a use that is significantly greater than
 "vanishingly rare."
@@ -420,8 +420,8 @@ indeed compile if the <code>tuple</code> constructor invoked was not marked
 <p>
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>
 is a proposal which makes <code>test2</code> and <code>test3</code> legal,
-while keeping <code>test1</code> a compile-time error.  I fully support this
-proposal. Indeed I implemented this proposal in <a
+while keeping <code>test1</code> a compile-time error.  We fully support this
+proposal. Indeed Howard implemented this proposal in <a
 href="http://libcxx.llvm.org">libc++</a> years ago, for precisely the same
 reasons that N4xxx is now proposed:  To ease the syntax burden on the
 programmer.  But unlike N4xxx, N3739 never disregards the <code>explicit</code>
@@ -572,13 +572,13 @@ that they should be called out explicitly when used.
 </p>
 
 <p>
-I ask again:  What type does <code>allocateBigGraphNode()</code> return? 
+We ask again:  What type does <code>allocateBigGraphNode()</code> return? 
 </p>
 
 <p>
 The answer today is that we don't know without further investigation, but it
 is some type that implicitly converts to
-<code>shared_ptr&lt;BigGraphNode&gt;</code>.  And I think that is a much
+<code>shared_ptr&lt;BigGraphNode&gt;</code>.  And we think that is a much
 better answer than "some type that will convert to
 <code>shared_ptr&lt;BigGraphNode&gt;</code> explicitly or implicitly."  This
 latter set includes <code>BigGraphNode*</code>.  If the above code is written
@@ -684,7 +684,7 @@ suddenly bypass similar checking for potentially-corrupting cases!</p>
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
-For me, these examples stress the point that when a type author writes
+For us, these examples stress the point that when a type author writes
 "<code>explicit</code>", we should never ignore it.  Not on a <code>return</code>
 statement.  Not anywhere.  The type author knows best.  He had the option to
 not make his conversion <code>explicit</code>, and he felt strongly enough
@@ -692,7 +692,7 @@ about the decision to <i>opt-in</i> to an <code>explicit</code> conversion.
 </p>
 
 <p>
-I recall that when <code>&lt;chrono&gt;</code> was going through the
+We recall that when <code>&lt;chrono&gt;</code> was going through the
 standardization process, the entire committee felt <i>very strongly</i> that
 <code>int</code> should never implicitly convert to a <code>duration</code>.
 </p>
