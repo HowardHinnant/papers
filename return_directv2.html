@@ -1,0 +1,720 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Response To: Let return Be Explicit</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2014-07-23<br/>
+</address>
+<hr/>
+<h1 align=center>Response To: Let <code>return {expr}</code> Be Explicit</h1>
+
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#Introduction">Introduction</a></li>
+<li><a href="#Example">The Counter-Example</a></li>
+<li><a href="#ExistingCode">Does anyone actually use curly braces on <code>return</code>?</a></li>
+<li><a href="#ExampleTuple">The <code>tuple</code> Counter-Example</a></li>
+<li><a href="#AnotherExample">Another Example</a></li>
+<li><a href="#MoreSmartPointers">More about smart pointers</a></li>
+<li><a href="#Illogical">Choosing braces to mean "non-explicit" is illogical</a></li>
+<li><a href="#Summary">Summary</a></li>
+</ul>
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+This paper is a revision of <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2014/n4094.html">N4094</a> with kind permission from Howard Hinnant. It is in response to:
+</p>
+
+<blockquote><p>
+<a href="https://isocpp.org/files/papers/n4074.pdf">N4074: Let <code>return {expr}</code> Be Explicit</a>
+</p></blockquote>
+
+<p>
+N4074 proposes (with the best of intentions) to ignore the
+<code>explicit</code> qualifier on conversions when the conversion would take
+place on a <code>return</code> statement and is surrounded with curly braces.
+For example:
+</p>
+
+<blockquote><pre>
+struct Type2
+{
+    <ins>explicit</ins> Type2(int) {}
+};
+
+Type2
+makeType2(int i)
+{
+    return {i}; // error now, ok with adoption of N4074.
+}
+</pre></blockquote>
+
+<p>
+Note that this code today results in a compile-time error, not because of the
+braces, but because of the <code>explicit</code> qualifier on the <codeType2</code>
+constructor taking an <code>int</code>.  Remove that <code>explicit</code>
+qualifier as in the example below, and the code compiles today:
+</p>
+
+<blockquote><pre>
+struct Type1
+{
+    <del>explicit</del> Type1(int) {}
+};
+
+Type1
+makeType1(int i)
+{
+    return {i}; // ok since C++11, implicit conversion from int to Type1
+}
+</pre></blockquote>
+
+<p>
+The motivation for this change comes from the original of N4074,
+<a href="https://isocpp.org/files/papers/n4029.pdf">N4029</a>:
+</p>
+
+<blockquote>
+<p>
+I believe this is inconsistent because the named return type is just as
+"explicit" a type as a named local automatic variable type. Requiring the
+user to express the type is by definition redundant &mdash; there is no other
+type it could be.
+</p>
+<p>
+This is falls into the (arguably most) hated category of C++ compiler
+diagnostics: "I know exactly what you meant. My error message even tells you
+exactly what you must type. But I will make you type it."
+</p>
+</blockquote>
+
+<p>
+We can relate.  Unnecessary typing <i>is</i> frustrating.  However we believe
+it is possible that ignoring the <code>explicit</code> qualifier on type
+conversions, even if only restricted to <code>return</code> statements
+enclosed with curly braces, could turn <i>compile-time</i> errors into
+<i>run-time</i> errors.  Possibly <i>very subtle run-time</i> errors (the
+worst kind).
+</p>
+
+<p>
+How likely is it that such run-time errors might be introduced?
+<i>&lt;shrug&gt;</i> Such conjecture is always highly speculative.  But in this
+instance, we can offer a realistic example where exactly this would happen.
+And it happens very close to our home: by ignoring the <code>explicit</code>
+qualifier of the constructor of a <b>std-defined</b> class type.
+</p>
+
+<a name="Example"></a><h2>The Counter-Example</h2>
+
+<p>
+Bear with us while we set up the likelihood of this counter-example actually
+happening in the wild...
+</p>
+
+<p>
+Today in <code>&lt;string&gt;</code> we have the following functions which
+turn a <code>std::string</code> into an arithmetic type:
+</p>
+
+<blockquote><pre>
+int                stoi  (const string&amp; str, size_t* idx = 0, int base = 10);
+long               stol  (const string&amp; str, size_t* idx = 0, int base = 10);
+unsigned long      stoul (const string&amp; str, size_t* idx = 0, int base = 10);
+long long          stoll (const string&amp; str, size_t* idx = 0, int base = 10);
+unsigned long long stoull(const string&amp; str, size_t* idx = 0, int base = 10);
+
+float       stof (const string&amp; str, size_t* idx = 0);
+double      stod (const string&amp; str, size_t* idx = 0);
+long double stold(const string&amp; str, size_t* idx = 0);
+</pre></blockquote>
+
+<p>
+It seems quite reasonable that a programmer might say to himself:
+</p>
+
+<blockquote>
+<p>
+I would like to write a function that turns a <code>std::string</code> into
+a <code>std::chrono::duration</code>.
+</p>
+</blockquote>
+
+<p>
+Which <code>duration</code>?  Well, let's keep it simple and say: any one of
+the six "predefined" <code>duration</code>s: <code>hours</code>,
+<code>minutes</code>, <code>seconds</code>, <code>milliseconds</code>,
+<code>microseconds</code>, or <code>nanoseconds</code> can be parsed and
+returned as <code>nanoseconds</code>.
+</p>
+
+<p>
+What would be the syntax for doing this?  Well, it would be quite reasonable
+to follow the same syntax we already have for <code>duration</code> literals:
+</p>
+
+<blockquote><pre>
+2h     // 2 hours
+2min   // 2 minutes
+2s     // 2 seconds
+2ms    // 2 milliseconds
+2us    // 2 microseconds
+2ns    // 2 nanoseconds
+</pre></blockquote>
+
+<p>
+And here is quite reasonable code for doing this:
+</p>
+
+<blockquote><pre>
+std::chrono::nanoseconds
+stons(std::string const&amp; str)
+{
+    using namespace std::chrono;
+    auto errno_save = errno;
+    errno = 0;
+    char* endptr;
+    auto count = std::strtoll(str.data(), &amp;endptr, 10);
+    std::swap(errno, errno_save);
+    if (errno_save != 0)
+        throw std::runtime_error("error parsing duration");
+    if (str.data() &lt; endptr &amp;&amp; endptr &lt; str.data() + str.size())
+    {
+        switch (*endptr)
+        {
+        case 'h':
+            return hours{count};
+        case 'm':
+            if (endptr + 1 &lt; str.data() + str.size())
+            {
+                switch (endptr[1])
+                {
+                case 'i':
+                    if (endptr + 2 &lt; str.data() + str.size() &amp;&amp; endptr[2] == 'n')
+                        return {count};
+                    break;
+                case 's':
+                    return milliseconds{count};
+                }
+            }
+            break;
+        case 's':
+            return seconds{count};
+        case 'u':
+            if (endptr + 1 &lt; str.data() + str.size() &amp;&amp; endptr[1] == 's')
+                return microseconds{count};
+            break;
+        case 'n':
+            if (endptr + 1 &lt; str.data() + str.size() &amp;&amp; endptr[1] == 's')
+                return nanoseconds{count};
+            break;
+        }
+    }
+    throw std::runtime_error("error parsing duration");
+}
+</pre></blockquote>
+
+<p>
+Here is a simplistic "are you breathing" test for this code:
+</p>
+
+<blockquote><pre>
+int
+main()
+{
+    using namespace std;
+    using namespace std::chrono;
+    cout &lt;&lt; stons("2h").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; stons("2min").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; stons("2s").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; stons("2ms").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; stons("2us").count() &lt;&lt; "ns\n";
+    cout &lt;&lt; stons("2ns").count() &lt;&lt; "ns\n";
+}
+</pre></blockquote>
+
+<p>
+Ok, so what is our point?
+</p>
+
+<p>
+There is a careless type-o / bug in <code>stons</code>.  Do you see it yet?
+<code>stons</code> is not trivial.  But neither is it horribly complicated.
+Nor is it contrived.  Nor is the bug in it contrived.  It is a type of bug
+that occurs commonly.
+</p>
+
+<p>
+Today the bug in <code>stons</code> results in a compile-time error.  This
+compile-time error was intended by the designers of the
+<code>&lt;chrono&gt;</code> library.
+</p>
+
+<p>
+If we accept N4074, the bug in <code>stons</code> becomes a run-time error.
+Have you spotted it yet?  Here is a clue.  The output of the test (with
+N4074 implemented) is:
+</p>
+
+<blockquote><pre>
+7200000000000ns
+2ns
+2000000000ns
+2000000ns
+2000ns
+2ns
+</pre></blockquote>
+
+<p>
+The error is this line that parses "min" after the count:
+</p>
+
+<blockquote><pre>
+                        return {count};
+</pre></blockquote>
+
+<p>
+which should read:
+</p>
+
+<blockquote><pre>
+                        return minutes{count};
+</pre></blockquote>
+
+<p>
+Once the error is corrected, the correct output of the test is:
+</p>
+
+<blockquote><pre>
+7200000000000ns
+120000000000ns
+2000000000ns
+2000000ns
+2000ns
+2ns
+</pre></blockquote>
+
+<a name="ExistingCode"></a><h2>Does anyone actually use curly braces on <code>return</code>?</h2>
+
+<p>
+The expression <code>return {x};</code> has only been legal since C++11. 
+There have only been 3 (official) years for it to be adopted by programmers. 
+Is there any evidence anyone is actually using this syntax?
+</p>
+
+<p>
+Yes.
+</p>
+
+<ul>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/db/table_properties_collector.cc#L42">rocksdb</a></li>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/table/block_based_table_reader.cc#L727">rocksdb</a></li>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/table/block_based_table_reader.cc#L732">rocksdb</a></li>
+<li><a href="https://github.com/facebook/rocksdb/blob/master/table/block_based_table_reader.cc#L779">rocksdb</a></li>
+<li><a href="http://stackoverflow.com/search?q=%5Bc%2B%2B11%5D+%22return+%7B%22">98 hits on stackoverflow</a></li>
+<li><a href="http://codereview.stackexchange.com/search?q=%5Bc%2B%2B%5D+%22return+%7B%22">15 hits on Code Review</a></li>
+</ul>
+
+<p>
+These were just the ones we were able to find.  Searching for
+<code>"return[\s]*{"</code> is exceedingly challenging.  But just the above
+results clearly demonstrate a use that is significantly greater than
+"vanishingly rare."
+</p>
+
+<a name="ExampleTuple"></a><h2>The <code>tuple</code> Counter-Example</h2>
+
+<p>
+What if the return isn't a scalar?  For example is this just as unsafe?
+</p>
+
+<blockquote><pre>
+return {5, 23};
+</pre></blockquote>
+
+<p>
+If the return type is <code>tuple&lt;seconds, nanoseconds&gt;</code> (which
+we still do not want to construct implicitly from <code>int</code>), then
+this would <b>definitely not</b> be safe!
+</p>
+
+<p>
+We never want to implicitly construct a <code>duration</code> from an
+<code>int</code>.  Here is how we say that in C++:
+</p>
+
+<blockquote><pre>
+template &lt;class Rep2&gt; constexpr <b>explicit</b> duration(const Rep2&amp; r);
+</pre></blockquote>
+
+<p>
+That is, we put <code>explicit</code> on the constructor (or on a conversion
+operator).  To change the language to ignore <code>explicit</code> in some
+places is a dangerous direction.
+</p>
+
+<p>
+All that being said, if the constructions are <i>implicit</i> then they are
+safe.  For example:
+</p>
+
+<blockquote><pre>
+tuple&lt;seconds, nanoseconds&gt;
+test1()
+{
+    return {3, 4};  // unsafe, 3 does not implicitly convert to seconds
+                    //         4 does not implicitly convert to nanoseconds
+}
+
+tuple&lt;seconds, nanoseconds&gt;
+test2()
+{
+    return {3h, 4ms};  // safe, 3h does implicitly convert to seconds
+                       //       4ms does implicitly convert to nanoseconds
+}
+
+tuple&lt;int, float, string&gt;
+test3()
+{
+    return {3, 4.5, "text"};  // safe, 3 does implicitly convert to int
+                              //       4.5 does implicitly convert to float
+                              //       "text" does implicitly convert to string
+}
+</pre></blockquote>
+
+<p>
+None of the three examples compile today according to C++14 because the
+<code>std::tuple</code> constructor invoked is marked <code>explicit</code>.
+However <code>test2</code> and <code>test3</code> are both perfectly safe.  It
+is unambiguous what is intended in these latter two cases.  And they would
+indeed compile if the <code>tuple</code> constructor invoked was not marked
+<code>explicit</code>.
+</p>
+
+<p>
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>
+is a proposal which makes <code>test2</code> and <code>test3</code> legal,
+while keeping <code>test1</code> a compile-time error.  We fully support this
+proposal. Indeed Howard implemented this proposal in <a
+href="http://libcxx.llvm.org">libc++</a> years ago, for precisely the same
+reasons that N4074 is now proposed:  To ease the syntax burden on the
+programmer.  But unlike N4074, N3739 never disregards the <code>explicit</code>
+keyword that the programmer has qualified one of his constructors with.
+</p>
+
+<a name="AnotherExample"></a><h2>Another Example</h2>
+
+<p>
+Perhaps there is some defective quality about <code>chrono::duration</code>
+which is causing the problem.  Is <code>chrono::duration</code> the <i>only</i>
+problematic example?
+</p>
+
+<p>
+Consider a class <code>OperatesOnData</code>.
+</p>
+
+<blockquote><pre>
+class OperatesOnData
+{
+public:
+    OperatesOnData(VerifiedData);  // knows that the Data has been verified
+    // Use this constructor ONLY with verified data!
+    explicit OperatesOnData(Data); // trusts that the Data has been verified
+};
+</pre></blockquote>
+
+<p>
+<code>Data</code> that comes from untrusted sources must first be verified to
+make sure it is in the proper form, all invariants are met, etc.  This
+unverified <code>Data</code> is verified with the type <code>VerifiedData</code>.
+This <code>VerifiedData</code> can then be safely sent to <code>OperatesOnData</code>
+with no further verification.
+</p>
+
+<p>
+However verifying the data is expensive.  Sometimes <code>Data</code> comes
+from a trusted source.  So the author of <code>OperatesOnData</code> has set
+up an <b>explicit</b> constructor that takes <code>Data</code>.  Clients know
+that <code>OperatesOnData</code> can't verify <code>Data</code> all
+the time because of performance concerns.  So when they know that their
+<code>Data</code> need not be verified, they can use an explicit conversion
+to <code>OperatesOnData</code> to communicate that fact.
+</p>
+
+<p>
+Is this the best design in the world?  That's beside the point.  This is a
+reasonable design one might find coded in C++.
+</p>
+
+<p>
+Now we need to get the <code>Data</code> and start working on it:
+</p>
+
+<blockquote><pre>
+VerifiedData getData();
+
+OperatesOnData
+startOperation()
+{
+    return {getData()};
+}
+</pre></blockquote>
+
+<p>
+So far so good.  This is valid and working C++14 code.
+</p>
+
+<p>
+Three years go by, and the programmers responsible for this code change.
+C++17 decides that making <code>return {x};</code> bind to explicit
+conversions is a good idea.
+</p>
+
+<p>
+Now, because of some changes on the other side of a million line program,
+it is now too expensive for <code>getData()</code> to do the verification as
+it has acquired some new clients that must do verification anyway.  So
+<code>getData()</code> changes to:
+</p>
+
+<blockquote><pre>
+Data getData();
+</pre></blockquote>
+
+<p>
+Bam.  Unverified data gets silently sent to <code>OperatesOnData</code>.
+The original code was designed <i>precisely</i> to catch this very error
+<i>at compile time</i>.
+</p>
+
+<blockquote><pre>
+Data getData();
+
+OperatesOnData
+startOperation()
+{
+    return {getData()};
+}
+
+test.cpp:23:12: error: chosen constructor is explicit in copy-initialization
+    return {getData()};
+           ^~~~~~~~~~~
+test.cpp:14:14: note: constructor declared here
+    explicit OperatesOnData(Data); // trusts that the Data has been verified
+             ^
+1 error generated.
+</pre></blockquote>
+
+<p>
+But because the committee has redefined what <code>return {getData()}</code>
+means between C++11 and C++17 (a period of 6 years), a serious run time error
+(perhaps a security breach) has been created.
+</p>
+
+<p>
+This example highlights the fact that the return type of an expression is not
+always clear at the point of the <code>return</code> statement, nor in direct
+control of the function author.  When what is being returned is the result of
+some other function, declared and defined far away, there is potential for
+error. If explicit conversions are implicitly allowed between these two
+independently written pieces of code, the potential for error increases
+greatly:
+</p>
+
+<blockquote><pre>
+shared_ptr&lt;BigGraphNode&gt;
+makeBigGraphNode()
+{
+    return {allocateBigGraphNode()};
+}
+</pre></blockquote>
+
+<p>
+What type does <code>allocateBigGraphNode()</code> return?  Today, if this
+compiles, we are assured that it is some type that is implicitly convertible
+to <code>shared_ptr&lt;BigGraphNode&gt;</code>.  Implicit conversions are
+conversions that the author of <code>shared_ptr</code> deemed safe enough that
+the conversion need not be explicitly called out at the point of use.
+</p>
+
+<p>
+Explicit conversions on the other hand are not as safe as implicit conversions.
+And for whatever reasons, the author of <code>shared_ptr</code> deemed the
+conversions of some types to <code>shared_ptr</code> sufficiently dangerous
+that they should be called out explicitly when used.
+</p>
+
+<p>
+We ask again:  What type does <code>allocateBigGraphNode()</code> return? 
+</p>
+
+<p>
+The answer today is that we don't know without further investigation, but it
+is some type that implicitly converts to
+<code>shared_ptr&lt;BigGraphNode&gt;</code>.  And we think that is a much
+better answer than "some type that will convert to
+<code>shared_ptr&lt;BigGraphNode&gt;</code> explicitly or implicitly."  This
+latter set includes <code>BigGraphNode*</code>.  If the above code is written
+today, and the meaning of that return statement changes tomorrow.  And the next
+day the return type of <code>allocateBigGraphNode()</code> changes, there is a
+very real potential for turning compile-time errors into run-time errors.
+</p>
+
+<p>
+The above potential for error is <b>exactly</b> the same as it is for this
+code:
+</p>
+
+<blockquote><pre>
+void acceptBigGraphNode(shared_ptr&lt;BigGraphNode&gt;);
+// ...
+acceptBigGraphNode(allocateBigGraphNode());
+</pre></blockquote>
+
+<p>
+If performing explicit conversions is dangerous in one of the above two
+examples, then it is dangerous in both.  The presence of curly braces in the
+first example makes zero difference, as illustrated by the <code>stons</code>
+example.  Indeed, the presence of curly braces is today legal in the second
+example: 
+</p>
+
+<blockquote><pre>
+acceptBigGraphNode({allocateBigGraphNode()});
+</pre></blockquote>
+
+<p>
+but only <b>if</b> the conversion is implicit.
+</p>
+
+<a name="MoreSmartPointers"</a><h2>More about smart pointers</h2>
+
+<p>
+In <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2014/n4029.pdf">N4029</a>, Sutter responds to the concerns about implicit ownership transfer by saying "it's okay", and continues</p>
+<p>
+<blockquote>
+I believe <code>return p;</code> is reasonable "what else could I possibly 
+have meant" code, with the most developer-infuriating kind of diagnostic 
+(being able to spell out exactly what the developer has to redundantly
+write to make the code compile, yet forcing the developer to type
+it out), and I think that it's unreasonable that I be forced to repeat
+<code>std::unique_ptr&lt;T&gt;{}</code> here.
+</blockquote>
+</p>
+<p>
+It's not at all clear that it's "obvious" what the programmer meant. It's
+NOT about knowing the <b>return</b> type. It's about knowing the <b>source</b>
+type and its semantics. As it happens, with a raw pointer, we do not know
+its ownership semantics, because it doesn't have any. We do not know where
+it came from - it may be a result of a malloc inside a legacy API. It may
+be a result of a strdup (same difference, really). It might not be a
+pointer to a resource dynamically-allocated with a <code>default_delete</code>-compatible
+allocator.
+</p>
+<p>
+The implementation diagnostic is not saying "write the following boiler-plate".
+It's saying "stop and think". It's specifically saying "you're about to
+cross the border between no ownership semantics and strict ownership semantics,
+please make sure you're doing what you think you're doing".
+</p>
+<p>
+It also seems questionable that we would break the design expectations
+of smart pointers well older than a decade just to make interfacing with
+legacy raw pointers easier. Modern C++ code uses <code>make_unique</code> and <code>make_shared</code>,
+not plain <code>new</code>. And such modern C++ code uses smart pointers as return types
+for factory functions that create the resources, not raw pointers. Even
+worse, this proposal means that the most convenient (since shortest) way
+to create a <code>unique_ptr&lt;T&gt;</code> from arguments of <code>T</code> is not</p>
+<blockquote><pre>
+return make_unique&lt;T&gt;(args);
+</pre></blockquote>
+<p>
+but rather</p>
+<blockquote><pre>
+return {new T{args}};
+</pre></blockquote>
+<p>
+The Finnish experts pull no punches when they say such a thing is the
+wrong evolution path to take. They have voiced vocal astonishment to
+the proposed core language change just to support use cases that should 
+be or at the very least should become rare and legacy, especially when 
+that change breaks design expectations of tons of libraries.
+</p>
+
+<a name="Illogical"</a><h2>Choosing braces to mean "non-explicit" is illogical</h2>
+<p>
+Returning a braced-list has a meaning today. Consider:</p>
+
+<blockquote><pre>
+char f() {int x = 0; return {x};} // error: narrowing conversion of 'x' from 'int' to 'char' inside { }
+</pre></blockquote>
+
+<p>People learn that in order to avoid potentially-corrupting narrowing
+conversions between built-in types, they can use braces. It seems very
+illogical that for library types with explicit conversions, braces
+suddenly bypass similar checking for potentially-corrupting cases!</p>
+
+<a name="Summary"></a><h2>Summary</h2>
+
+<p>
+For us, these examples stress the point that when a type author writes
+"<code>explicit</code>", we should never ignore it.  Not on a <code>return</code>
+statement.  Not anywhere.  The type author knows best.  He had the option to
+not make his conversion <code>explicit</code>, and he felt strongly enough
+about the decision to <i>opt-in</i> to an <code>explicit</code> conversion.
+</p>
+
+<p>
+We recall that when <code>&lt;chrono&gt;</code> was going through the
+standardization process, the entire committee felt <i>very strongly</i> that
+<code>int</code> should never implicitly convert to a <code>duration</code>.
+</p>
+
+<p>
+If we want more conversions to be implicit, then we should not mark those
+conversions with the <code>explicit</code> qualifier.  This is a far superior
+solution compared to marking a conversion explicit, and then treating the
+conversion as implicit in a few places.  And this is the direction of
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>.
+Instead of changing the rules for every type,
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2013/n3739.html">N3739</a>
+removes the <code>explicit</code> qualifier from specific types where it is
+undesirable to have it, while keeping the <code>explicit</code> qualifier in
+places that respect the type author's wishes.
+</p>
+<p>
+All of the chrono, tuple and smart pointer examples are practical cases of a 
+general conceptual case: a conversion from a type with no semantics to a type 
+with strict semantics. Bypassing the explicitness of such conversions is 
+exceedingly dangerous, especially when it happens after-the-fact that the
+designers of those library types chose to mark such conversions explicit.
+The proposed change is moving the earth under the library designers' feet.
+</p>
+</body>
+</html>
