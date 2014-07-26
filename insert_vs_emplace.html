@@ -1,0 +1,815 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>insert vs emplace</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+<br/>
+<br/>
+<a href="mailto:howard.hinnant@gmail.com">Howard E. Hinnant</a><br/>
+2014-07-26<br/>
+<a rel="license" href="http://creativecommons.org/licenses/by/4.0/">
+<img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br />
+This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>.
+</address>
+<hr/>
+<h1 align=center><code>insert</code> vs <code>emplace</code></h1>
+
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#Introduction">Introduction</a></li>
+<li><a href="#Experiment">The Experiment</a></li>
+<li><a href="#Results">The Results</a>
+    <ul>
+    <li><a href="#lvalue_no_realloc">lvalue with no reallocation</a></li>
+    <li><a href="#xvalue_no_realloc">xvalue with no reallocation</a></li>
+    <li><a href="#prvalue_no_realloc">prvalue with no reallocation</a></li>
+    <li><a href="#lvalue_realloc">lvalue with reallocation</a></li>
+    <li><a href="#xvalue_realloc">xvalue with reallocation</a></li>
+    <li><a href="#prvalue_realloc">prvalue with reallocation</a></li>
+    </ul>
+</li>
+<li><a href="#Summary">Summary</a></li>
+<li><a href="#Appendix">Appendix: The test code</a></li>
+<li><a href="#Acknowledgments">Acknowledgments</a></li>
+</ul>
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+C++11 brings a new member function to the sequence containers:
+</p>
+
+<blockquote><pre>
+template &lt;class... Args&gt; iterator emplace(const_iterator position, Args&amp;&amp;... args);
+</pre></blockquote>
+
+<p>
+This new function is quite similar to these <code>insert</code> members:
+</p>
+
+<blockquote><pre>
+iterator insert(const_iterator position, const value_type&amp; x);
+iterator insert(const_iterator position, value_type&amp;&amp; x);
+</pre></blockquote>
+
+<p>
+The <code>insert</code> members can be handily used to insert a new
+<code>value_type</code> into a container.  But with <code>emplace</code> one
+can directly construct the new <code>value_type</code> into the container
+using <i>any</i> of <code>value_type</code>'s accessible constructors.
+For example given an example class <code>X</code>:
+</p>
+
+<blockquote><pre>
+class X
+{
+    int i_;
+    int* p_;
+
+public:
+    ~X();
+    X(const X&amp; x);
+    X&amp; operator=(const X&amp; x);
+    X(X&amp;&amp; x) noexcept;
+    X&amp; operator=(X&amp;&amp; x) noexcept;
+
+    X(int i, int* p);
+};
+</pre></blockquote>
+
+<p>
+One can use <code>insert</code> to place an <code>x</code> into a
+<code>vector&lt;X&gt;</code> (for example) like this:
+</p>
+
+<blockquote><pre>
+v.insert(v.begin(), x);
+v.insert(v.begin(), std::move(x));
+</pre></blockquote>
+
+<p>
+But with <code>emplace</code> one can also use the <code>X(int i, int* p)</code>
+constructor directly:
+</p>
+
+<blockquote><pre>
+v.emplace(v.begin(), 3, nullptr);
+</pre></blockquote>
+
+<p>
+So far so good.  As it turns out, you can also use <code>emplace</code> to
+insert an <code>x</code>:
+</p>
+
+<blockquote><pre>
+v.emplace(v.begin(), x);
+</pre></blockquote>
+
+<p>
+This would simply use <code>X</code>'s copy constructor (just like
+<code>insert</code> would do).  So the question arises:
+</p>
+
+<blockquote class="note">
+<p>
+When one has a choice where either <code>insert</code> or <code>emplace</code>
+would do, which one should you choose?
+</p>
+</blockquote>
+
+<p>
+This question is what this paper attempts to answer.
+</p>
+
+<a name="Experiment"></a><h2>The Experiment</h2>
+
+<p>
+To create a measurement, the example class <code>X</code> above is instrumented
+so that one can count how many times each member is called, and those
+measurements are monitored while <code>insert</code>ing / <code>emplace</code>ing
+an <code>X</code> into a <code>vector&lt;X&gt;</code>.  The container
+<code>vector</code> was chosen because this is the most important container
+in the standard library, and because on this container, it makes a difference.
+For node-based containers, no difference between <code>insert</code> and
+<code>emplace</code> would be measured.
+</p>
+
+<p>
+Additionally, whether the inserted <code>x</code> is an lvalue, xvalue, or
+prvalue can make a difference as well.  And so measurements are taken for all
+three possibilities.  Also it can make a difference if the insertion triggers
+a reallocation or not, and so both cases are examined.
+</p>
+
+<p>
+Finally, even for a container as simple as <code>std::vector</code>, there
+exist implementation differences as vendors seek to offer their customers the
+best possible tradeoffs.  Currently there are three shipping C++11
+implementations of <code>std::vector</code>: LLVM's libc++, gcc's libstdc++,
+and Microsoft's Visual Studio.  The latest shipping version of each of these
+three implementations are tested. As it turns out, one gets different results
+for each implementation.
+</p>
+
+<p>
+For each experiment, a <code>vector</code> of three items is constructed, and
+then a new <code>X</code> is inserted at the front of the <code>vector</code>.
+Only during the insertion are the member function calls measured.
+</p>
+
+<a name="Results"></a><h2>The Results</h2>
+
+<a name="lvalue_no_realloc"></a><h3>lvalue with no reallocation</h3>
+
+<p>
+This test inserts an lvalue <code>X</code> into the front of a three-element
+<code>vector</code>, ensuring that the insertion will not cause a
+reallocation. Here is the complete code which was used to run this experiment:
+</p>
+
+<blockquote><pre>
+{
+    std::vector&lt;X&gt; v;
+    v.reserve(4);
+    v.push_back(X(0,0));
+    v.push_back(X(0,0));
+    v.push_back(X(0,0));
+    X x{0,0};
+    std::cout &lt;&lt; "--insert lvalue no reallocation--\n";
+    X::sp = {};
+    v.insert(v.begin(), x);
+    std::cout &lt;&lt; X::sp;
+    std::cout &lt;&lt; "----\n";
+}
+{
+    std::vector&lt;X&gt; v;
+    v.reserve(4);
+    v.push_back(X(0,0));
+    v.push_back(X(0,0));
+    v.push_back(X(0,0));
+    X x{0,0};
+    std::cout &lt;&lt; "--emplace lvalue no reallocation--\n";
+    X::sp = {};
+    v.emplace(v.begin(), x);
+    std::cout &lt;&lt; X::sp;
+    std::cout &lt;&lt; "----\n";
+}
+</pre></blockquote>
+
+<p>
+The code <code>X::sp = {};</code> zeros out all of the counters, and then
+those counts are output to <code>cout</code> directly after the measured
+call (to <code>insert</code> or <code>emplace</code>).  Thus the calls
+into <code>X</code> used to build the three-element <code>vector</code> are
+not measured.
+</p>
+
+<img src="lv.tiff">
+
+<p>
+The stacked-bar chart gives the number of times each member is called for
+each run of the experiment.  The key goes as follows:
+</p>
+
+<ul>
+<li>c (blue) is the <code>X(int, int*)</code> constructor</li>
+<li>dt (green) is the destructor</li>
+<li>cc (yellow) is the copy constructor</li>
+<li>ca (orange) is the copy assignment operator</li>
+<li>mc (red) is the move constructor</li>
+<li>ma (purple) is the move assignment operator</li>
+</ul>
+
+<p>
+For example libc++'s <code>insert</code> function called the copy assignment
+operator once, the move constructor once, and the move assignment operator
+twice.
+</p>
+
+<p>
+It is hereby noted that these charts incorrectly imply that all of these
+calls have the same expense.  But in many cases a copy construction may be
+significantly more expensive than a move construction.  In other cases the
+two will be identical. These results purposefully ignore such details. 
+Instead the data is simply presented and it is up to the reader of this paper
+to give relative importance to each call.
+</p>
+
+<p>
+In this particular experiment, we have very mixed results.
+</p>
+
+<ul>
+<li>On libc++ and vs2013, <code>insert</code> is arguably better than
+<code>emplace</code>.</li>
+<li>On libstdc++, <code>emplace</code> is arguably better than
+<code>insert</code>.</li>
+</ul>
+
+<p>
+It is possible that a future version of libstdc++ might reduce the number
+of constructions (and thus destructions) it does.  libc++ shows this is
+possible, and demonstrates what I believe is a minimum number of calls.
+</p>
+
+<p>
+The libc++ and libstdc++ <code>emplace</code> functions have identical test
+results.
+</p>
+
+<a name="xvalue_no_realloc"></a><h3>xvalue with no reallocation</h3>
+
+<p>
+This experiment differs from the previous experiment in these two lines
+of code:
+</p>
+
+<blockquote><pre>
+v.insert(v.begin(), std::move(x));
+v.emplace(v.begin(), std::move(x));
+</pre></blockquote>
+
+<img src="xv.tiff">
+
+<p>
+When inserting an xvalue, only libc++ demonstrates an advantage of
+<code>insert</code> over <code>emplace</code>.  The other two platforms
+have identical behavior for <code>insert</code> and <code>emplace</code>.
+Furthermore the libc++ <code>emplace</code> tests identically with the
+libstdc++ <code>emplace</code>.
+</p>
+
+<a name="prvalue_no_realloc"></a><h3>prvalue with no reallocation</h3>
+
+<p>
+To test prvalues, the two lines of code are modified like so:
+</p>
+
+<blockquote><pre>
+v.insert(v.begin(), X{0,0});
+v.emplace(v.begin(), X{0,0});
+</pre></blockquote>
+
+<img src="prv.tiff">
+
+<p>
+These results are quite similar to the xvalue results except that an extra
+construction and destruction are measured on this test, which reflects the
+temporary <code>X{0,0}</code> getting constructed and destructed.
+</p>
+
+<a name="lvalue_realloc"></a><h3>lvalue with reallocation</h3>
+
+<p>
+This test is identical to the <a href="#lvalue_no_realloc">lvalue with no
+reallocation</a> test except that <code>v.reserve(4)</code> is changed to
+<code>v.reserve(3)</code>.
+</p>
+
+<img src="lv_realloc.tiff">
+
+<p>
+When inserting an xvalue in the reallocating case, only vs2013 demonstrates
+an advantage of <code>insert</code> over <code>emplace</code>.  The other two
+platforms have identical behavior for <code>insert</code> and
+<code>emplace</code>. Furthermore the libc++ and libstdc++ platforms test
+identically.
+</p>
+
+<a name="xvalue_realloc"></a><h3>xvalue with reallocation</h3>
+
+<p>
+This test is identical to the <a href="#xvalue_no_realloc">xvalue with no
+reallocation</a> test except that <code>v.reserve(4)</code> is changed to
+<code>v.reserve(3)</code>.
+</p>
+
+<img src="xv_realloc.tiff">
+
+<p>
+For this test each of the three platforms show no difference between
+<code>insert</code> and <code>emplace</code> for this test.  Furthermore
+libc++ and libstdc++ test identically.
+</p>
+
+<a name="prvalue_realloc"></a><h3>prvalue with reallocation</h3>
+
+<p>
+This test is identical to the <a href="#prvalue_no_realloc">prvalue with no
+reallocation</a> test except that <code>v.reserve(4)</code> is changed to
+<code>v.reserve(3)</code>.
+</p>
+
+<img src="prv_realloc.tiff">
+
+<p>
+For this test each of the three platforms show no difference between
+<code>insert</code> and <code>emplace</code> for this test.  Furthermore
+libc++ and libstdc++ test identically.
+</p>
+
+<a name="Summary"></a><h2>Summary</h2>
+
+<p>
+I was hoping for a nice clean message, however these results are more
+complicated than that.  On libc++ and vs2013, one can say that
+<code>insert</code> is always better than, or as good as
+<code>emplace</code>.  But on libstdc++ you can say exactly the opposite. On
+libstdc++ only in one out of the six cases is <code>emplace</code> superior
+to <code>insert</code>.  On vs2013, two out of the six cases have
+<code>insert</code> superior to <code>emplace</code>.  And on libc++ three
+out of the six cases measure <code>insert</code> superior to
+<code>emplace</code>. It also appears that libc++ represents the theoretical
+minimum for the number of calls to <code>X</code>'s member functions under
+<code>insert</code> and <code>emplace</code>. In no test did libc++ make more
+calls than did libstdc++ or vs2013.  Therefore one might speculate that the
+results of some of the tests for libstdc++ and vs2013 have the potential to
+drop in the future.
+</p>
+
+<p>
+During the course of writing this paper I also collected data for
+<code>vector::push_back</code> and <code>emplace_back</code>.  The results
+for these two operations were identical, not only between
+<code>push_back</code> and <code>emplace_back</code> but among all three
+platforms.
+</p>
+
+<a name="Appendix"></a><h2>Appendix: The test code</h2>
+
+<p>
+Below is the complete test code used.  On Visual Studio the <code>neoxcept</code>
+keyword was removed.
+</p>
+
+<blockquote><pre>
+#include &lt;iostream&gt;
+#include &lt;vector&gt;
+
+class X
+{
+    int i_;
+    int* p_;
+
+public:
+    struct special
+    {
+        unsigned c;
+        unsigned dt;
+        unsigned cc;
+        unsigned ca;
+        unsigned mc;
+        unsigned ma;
+    };
+    static special sp;
+
+    X(int i, int* p)
+        : i_(i)
+        , p_(p)
+    {
+//         std::cout &lt;&lt; "X(int i, int* p)\n";
+        sp.c++;
+    }
+
+    ~X()
+    {
+//         std::cout &lt;&lt; "~X()\n";
+        sp.dt++;
+    }
+
+    X(const X&amp; x)
+        : i_(x.i_)
+        , p_(x.p_)
+    {
+//         std::cout &lt;&lt; "X(const X&amp; x)\n";
+        sp.cc++;
+    }
+
+    X&amp; operator=(const X&amp; x)
+    {
+    
+        i_ = x.i_;
+        p_ = x.p_;
+//         std::cout &lt;&lt; "X&amp; operator=(const X&amp; x)\n";
+        sp.ca++;
+        return *this;
+    }
+
+    X(X&amp;&amp; x) noexcept
+        : i_(x.i_)
+        , p_(x.p_)
+    {
+//         std::cout &lt;&lt; "X(X&amp;&amp; x)\n";
+        sp.mc++;
+    }
+
+    X&amp; operator=(X&amp;&amp; x) noexcept
+    {
+    
+        i_ = x.i_;
+        p_ = x.p_;
+//         std::cout &lt;&lt; "X&amp; operator=(X&amp;&amp; x)\n";
+        sp.ma++;
+        return *this;
+    }
+
+};
+
+std::ostream&amp;
+operator&lt;&lt;(std::ostream&amp; os, X::special const&amp; sp)
+{
+    os &lt;&lt; sp.c &lt;&lt; '\n';
+    os &lt;&lt; sp.dt &lt;&lt; '\n';
+    os &lt;&lt; sp.cc &lt;&lt; '\n';
+    os &lt;&lt; sp.ca &lt;&lt; '\n';
+    os &lt;&lt; sp.mc &lt;&lt; '\n';
+    os &lt;&lt; sp.ma &lt;&lt; '\n';
+    return os;
+}
+
+X::special X::sp{};
+
+int
+main()
+{
+    std::cout &lt;&lt; __GNUC__ &lt;&lt; '.' &lt;&lt; __GNUC_MINOR__ &lt;&lt; '\n';
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--insert lvalue no reallocation--\n";
+        X::sp = {};
+        v.insert(v.begin(), x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace lvalue no reallocation--\n";
+        X::sp = {};
+        v.emplace(v.begin(), x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--insert xvalue no reallocation--\n";
+        X::sp = {};
+        v.insert(v.begin(), std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace xvalue no reallocation--\n";
+        X::sp = {};
+        v.emplace(v.begin(), std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--insert rvalue no reallocation--\n";
+        X::sp = {};
+        v.insert(v.begin(), X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--emplace rvalue no reallocation--\n";
+        X::sp = {};
+        v.emplace(v.begin(), X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--insert lvalue reallocation--\n";
+        X::sp = {};
+        v.insert(v.begin(), x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace lvalue reallocation--\n";
+        X::sp = {};
+        v.emplace(v.begin(), x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--insert xvalue reallocation--\n";
+        X::sp = {};
+        v.insert(v.begin(), std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace xvalue reallocation--\n";
+        X::sp = {};
+        v.emplace(v.begin(), std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--insert rvalue reallocation--\n";
+        X::sp = {};
+        v.insert(v.begin(), X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--emplace rvalue reallocation--\n";
+        X::sp = {};
+        v.emplace(v.begin(), X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--push_back lvalue no reallocation--\n";
+        X::sp = {};
+        v.push_back(x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace_back lvalue no reallocation--\n";
+        X::sp = {};
+        v.emplace_back(x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--push_back xvalue no reallocation--\n";
+        X::sp = {};
+        v.push_back(std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace_back xvalue no reallocation--\n";
+        X::sp = {};
+        v.emplace_back(std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--push_back rvalue no reallocation--\n";
+        X::sp = {};
+        v.push_back(X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(4);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--emplace_back rvalue no reallocation--\n";
+        X::sp = {};
+        v.emplace_back(X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--push_back lvalue reallocation--\n";
+        X::sp = {};
+        v.push_back(x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace_back lvalue reallocation--\n";
+        X::sp = {};
+        v.emplace_back(x);
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--push_back xvalue reallocation--\n";
+        X::sp = {};
+        v.push_back(std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        X x{0,0};
+        std::cout &lt;&lt; "--emplace_back xvalue reallocation--\n";
+        X::sp = {};
+        v.emplace_back(std::move(x));
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--push_back rvalue reallocation--\n";
+        X::sp = {};
+        v.push_back(X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+    {
+        std::vector&lt;X&gt; v;
+        v.reserve(3);
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        v.push_back(X(0,0));
+        std::cout &lt;&lt; "--emplace_back rvalue reallocation--\n";
+        X::sp = {};
+        v.emplace_back(X{0,0});
+        std::cout &lt;&lt; X::sp;
+        std::cout &lt;&lt; "----\n";
+    }
+}
+</pre></blockquote>
+
+<a name="Acknowledgments"></a><h2>Acknowledgments</h2>
+
+<p>
+I would like to thank
+<a href="http://stackoverflow.com/users/15416/msalters">MSalters</a>
+and
+<a href="http://stackoverflow.com/users/124797/jagannath">Jagannath</a>
+for helping me gather data on Visual Studio.
+</p>
+
+</body>
+</html>
