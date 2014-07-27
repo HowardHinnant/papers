@@ -224,7 +224,7 @@ into <code>X</code> used to build the three-element <code>vector</code> are
 not measured.
 </p>
 
-<img src="lv.tiff">
+<img src="lv.jpg">
 
 <p>
 The stacked-bar chart gives the number of times each member is called for
@@ -289,7 +289,7 @@ v.insert(v.begin(), std::move(x));
 v.emplace(v.begin(), std::move(x));
 </pre></blockquote>
 
-<img src="xv.tiff">
+<img src="xv.jpg">
 
 <p>
 When inserting an xvalue, only libc++ demonstrates an advantage of
@@ -310,7 +310,7 @@ v.insert(v.begin(), X{0,0});
 v.emplace(v.begin(), X{0,0});
 </pre></blockquote>
 
-<img src="prv.tiff">
+<img src="prv.jpg">
 
 <p>
 These results are quite similar to the xvalue results except that an extra
@@ -326,7 +326,7 @@ reallocation</a> test except that <code>v.reserve(4)</code> is changed to
 <code>v.reserve(3)</code>.
 </p>
 
-<img src="lv_realloc.tiff">
+<img src="lv_realloc.jpg">
 
 <p>
 When inserting an xvalue in the reallocating case, only vs2013 demonstrates
@@ -344,7 +344,7 @@ reallocation</a> test except that <code>v.reserve(4)</code> is changed to
 <code>v.reserve(3)</code>.
 </p>
 
-<img src="xv_realloc.tiff">
+<img src="xv_realloc.jpg">
 
 <p>
 For this test each of the three platforms show no difference between
@@ -360,7 +360,7 @@ reallocation</a> test except that <code>v.reserve(4)</code> is changed to
 <code>v.reserve(3)</code>.
 </p>
 
-<img src="prv_realloc.tiff">
+<img src="prv_realloc.jpg">
 
 <p>
 For this test each of the three platforms show no difference between
@@ -492,7 +492,6 @@ X::special X::sp{};
 int
 main()
 {
-    std::cout &lt;&lt; __GNUC__ &lt;&lt; '.' &lt;&lt; __GNUC_MINOR__ &lt;&lt; '\n';
     {
         std::vector&lt;X&gt; v;
         v.reserve(4);
