@@ -42,6 +42,8 @@ Document number: D????
 <li><a href="#AnotherExample">Another Example</a></li>
 <li><a href="#MoreSmartPointers">More about smart pointers</a></li>
 <li><a href="#Illogical">Choosing braces to mean "non-explicit" is illogical</a></li>
+<li><a href="#Breakage">Breaking existing code</a></li>
+<li><a href="#RemainingRepeatsOfReturnType">Are there still cases where the return type must be repeated anyway?</a></li>
 <li><a href="#Summary">Summary</a></li>
 </ul>
 
@@ -681,6 +683,70 @@ conversions between built-in types, they can use braces. It seems very
 illogical that for library types with explicit conversions, braces
 suddenly bypass similar checking for potentially-corrupting cases!</p>
 
+<a name="Breakage"></a><h2>Breaking existing code</h2>
+
+<p>The proposal does break existing code:</p>
+<p>
+<pre>
+<code>
+#include &lt;iostream&gt;
+
+struct A {
+        explicit operator int() const {
+                 std::cout << "meow" << std::endl; return 0;
+        }
+        operator short() const {
+                 std::cout << "wuff" << std::endl; return 0;
+        }
+};
+
+int f() 
+{
+        A a;
+        return {a};
+}
+
+int main()
+{
+	f();
+}
+</code>
+</pre>
+</p>
+<p>This code currently prints "wuff". With the proposal, it would print
+"meow". Is that a significant problem? We don't know.
+</p>
+
+<a name="RemainingRepeatsOfReturnType"></a><h2>Are there still cases where the return type must be repeated anyway?</h2>
+<p>Consider the following code:</p>
+<p>
+<pre>
+<code>
+struct B {};
+     
+struct A {
+	operator B() const {return B{};}
+};
+     
+B f() 
+{
+	A a;
+	return {a}; // clang and gcc reject
+	//return B{a}; // clang and gcc still reject
+	//return B(a); // clang and gcc accept
+	//return a; // clang and gcc accept
+}
+     
+int main()
+{
+	f();
+}
+</code>
+</pre>
+</p>
+<p>It would seem that a return of a braced-init-list would not work
+for such code. Does the proposal cover such cases, too?
+</p>
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
