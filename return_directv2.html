@@ -27,10 +27,21 @@ Document number: D????
 <br/>
 <a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
 <a href="mailto:mikael.kilpelainen@gmail.com">Mikael Kilpel&auml;inen</a><br/>
-2014-07-23<br/>
+<a href="mailto:jwakely@redhat.com">Jonathan Wakely</a><br/>
+2014-10-10<br/>
 </address>
 <hr/>
 <h1 align=center>Response To: Let <code>return {expr}</code> Be Explicit</h1>
+
+<h2>Abstract</h2>
+<p>We think N4074 needs to be shelved; it's doubtful whether it's an issue
+common and major enough to warrant a core language addition; it's more doubtful
+whether it's major enough to warrant a core language <b>change</b>. We do
+not know how much code such a change will break, and there are potential
+teachability problems with the proposal. There are seemingly palatable 
+existing alternative solutions, and it's likely that there are more 
+palatable alternative core language additions that do not change or confuse
+existing semantics.
 
 <h2>Contents</h2>
 
@@ -44,6 +55,7 @@ Document number: D????
 <li><a href="#Illogical">Choosing braces to mean "non-explicit" is illogical</a></li>
 <li><a href="#Breakage">Breaking existing code</a></li>
 <li><a href="#RemainingRepeatsOfReturnType">Are there still cases where the return type must be repeated anyway?</a></li>
+<li><a href="#Alternative">Alternative solutions</a></li>
 <li><a href="#Summary">Summary</a></li>
 </ul>
 
@@ -747,6 +759,21 @@ int main()
 <p>It would seem that a return of a braced-init-list would not work
 for such code. Does the proposal cover such cases, too?
 </p>
+
+<a name="Alternative"></a><h2>Alternative solutions</h2>
+
+<p>There are a couple of ways to alleviate the burden of having
+to repeat a return type that have already been suggested:</p>
+<ul>
+<li>just typedef the return type to something shorter for the definition of the function (not the first declaration, necessarily)</li>
+<li>use a wrapper function, like wrap_unique&lt;T&gt; that wraps its argument
+into a unique_ptr&lt;T&gt;</li>
+<li>use a domain-specific smart pointer type that has the desired semantics,
+instead of changing the standard semantics</li>
+<li>adopt a different syntactic way to express the intent desired, such
+as <code>return explicit foo;</code></li>
+</ul>
+
 <a name="Summary"></a><h2>Summary</h2>
 
 <p>
