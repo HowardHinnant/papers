@@ -49,9 +49,9 @@ Currently, <code>allocator::construct</code> is specified as follows:
 </p>
 
 <blockquote><pre>
-template <class U, class... Args>
+template &lt;class U, class... Args&gt;
     void construct(U* p, Args&&... args);
-Effects: ::new((void *)p) U(std::forward<Args>(args)...)
+Effects: ::new((void *)p) U(std::forward&lt;Args&gt;(args)...)
 </pre></blockquote>
 
 <p>
