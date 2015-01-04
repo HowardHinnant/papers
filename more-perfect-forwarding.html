@@ -1,0 +1,96 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Towards more perfect forwarding</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2015-01-04<br/>
+</address>
+<hr/>
+<h1 align=center>Towards more perfect forwarding</h1>
+
+<h2>Abstract</h2>
+<p>It has been known for quite some time that the library object
+factories (<code>make_unique</code>, <code>make_shared</code>, 
+<code>allocator::construct</code>) don't
+handle aggregates well, due to the factory functions requiring
+a parenthesis-expression. There seems to be a simple and elegant fix that
+provides aggregate support without any loss of current functionality;
+(see the proposed resolution of <a href="http://cplusplus.github.io/LWG/lwg-active.html#2089">LWG 2089</a>) making such factories provide both
+braced-initialization and direct-initialization via a trait check
+for <code>is_constructible</code>.
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+Currently, <code>allocator::construct</code> is specified as follows:
+</p>
+
+<blockquote><pre>
+template <class U, class... Args>
+    void construct(U* p, Args&&... args);
+Effects: ::new((void *)p) U(std::forward<Args>(args)...)
+</pre></blockquote>
+
+<p>
+This doesn't handle an aggregate that is initializable with
+<code>U{std::forward&lt;Args&gt;(args)...}</code>. Same problem
+applies to <code>make_shared</code> and <code>make_unique</code>.
+LWG 2089 proposes a fix that allows all the current code to work,
+and allows aggregates to work, too. 
+</p>
+
+<a name="SimpleSuggestion"></a><h2>Simple suggestion</h2>
+
+<p>
+The proposed resolution for LWG 2089
+<ul>
+<li>allows aggregates to work with the library factories.</li>
+<li>adds no run-time overhead.</li>
+<li>doesn't break anything (modulo expression SFINAE cases that
+are broken by any change, and are unlikely to be truly broken, since
+an overload that wasn't chosen previously because it wouldn't work will now
+be chosen and will now work).
+<li>is unlikely to significantly increase build times.</li>
+<li>is trivial to implement.</li>
+<li>requires no language changes.</li>
+</ul>
+</p>
+
+<p>
+Since it's somewhat unlikely that we will devise some magic-forwarding
+language facility, I daresay I call the list above a "slam dunk", and
+we should just encourage LEWG/LWG to go forward with the proposed resolution
+of LWG 2089, keeping in mind that it needs to be applied to all of
+<code>allocator::construct</code>, <code>make_unique</code> and 
+<code>make_shared</code>. (Anything else? I can't find any others,
+<code>EmplaceConstructible</code> is specified in terms of 
+<code>allocator::construct</code>, so emplace cases will Just Work.
+</p>
+
+
+
+</body>
+</html>
