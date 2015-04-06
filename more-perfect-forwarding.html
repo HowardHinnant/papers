@@ -36,7 +36,7 @@ Document number: D????
 factories (<code>make_unique</code>, <code>make_shared</code>, 
 <code>allocator::construct</code>) don't
 handle aggregates well, due to the factory functions requiring
-a parenthesis-expression. There seems to be a simple and elegant fix that
+a parentheses-expression. There seems to be a simple and elegant fix that
 provides aggregate support without any loss of current functionality;
 (see the proposed resolution of <a href="http://cplusplus.github.io/LWG/lwg-active.html#2089">LWG 2089</a>) making such factories provide both
 braced-initialization and direct-initialization via a trait check
@@ -119,11 +119,13 @@ Well, no. One of the reasons this paper is an EWG paper is that while
 the proposed resolution to LWG 2089 can fix the problem for library
 factories, and library vendors will certainly have little trouble
 implementing such a fix, user types don't really have a non-expert
-solution they can use. Teaching users that they need to eg. delegate
+solution they can use. Teaching users that they need to eg. (*scary part begins*)delegate
 to a static member template of a class template that takes a non-type
 bool parameter, fully specialize that class template for the false case,
-and dispatch on the result of <code>is_constructible</code> is a fairly
-significant teachability issue. 
+and dispatch on the result of <code>is_constructible</code>(*scary part ends*) is a fairly
+significant teachability issue. I don't personally look forward to teaching
+the bit marked with the *scary* markers - and I don't blame anyone who
+feels the same.
 </p>
 <p>
 Some strawman ideas how to provide users with some help:
