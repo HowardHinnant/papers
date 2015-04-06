@@ -93,7 +93,7 @@ void f(T&& t, Rest&&... r)
 {
     f(t); 
     /* handle the tail */
-    f(r...);
+    f(r...); // I think I have a bug here if I don't have a zero-param overload
 }
 </code>
 </pre>
@@ -113,7 +113,7 @@ void f(T&& t, Rest&&... r)
     /*
       handle the tail 
     */
-        f(r...);
+        f(r...); // I don't need a zero-param overload to do this
     }
 }
 </code>
@@ -158,7 +158,13 @@ make_unique(Args&&... args)
 </pre>
 <p>
 I expect there are many more good uses for such a facility than I can
-imagine.
+imagine. I have heard users hinting at wanting to write a function template
+that can take both signed and unsigned integral types, and write different
+code for the signed and unsigned cases, without having to worry about
+either branch emitting diagnostics even if never being taken - and those
+users do not think they want to write multiple overloads for integral
+types, since getting something like that right may end up being a heroic
+endeavor...
 </p>
 
 <a name="Concepts"></a><h2>Yes, but don't Concepts provide a superior alternative?</h2>
@@ -176,7 +182,7 @@ expressive designs that are far superior to what either of these facilities
 can provide in isolation.
 </p>
 <p>
-For the last part, it seems like some uses of static_if would combine
+For the last part, it seems like some uses of static_if could combine
 rather nicely with constraint disjunctions:
 </p>
 <p>
@@ -195,6 +201,23 @@ template &lt;typename T, typename U&gt; void f(T, U)
 </code>
 </pre>
 </p>
+
+<a name="Implementability"></a><h2>Implementability</h2>
+<p>
+I fully expect the implementation difficulty of such a facility to be
+considerable, and it's certainly well beyond the capabilities of an
+intermediate front-end contributor such as myself. Is that cost worth
+the benefit of the facility? Hard to say. I guess it would be. :)
+</p>
+
+<a name="Teachability"></a><h2>Teachability</h2>
+<p>
+Adding this facility will increase the overall complexity of the language,
+and since it's not identical or even very similar to the static if in D,
+it's not trivial to teach. I do have high hopes that it would be much
+simpler to teach for simple cases than using multiple overloads would be.
+</p>
+
 </body>
 
 </html>
