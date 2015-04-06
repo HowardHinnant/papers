@@ -2,7 +2,7 @@
         "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-	<title>Towards more perfect forwarding</title>
+	<title>LWG 2089, Towards more perfect forwarding</title>
 
 	<style>
 	p {text-align:justify}
@@ -29,7 +29,7 @@ Document number: D????
 2015-01-04<br/>
 </address>
 <hr/>
-<h1 align=center>Towards more perfect forwarding</h1>
+<h1 align=center>LWG 2089, Towards more perfect forwarding</h1>
 
 <h2>Abstract</h2>
 <p>It has been known for quite some time that the library object
@@ -40,7 +40,9 @@ a parenthesis-expression. There seems to be a simple and elegant fix that
 provides aggregate support without any loss of current functionality;
 (see the proposed resolution of <a href="http://cplusplus.github.io/LWG/lwg-active.html#2089">LWG 2089</a>) making such factories provide both
 braced-initialization and direct-initialization via a trait check
-for <code>is_constructible</code>.
+for <code>is_constructible</code>. This paper seeks to solicit EWG feedback
+on whether the proposed fix is the right solution going forward, or whether
+EWG thinks there are better alternatives.
 
 <a name="Introduction"></a><h2>Introduction</h2>
 
@@ -49,8 +51,8 @@ Currently, <code>allocator::construct</code> is specified as follows:
 </p>
 
 <blockquote><pre>
-template &lt;class U, class... Args&gt;
-    void construct(U* p, Args&&... args);
+template &lt;class U, class... Args&amp;&gt;
+    void construct(U* p, Args&amp;&amp;... args);
 Effects: ::new((void *)p) U(std::forward&lt;Args&gt;(args)...)
 </pre></blockquote>
 
@@ -61,6 +63,18 @@ applies to <code>make_shared</code> and <code>make_unique</code>.
 LWG 2089 proposes a fix that allows all the current code to work,
 and allows aggregates to work, too. 
 </p>
+<p>
+The gist of the proposed library fix is simple:
+</p>
+<p>
+<ul>
+<li>if <code>is_constructible_v&lt;TargetType, Args...&gt;</code>, use direct-nonlist-initialization</li>
+<li>otherwise, use brace-initialization.</li>
+</ul>
+</p>
+<p>
+The first bullet will check whether there's a constructor that can construct from the given arguments. An aggregate will not have such a constructor. Non-aggregates will hit the first bullet, aggregates will hit the second bullet.
+</p>
 
 <a name="SimpleSuggestion"></a><h2>Simple suggestion</h2>
 
@@ -69,28 +83,63 @@ The proposed resolution for LWG 2089
 <ul>
 <li>allows aggregates to work with the library factories.</li>
 <li>adds no run-time overhead.</li>
-<li>doesn't break anything (modulo expression SFINAE cases that
+<li>doesn't break significant amounts of code (modulo expression SFINAE cases that
 are broken by any change, and are unlikely to be truly broken, since
 an overload that wasn't chosen previously because it wouldn't work will now
-be chosen and will now work).
+be chosen and will now work. Also modulo cases where a user class befriended
+a library factory function so that the library factory function would've
+been able to invoke a private constructor, but I don't think the library
+specification guarantees that the library will not use internal helpers
+to do its work, so such techniques were never really guaranteed to work).
 <li>is unlikely to significantly increase build times.</li>
-<li>is trivial to implement.</li>
+<li>is between trivial and easy to implement.</li>
 <li>requires no language changes.</li>
 </ul>
 </p>
 
 <p>
 Since it's somewhat unlikely that we will devise some magic-forwarding
-language facility, I daresay I call the list above a "slam dunk", and
+language facility, it certainly looks like the list above means the proposed 
+resolution of LWG 2089 is an improvement, and
 we should just encourage LEWG/LWG to go forward with the proposed resolution
-of LWG 2089, keeping in mind that it needs to be applied to all of
-<code>allocator::construct</code>, <code>make_unique</code> and 
-<code>make_shared</code>. (Anything else? I can't find any others,
+of LWG 2089, keeping in mind that it needs to be applied to at least all of
+<code>allocator::construct</code>, <code>allocator_traits::construct</code>, <code>make_unique</code> and 
+<code>make_shared</code>. (<code>uninitialized_copy</code>? <code>uninitialized_fill</code>?
+Anything else? I can't find any others,
 <code>EmplaceConstructible</code> is specified in terms of 
 <code>allocator::construct</code>, so emplace cases will Just Work).
+Note that <code>std::experimental::optional</code> has a similar issue
+in its in-place constructor, so that should be considered separately,
+as it's in a different document.
 </p>
 
-
+<a name="IsThatAll"></a><h2>Is that all?</h2>
+<p>
+Well, no. One of the reasons this paper is an EWG paper is that while
+the proposed resolution to LWG 2089 can fix the problem for library
+factories, and library vendors will certainly have little trouble
+implementing such a fix, user types don't really have a non-expert
+solution they can use. Teaching users that they need to eg. delegate
+to a static member template of a class template that takes a non-type
+bool parameter, fully specialize that class template for the false case,
+and dispatch on the result of <code>is_constructible</code> is a fairly
+significant teachability issue. 
+</p>
+<p>
+Some strawman ideas how to provide users with some help:
+</p>
+<p>
+<ul>
+<li>Invent some better forwarding syntax that is aware of whether the
+intended initialization is to use braces or not (I don't know how; the
+syntax space is crowded)</li>
+<li>Add a library helper that will perform the initialization in the
+"right way" depending on <code>is_constructible</code> - in other words,
+expose parts of the implementation technique that library vendors are 
+likely going to use, as a simple library function.</li>
+<li>Other ways? How about allowing aggregates to be initialized with
+direct-non-list-initialization syntax?</li>
+</p>
 
 </body>
 </html>
