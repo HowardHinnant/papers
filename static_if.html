@@ -157,6 +157,11 @@ make_unique(Args&&... args)
 </code>
 </pre>
 <p>
+Even if the enable_ifs above are turned into constraints, I daresay the
+single-function solution is much simpler. A "damn sight nicer", if you
+ask me.
+</p>
+<p>
 I expect there are many more good uses for such a facility than I can
 imagine. I have heard users hinting at wanting to write a function template
 that can take both signed and unsigned integral types, and write different
