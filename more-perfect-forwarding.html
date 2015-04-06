@@ -120,7 +120,7 @@ the proposed resolution to LWG 2089 can fix the problem for library
 factories, and library vendors will certainly have little trouble
 implementing such a fix, user types don't really have a non-expert
 solution they can use. Teaching users that they need to eg. (*scary part begins*)delegate
-to a static member template of a class template that takes a non-type
+to a static member function template of a class template that takes a non-type
 bool parameter, fully specialize that class template for the false case,
 and dispatch on the result of <code>is_constructible</code>(*scary part ends*) is a fairly
 significant teachability issue. I don't personally look forward to teaching
