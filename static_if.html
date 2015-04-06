@@ -26,7 +26,7 @@ Document number: D????
 <br/>
 <br/>
 <a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
-2015-01-04<br/>
+2015-04-07<br/>
 </address>
 <hr/>
 <h1 align=center>Static if resurrected</h1>
@@ -56,11 +56,16 @@ Richard Smith explained the following:
 <pre>
 The "controversial" parts of N3329 are that:
 1) it does not introduce a new scope, and
-2) the non-selected branch is completely ignored (the tokens aren't even required to be parseable)
+2) the non-selected branch is completely ignored (the tokens aren't even 
+required to be parseable)
 
-This makes it fundamentally incompatible with the template model used by at least two major implementations.
+This makes it fundamentally incompatible with the template model used by at 
+least two major implementations.
 
-If, instead, it introduced a new scope (as proposed in this thread) and we had a requirement that it is possible to instantiate each arm of the static if (that is, the same requirement we have for other token sequences in templates), then I believe the over-my-dead-body objections from implementors would disappear.
+If, instead, it introduced a new scope (as proposed in this thread) and we had 
+a requirement that it is possible to instantiate each arm of the static if 
+(that is, the same requirement we have for other token sequences in templates),
+then I believe the over-my-dead-body objections from implementors would disappear.
 </pre>
 <p>
 So, the proposed static_if (perhaps we could get rid of the space,
@@ -87,6 +92,7 @@ template &lt;class T, class... Rest&gt;
 void f(T&& t, Rest&&... r) 
 {
     f(t); 
+    /* handle the tail */
     f(r...);
 }
 </code>
@@ -100,15 +106,20 @@ function template, even though we're still writing recursive code.
 template &lt;class T, class... Rest&gt; 
 void f(T&& t, Rest&&... r) 
 {
-    /* handle one T */
+    /* 
+      handle one T 
+    */
     static_if (sizeof...(r)) {
+    /*
+      handle the tail 
+    */
         f(r...);
     }
 }
 </code>
 </pre>
 <p>
-Opposing constraints would also be arguably much easier to grok.
+Mutually exclusive constraints would also be arguably easier to grok.
 Instead of
 </p>
 <pre>
@@ -155,7 +166,7 @@ imagine.
 <p>
 Yes, for expressing the constraints of a function template, they do. No, for
 simplicity and locality of code, they don't. It's certainly easier to
-write (opposing and other) constraints with concepts, since it's possible to overload
+write (mutually exclusive and other) constraints with concepts, since it's possible to overload
 on concepts. The lack of locality remains, and the need to understand
 overload resolution, partial ordering and SFINAE remains. I posit that
 there are many simple cases where all that is still overly complex
@@ -164,7 +175,26 @@ are, of course, that combining Concepts with a static_if can lead to
 expressive designs that are far superior to what either of these facilities 
 can provide in isolation.
 </p>
-
+<p>
+For the last part, it seems like some uses of static_if would combine
+rather nicely with constraint disjunctions:
+</p>
+<p>
+<pre>
+<code>
+template &lt;typename T, typename U&gt; void f(T, U)
+  requires C1&lt;T&gt; && (C2&lt;U&gt; || C3&lt;U&gt;)
+{
+    static_if (C2&lt;U&gt;) 
+    {
+    } 
+    else if (C3&lt;U&gt;) 
+    {
+    }
+}
+</code>
+</pre>
+</p>
 </body>
 
 </html>
