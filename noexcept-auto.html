@@ -1,0 +1,104 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>noexcept(auto), again</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2015-04-10<br/>
+</address>
+<hr/>
+<h1 align=center>noexcept(auto), again</h1>
+
+<h2>Abstract</h2>
+<p>
+Ever since C++14 shipped, there has been occasional requests for
+noexcept(auto). This paper provides some rumination hoping that
+we might reconsider it for C++17.
+</p>
+
+<h2>Rumination</h2>
+
+<p>
+Vendors of generic libraries tend to find it painful that they
+have to repeat the expressions in a function body in their 
+noexcept-specification. When that need arises, such library
+authors
+</p>
+<p>
+<ul>
+<li> REALLY mean that the noexcept-spec should be a reflection
+of what's in the function body. Duplicating that code in a noexcept-spec
+is laborous and error-prone, and results in very ugly code.</li>
+<li>aren't particularly concerned about ABI issues - they are often
+writing a function template.</li>
+<li>don't believe an unconditional noexcept is the right answer in general,
+since there _are_ platforms and environments on which handling bad_allocs
+is reasonable and possible, and terminate is a bad answer if a piece of
+code in a copy/move constructor throws.</li>
+</ul>
+</p>
+
+<p>
+I can't pretend to know what the implementation burden for this feature
+truly is. But one concern that has been raised by Vandevoorde was how
+to handle statements and declarations, rather than expressions. Consider
+</p>
+<p>
+<pre>
+<code>
+int f() noexcept(auto)
+{
+    X x;
+    x.foo();
+    x.bar();
+    return 42;
+}
+</code>
+</pre>
+</p>
+<p>I believe the concern was how to deduce the noexceptness of the
+definition of x, including the hidden initialization expressions in it.
+The question I have is whether this is any different from deciding
+whether such a function can be used in a constant expression, because
+the code in it may well be valid in a constant expression with the relaxed
+rules in C++14.
+</p>
+<p>
+There may certainly be concerns about overuse, misuse and abuse of
+such a facility. But there are certainly cases where the bulleted
+list above applies, and the resulting code would be *much* simpler
+and nicer with noexcept(auto) than without it. 
+</p>
+
+<h2>The ultimate question</h2>
+
+<p>
+Do we think the valid and reasonable uses of noexcept(auto) are important 
+enough that we should standardize it?
+</p>
+
+</body>
+
+</html>
