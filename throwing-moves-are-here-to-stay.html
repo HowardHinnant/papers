@@ -216,8 +216,9 @@ a type by value nor pass it by value. It becomes a scoped type that will
 not transfer outside its scope.
 </p>
 <p>
-There's a surprising example of a type that otherwise would be nicely
-non-throw-movable, but isn't when it's suitably qualified:
+Howard Hinnant pointed out that there's a perhaps surprising example of a type 
+that otherwise would be nicely non-throw-movable, but isn't when it's 
+suitably qualified:
 </p>
 <p>
 <code>
