@@ -112,6 +112,7 @@ Let's look at a very simple example (credits to Jonathan Wakely):
 <pre>
   struct X
   {
+    // other value-initializing constructors left out
     X(const X&amp;);
   };
 </pre>
@@ -215,6 +216,20 @@ a type by value nor pass it by value. It becomes a scoped type that will
 not transfer outside its scope.
 </p>
 <p>
+There's a surprising example of a type that otherwise would be nicely
+non-throw-movable, but isn't when it's suitably qualified:
+</p>
+<p>
+<code>
+<pre>
+  const vector&lt;int&gt;
+</pre>
+</code>
+</p>
+<p>
+That type has a throwing move.
+</p>
+<p>
 Let's look at yet another example:
 </p>
 <p>
@@ -230,6 +245,41 @@ copy it around. The problem is that one major reason why throwing moves
 were allowed was that we would like to be able to move the vector even
 in cases where we can't move the X. If we never move such a type,
 we will then always copy it, which can never move the vector.
+</p>
+
+<a name="Making_Types_Movable"></a><h2>But some of those types can be made movable. Can't we expect that all copyable types will be made movable?</h2>
+
+<p>
+Sadly, no. Tomasz Kaminski depicted a type like the following:
+</p>
+<p>
+<code>
+<pre>
+  class Employee
+  {
+    string name;
+    string surname;
+  public:
+    Employee(const Employee&); // the type is copyable, moves not generated
+    // the invariant of the type includes that the members aren't empty
+    // initializing constructors and the rest of the interface left out
+    // for brevity
+  };
+</pre>
+</code>
+</p>
+<p>
+The business-domain rules for such a type require that its members are not
+empty. Ever. So, how do we implement a non-throwing move for it? We can't
+move the strings. We can copy them, and we're back at a non-throwing
+move that we already had. Similar invariants were mentioned as a concern
+for generated move operations in general in
+<a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2010/n3153.htm">N3153, Implicit Move Must Go</a>. We decided that the suppression rules we
+have are sufficiently non-breaking, and the Employee class plays by those
+rules - it protects its invariant even in C++11, and there's no generated
+move operation that would break its invariant. Nor can one be reasonably
+written, so requiring such a move, especially a non-throwing one, seems
+unattainable.
 </p>
 
 <a name="How_Incompatible"></a><h2>So, how incompatible would the ban of throwing moves be?</h2>
