@@ -272,7 +272,7 @@ Sadly, no. Tomasz Kaminski depicted a type like the following:
 <p>
 The business-domain rules for such a type require that its members are not
 empty. Ever. So, how do we implement a non-throwing move for it? We can't
-move the strings. We can copy them, and we're back at a non-throwing
+move the strings. We can copy them, and we're back at a throwing
 move that we already had. Similar invariants were mentioned as a concern
 for generated move operations in general in
 <a href="http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2010/n3153.htm">N3153, Implicit Move Must Go</a>. We decided that the suppression rules we
