@@ -65,10 +65,12 @@ disturb each other, but the clients of the pools do recover from
 allocations failing to allocate memory from the pools.
 </p>
 <p>
-Today, it is practically so that building the system code for such
-a system without exception support allows cramming more functionality
-into the system, both from the non-volatile memory point of view
-and the RAM point of view.
+Building without exception support for such resource-constrained systems
+allows cramming much more functionality
+into the system, from both the non-volatile memory point of view
+and the RAM point of view. There has been a lot of talk about
+making exceptions more palatable on such resource-constrained
+systems, but thus far that hasn't materialized in practice.
 </p>
 
 <a name="What"></a><h2>So what are you proposing?</h2>
