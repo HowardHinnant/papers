@@ -26,7 +26,7 @@ Document number: P????
 <br/>
 <br/>
 <a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
-2015-08-24<br/>
+2015-09-27<br/>
 </address>
 <hr/>
 <h1 align=center>Non-throwing container operations</h1>
@@ -68,7 +68,10 @@ allocations failing to allocate memory from the pools.
 Building without exception support for such resource-constrained systems
 allows cramming much more functionality
 into the system, from both the non-volatile memory point of view
-and the RAM point of view. There has been a lot of talk about
+and the RAM point of view. The RAM consumption is often the more important
+point, as is the potentially non-deterministic handling time of thrown
+exceptions.
+There has been a lot of talk about
 making exceptions more palatable on such resource-constrained
 systems, but thus far that hasn't materialized in practice.
 </p>
@@ -82,7 +85,7 @@ required for reporting errors. There are various ways in which that
 can be done, but certain general properties are probably common
 to all alternatives:
 <ul>
-<li>Exception support costs too much, space-wise.</li>
+<li>Exception support costs too much, space-wise and time-wise.</li>
 <li>Dynamic memory allocations still happen, and they can fail.</li>
 <li>Not every module is critical, so various strategies can be employed
 to recover from allocation failures.</li>
