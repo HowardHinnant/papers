@@ -1,0 +1,168 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Discussion about std::thread and RAII</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2016-01-09<br/>
+</address>
+<hr/>
+<h1 align=center>Discussion about std::thread and RAII</h1>
+
+<h2>Abstract</h2>
+<p>
+  C++ continues not to provide a thread type that would join() automatically
+  on scope exit. This causes exception-safety problems, because failing to
+  join() in all code paths causes the destructor of a std::thread to
+  terminate(). This paper explores various ways to solve the problem.
+</p>
+
+<h2>The problem, reiterated</h2>
+<p>
+  Herb Sutter provided the following code example:
+</p>
+<p>
+  <pre>
+    <code>
+      std::vector&lt;std::pair&lt;unsigned int, unsigned int&gt;&gt; partitions =
+        utils::partition_indexes(0, size-1, num_threads);
+      std::vector&lt;std::thread&gt; threads;
+
+      LOG(LOG_DEBUG, "controller::reload_all: starting reload threads...");
+      for (unsigned int i=0; i&lt;num_threads-1; i++) {
+        threads.push_back(std::thread(reloadrangethread(this,
+        partitions[i].first, partitions[i].second, size, unattended)));
+      }
+
+      LOG(LOG_DEBUG, "controller::reload_all: starting my own reload...");
+      this-&gt;reload_range(partitions[num_threads-1].first,
+        partitions[num_threads-1].second, size, unattended);
+
+      LOG(LOG_DEBUG, "controller::reload_all: joining other threads...");
+      for (size_t i=0; i&lt;threads.size(); i++) {
+        threads[i].join();
+      }      
+    </code>
+  </pre>
+</p>
+<p>
+  The problem with the code is that the push_back can fail with an exception,
+  and in general, any exception thrown will skip the loop that joins all
+  threads, and any unjoined threads destroyed with the destruction of the
+  thread vector will cause the program to terminate.
+</p>
+
+<h2>The status quo solution</h2>
+
+<p>
+  The way to make the code exception-safe is to use a third-party thread
+  wrapper that joins the thread on destruction. That is, instead of containing
+  threads, the vector should hold such wrappers. Scott Meyers,
+  Anthony Williams and Bjarne Stroustrup
+  all describe such thread wrappers in their most recent books.
+</p>
+
+<h2>The problem with the status quo solution</h2>
+
+<p>
+  It's inconvenient to need to use a third-party wrapper for something
+  as fundamental as exception-safety of using std::thread. There are multiple
+  such third-party wrappers, and it takes more effort to take one of them
+  into use than using a solution that would already be provided by the
+  standard library implementation. The following sections enumerate some
+  potential solutions.
+</p>
+
+<h2>Solution 1: Change std::thread::~thread to auto-join</h2>
+
+<p>
+  This solution has been previously proposed by Herb Sutter in
+  <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3636.pdf">n3636</a>. The paper contains proposed wording. Implementation is trivially easy for
+  standard library vendors. As an addition, it's suggested that for
+  audiences willing to use the current terminating semantics, a new type
+  should be added that will not join on destructor, but will terminate instead.
+</p>
+<p>
+  The opposition to this solution has been that it changes the semantics
+  of existing code; there apparently are audiences who prefer the destruction
+  of joinable threads (which can be seen a logic error) to terminate so that
+  the program exits quickly, and external facilities can recover without
+  the program waiting (or hanging on) a join().
+</p>
+<p>
+  The benefit of this solution is that it's easy to use as a default. No
+  external wrapper needs to be taken into use, and it's arguably a better
+  default that caters better to non-expert use cases. Experts that want
+  termination need to use an alternative approach, rather than non-experts
+  who do not even realize their code isn't exception-safe needing to use
+  an alternative approach.
+</p>
+
+<h2>Solution 2: Add a new thread type that auto-joins</h2>
+
+<p>
+  As opposed to adding a thread wrapper (see later), it's been suggested
+  that it would be better to add a new thread type that has the full
+  API of std::thread, and recommend using this new thread type instead
+  of std::thread. Following such advise avoids the problems that would
+  arise when using a thread combined with a thread wrapper; forgetting
+  to wrap would make the exception-safety problems arise again.
+</p>
+<p>
+  The benefit of this solution is that it's non-intrusive; all existing
+  users of std::thread are unaffected, for better or worse. Replacing
+  the uses of std::thread with the uses of the new type where need be
+  is arguably straightforward.
+</p>
+
+<h2>Solution 3: Add a thread wrapper that auto-joins</h2>
+
+<p>
+  The aforementioned book authors all provide a thread wrapper that
+  joins in its destructor. The wrapper as such can be made fairly
+  simple, and doesn't necessarily need to duplicate the full API
+  of std::thread. It's non-intrusive for existing code that uses std::thread,
+  and can be applied as necessary. It also doesn't need to duplicate all of the
+  functionality in std::thread.
+</p>
+<p>
+  The benefit of this solution is that it's non-intrusive; all existing
+  users of std::thread are unaffected, for better or worse. The wrapper
+  can be relatively simple, and can be specification-wise and
+  implementation-wise
+  a fairly lean solution. Replacing
+  the uses of std::thread with the uses of the new type where need be
+  can be straightforward.
+</p>
+
+<h2>Wording</h2>
+
+<p>
+  Wording is provided in separate papers, to avoid clutter in this
+  "rumination paper".
+</p>
+</body>
+
+</html>
