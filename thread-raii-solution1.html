@@ -107,8 +107,10 @@ thread to_thread();
   of the returned object is the state *this had prior to calling this function.
 
   Returns: A thread object initialized from *this.
+  [Drafting note: an alternative approach would be to publicly inherit
+  basic_thread from thread, and let derived-to-base conversion handle
+  this conversion.]
 <ins>
-
 </pre>
   </blockquote>
 </p>
