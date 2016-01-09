@@ -1,0 +1,109 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Wording for Discussion about std::thread and RAII, Solution 2: Add a new thread type that auto-joins</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2016-01-09<br/>
+</address>
+<hr/>
+<h1 align=center>Wording for Discussion about std::thread and RAII, Solution 2: Add a new thread type that auto-joins</h1>
+
+<h2>Solution 2: Add a new thread type that auto-joins</h2>
+
+<p>
+  In [thread.threads]/1, insert as follows:
+</p>
+<p>
+  <blockquote>
+<pre>
+Header &lt;thread&gt; synopsis
+  namespace std {
+    class thread;
+    <ins>class safe_thread;</ins>
+</pre>
+</blockquote>
+</p>
+<p>
+  After [thread.thread.this], add a new section as follows:
+</p>
+<p>
+  <blockquote>
+<pre>
+<ins>Class safe_thread [thread.safe_thread.class]
+
+The class safe_thread provides the same facilities as thread, and
+has the same members and the same semantics, with the differences
+as described below.
+
+safe_thread constructors [thread.safe_thread.constr]
+
+safe_thread(thread&amp;&amp; x) noexcept;
+
+  Effects: Constructs an object of type safe_thread from x, and
+  sets x to a default constructed state.
+
+  Postconditions: x.get_id() == id() and get_id() returns the value
+  of x.get_id() prior to thestart of construction.
+  
+safe_thread destructor [thread.safe_thread.destr]
+
+~safe_thread() noexcept;
+
+  Effects: If joinable(), calls join(). Otherwise, has no effects.
+  [Note: Because ~safe_thread is required to be noexcept,
+  if join() throws then std::terminate() will be called.
+  --end note]
+  
+safe_thread assignment [thread.safe_thread.assign]
+
+safe_thread&amp; operator=(thread&amp;&amp; x) noexcept;
+  Effects: If joinable(), calls join(). Then, assigns
+  the state of x to *this and sets x to a default constructed state.
+  [Note: If join() throws then std::terminate() will be called.
+  --end note]
+  Postconditions: x.get_id() == id() and get_id() returns the value
+  of x.get_id() prior to the assignment.
+
+  Returns: *this
+
+safe_thread members [thread.safe_thread.member]
+
+thread to_thread();
+
+  Postconditions: *this is set to a default constructed state. The state
+  of the returned object is the state *this had prior to calling this function.
+
+  Returns: A thread object initialized from *this.
+<ins>
+
+</pre>
+  </blockquote>
+</p>
+
+
+</body>
+
+</html>
