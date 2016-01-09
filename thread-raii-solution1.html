@@ -90,6 +90,15 @@ basic_thread destructor [thread.basic_thread.destr]
 
 basic_thread assignment [thread.basic_thread.assign]
 
+basic_thread&amp; operator=(basic_thread&amp;&amp; x) noexcept;
+  Effects: If joinable(), calls std::terminate(). Otherwise, assigns
+  the state of x to *this and sets x to a default constructed state.
+
+  Postconditions: x.get_id() == id() and get_id() returns the value
+  of x.get_id() prior to the assignment.
+
+  Returns: *this
+  
 basic_thread&amp; operator=(thread&amp;&amp; x) noexcept;
   Effects: If joinable(), calls std::terminate(). Otherwise, assigns
   the state of x to *this and sets x to a default constructed state.

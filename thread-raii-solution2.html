@@ -79,6 +79,16 @@ safe_thread destructor [thread.safe_thread.destr]
   
 safe_thread assignment [thread.safe_thread.assign]
 
+safe_thread&amp; operator=(safe_thread&amp;&amp; x) noexcept;
+  Effects: If joinable(), calls join(). Then, assigns
+  the state of x to *this and sets x to a default constructed state.
+  [Note: If join() throws then std::terminate() will be called.
+  --end note]
+  Postconditions: x.get_id() == id() and get_id() returns the value
+  of x.get_id() prior to the assignment.
+
+  Returns: *this
+  
 safe_thread&amp; operator=(thread&amp;&amp; x) noexcept;
   Effects: If joinable(), calls join(). Then, assigns
   the state of x to *this and sets x to a default constructed state.
