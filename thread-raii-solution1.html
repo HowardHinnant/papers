@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Wording for Discussion about std::thread and RAII, Solution 1: Change std::thread::~thread to auto-join</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2016-01-09<br/>
+</address>
+<hr/>
+<h1 align=center>Wording for Discussion about std::thread and RAII, Solution 1: Change std::thread::~thread to auto-join</h1>
+
+<h2>Solution 1: Change std::thread::~thread to auto-join</h2>
+
+<p>
+  This solution has been previously proposed by Herb Sutter in
+  <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3636.pdf">n3636</a>. The paper contains proposed wording. As an addition, this paper will
+  provide wording for a new thread type
+  should be added that will not join in destructor or assignment operator,
+  but will terminate instead, thus providing a migration solution for users
+  who want to retain the C++11 semantics that std::thread previously had.
+</p>
+
+<p>
+  In [thread.threads]/1, insert as follows:
+</p>
+<p>
+  <blockquote>
+<pre>
+Header &lt;thread&gt; synopsis
+  namespace std {
+    class thread;
+    <ins>class basic_thread;</ins>
+</pre>
+</blockquote>
+</p>
+<p>
+  After [thread.thread.this], add a new section as follows:
+</p>
+<p>
+  <blockquote>
+<pre>
+<ins>Class basic_thread [basic_thread.thread.class]
+
+The class basic_thread provides the same facilities as thread, and
+has the same members and the same semantics, with the differences
+as described below.
+
+basic_thread assignment [basic_thread.thread.assign]
+
+basic_thread&amp; operator=(thread&amp;&amp; x) noexcept;
+  Effects: If joinable(), calls std::terminate(). Otherwise, assigns
+  the state of x to *this and sets x to a default constructed state.
+
+  Postconditions: x.get_id() == id() and get_id() returns the value
+  of x.get_id() prior to the assignment.
+
+  Returns: *this
+
+basic_thread destructor [basic_thread.thread.destr]
+
+~basic_thread();
+
+  Effects: If joinable(), calls std::terminate(). Otherwise, has no effects.
+  [ Note: Either implicitly detaching or joining a joinable() thread in its
+  destructor could result in difficult to debug correctness (for detach)
+  or performance (for join) bugs encountered only when an exception is raised.
+  Thus the programmer must ensure that the destructor is never executed while
+  the thread is still joinable. -end note ]</ins>
+</pre>
+  </blockquote>
+</p>
+
+
+</body>
+
+</html>
