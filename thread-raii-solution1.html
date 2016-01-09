@@ -61,13 +61,34 @@ Header &lt;thread&gt; synopsis
 <p>
   <blockquote>
 <pre>
-<ins>Class basic_thread [basic_thread.thread.class]
+<ins>Class basic_thread [thread.basic_thread.class]
 
 The class basic_thread provides the same facilities as thread, and
 has the same members and the same semantics, with the differences
 as described below.
 
-basic_thread assignment [basic_thread.thread.assign]
+basic_thread constructors [thread.basic_thread.constr]
+
+explicit basic_thread(thread&amp;&amp; x) noexcept;
+
+  Effects: Constructs an object of type basic_thread from x, and
+  sets x to a default constructed state.
+
+  Postconditions: x.get_id() == id() and get_id() returns the value
+  of x.get_id() prior to thestart of construction.
+  
+basic_thread destructor [thread.basic_thread.destr]
+
+~basic_thread();
+
+  Effects: If joinable(), calls std::terminate(). Otherwise, has no effects.
+  [ Note: Either implicitly detaching or joining a joinable() thread in its
+  destructor could result in difficult to debug correctness (for detach)
+  or performance (for join) bugs encountered only when an exception is raised.
+  Thus the programmer must ensure that the destructor is never executed while
+  the thread is still joinable. -end note ]
+
+basic_thread assignment [thread.basic_thread.assign]
 
 basic_thread&amp; operator=(thread&amp;&amp; x) noexcept;
   Effects: If joinable(), calls std::terminate(). Otherwise, assigns
@@ -78,16 +99,16 @@ basic_thread&amp; operator=(thread&amp;&amp; x) noexcept;
 
   Returns: *this
 
-basic_thread destructor [basic_thread.thread.destr]
+basic_thread members [thread.basic_thread.member]
 
-~basic_thread();
+thread to_thread();
 
-  Effects: If joinable(), calls std::terminate(). Otherwise, has no effects.
-  [ Note: Either implicitly detaching or joining a joinable() thread in its
-  destructor could result in difficult to debug correctness (for detach)
-  or performance (for join) bugs encountered only when an exception is raised.
-  Thus the programmer must ensure that the destructor is never executed while
-  the thread is still joinable. -end note ]</ins>
+  Postconditions: *this is set to a default constructed state. The state
+  of the returned object is the state *this had prior to calling this function.
+
+  Returns: A thread object initialized from *this.
+<ins>
+
 </pre>
   </blockquote>
 </p>
