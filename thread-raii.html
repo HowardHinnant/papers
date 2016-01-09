@@ -136,6 +136,10 @@ Document number: D????
   the uses of std::thread with the uses of the new type where need be
   is arguably straightforward.
 </p>
+<p>
+  The downside of this solution is that it introduces another thread type
+  that users will need to consider in addition to std::thread.
+</p>
 
 <h2>Solution 3: Add a thread wrapper that auto-joins</h2>
 
@@ -155,6 +159,10 @@ Document number: D????
   a fairly lean solution. Replacing
   the uses of std::thread with the uses of the new type where need be
   can be straightforward.
+</p>
+<p>
+  The downside of this solution is that remembering to use the wrapper
+  is tedious.
 </p>
 
 <h2>Wording</h2>
