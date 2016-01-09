@@ -162,7 +162,9 @@ Document number: D????
 </p>
 <p>
   The downside of this solution is that remembering to use the wrapper
-  is tedious.
+  is tedious. Another downside is that if it's really a wrapper, ownership
+  questions arise; and if the wrapper owns the underlying std::thread,
+  then there's no real difference between a new thread type and such a wrapper.
 </p>
 
 <h2>Wording</h2>
