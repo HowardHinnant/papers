@@ -165,6 +165,9 @@ Document number: D????
   is tedious. Another downside is that if it's really a wrapper, ownership
   questions arise; and if the wrapper owns the underlying std::thread,
   then there's no real difference between a new thread type and such a wrapper.
+  Thus the 'wrapper' is NOT proposed with wording; the proposed wording
+  for solutions for 1 and 2 ARE such wrappers; they own a thread, and
+  are convertible from and to a thread.
 </p>
 
 <h2>Wording</h2>
