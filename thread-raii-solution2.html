@@ -54,6 +54,37 @@ Header &lt;thread&gt; synopsis
 <pre>
 <ins>Class safe_thread [thread.safe_thread.class]
 
+namespace std {
+  class safe_thread {
+    public:
+    // types:
+    class id;
+    typedef implementation-defined native_handle_type; // See 30.2.3
+    // construct/copy/destroy:
+    safe_thread() noexcept;
+    template &lt;class F, class ...Args&gt; explicit safe_thread(F&amp;&amp; f, Args&amp;&amp;... args);
+    ~safe_thread() noexcept; // semantics different from std::thread
+    safe_thread(const safe_thread&amp;) = delete;
+    safe_thread(safe_thread&amp;&amp;) noexcept;
+    safe_thread(thread&amp;&amp; x) noexcept; // addition to std::thread interface
+    safe_thread&amp; operator=(const safe_thread&amp;) = delete;
+    safe_thread&amp; operator=(safe_thread&amp;&amp;) noexcept; // semantics different from std::thread
+    safe_thread&amp; operator=(thread&amp;&amp; x) noexcept; // addition to std::thread interface
+    // members:
+    void swap(safe_thread&amp;) noexcept;
+    bool joinable() const noexcept;
+    void join();
+    void detach();
+    id get_id() const noexcept;
+    native_handle_type native_handle(); // See 30.2.3
+    thread to_thread(); // addition to std::thread interface
+    // static members:
+    static unsigned hardware_concurrency() noexcept;
+  };
+}
+  
+  
+  
 The class safe_thread provides the same facilities as thread, and
 has the same members and the same semantics, with the differences
 as described below.

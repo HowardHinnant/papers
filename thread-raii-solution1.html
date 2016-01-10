@@ -63,6 +63,36 @@ Header &lt;thread&gt; synopsis
 <pre>
 <ins>Class basic_thread [thread.basic_thread.class]
 
+namespace std {
+  class basic_thread {
+    public:
+    // types:
+    class id;
+    typedef implementation-defined native_handle_type; // See 30.2.3
+    // construct/copy/destroy:
+    basic_thread() noexcept;
+    template &lt;class F, class ...Args&gt; explicit basic_thread(F&amp;&amp; f, Args&amp;&amp;... args);
+    ~basic_thread() noexcept; // semantics different from std::thread
+    basic_thread(const basic_thread&amp;) = delete;
+    basic_thread(basic_thread&amp;&amp;) noexcept;
+    explicit basic_thread(thread&amp;&amp; x) noexcept; // addition to std::thread interface
+    basic_thread&amp; operator=(const basic_thread&amp;) = delete;
+    basic_thread&amp; operator=(basic_thread&amp;&amp;) noexcept; // semantics different from std::thread
+    basic_thread&amp; operator=(thread&amp;&amp; x) noexcept; // addition to std::thread interface
+    // members:
+    void swap(basic_thread&amp;) noexcept;
+    bool joinable() const noexcept;
+    void join();
+    void detach();
+    id get_id() const noexcept;
+    native_handle_type native_handle(); // See 30.2.
+    thread to_thread(); // addition to std::thread interface
+    // static members:
+    static unsigned hardware_concurrency() noexcept;
+  };
+}
+  
+  
 The class basic_thread provides the same facilities as thread, and
 has the same members and the same semantics, with the differences
 as described below.
