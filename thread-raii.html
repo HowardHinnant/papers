@@ -170,6 +170,17 @@ Document number: D????
   are convertible from and to a thread.
 </p>
 
+<h2>Solution summary</h2>
+
+<p>
+Solution 1 and Solution 2 are the same option from the point of view that
+they both say "add a thread type that auto-joins." The only difference
+between Solution 1 and Solution 2 is which type gets the std::thread name
+- the one that has the current behavior, or the one that auto-joins. Also,
+both solutions provide a "wrapper", as the new thread types proposed in
+those solutions are convertible from and to std::thread.
+</p>
+
 <h2>Wording</h2>
 
 <p>
