@@ -270,8 +270,7 @@ Document number: D????
       struct X
       {
         vector&lt;int&gt; y;
-        vector&lt;int&gt;::iterator y_i; // let's assume this iterator
-                                         // points to X::y
+        vector&lt;int&gt;::iterator y_i; // let's assume this iterator points to X::y
         void f()
         {
           auto lam = [=](){
@@ -297,8 +296,7 @@ Document number: D????
       struct X
       {
         vector&lt;int&gt; y;
-        vector&lt;int&gt;&amp y_2; // let's assume this reference
-                                   // refers to X::y
+        vector&lt;int&gt;&amp y_2; // let's assume this reference refers to X::y
         void f()
         {
           auto lam = [=](){
