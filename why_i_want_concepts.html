@@ -1,0 +1,344 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Why I want Concepts, and why I want them sooner rather than later</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+Audience: WG21
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2016-02-05<br/>
+</address>
+<hr/>
+<h1 align=center>Why I want Concepts, and why I want them sooner rather than later</h1>
+
+<h2>Abstract</h2>
+<p>
+  This paper provides highly-opinionated statements, anecdotes and personal
+  opinions explaining why the author thinks Concepts should go into C++17
+  even if no Conceptified standard library parts are included in C++17.
+</p>
+
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#InBrief">In brief</a></li>
+<li><a href="#ConceptsAreSuperior">Concepts are superior to the work-around techniques we have to apply today</a></li>
+<li><a href="#Deduction">Concepts allow constraining function arguments without turning off deduction and without disturbing arity</a></li>
+<li><a href="#Overloading">Concepts make it much easier to write overloads with mutually exclusive constraints</a></li>
+<li><a href="#BroadRange">Concepts enable a broad range of constraint designs</a></li>
+<li><a href="#StdLib">So why shouldn't we ship Concepts and a Conceptified standard library at the same time?</a></li>
+<li><a href="#LibAndDesign">But shouldn't the design of Concepts be validated by applying them to the library?</a></li>
+<li><a href="#FamousLastWords">Famous last words</a></li>
+</ul>
+
+<a name="#InBrief"/><h2>In brief</h2>
+
+<p>
+  Concepts are ready to go in; furthermore they provide important facilities
+  that   are extremely burdensome and expert-only to mimic in C++14 and
+  below, and I want to be able to begin applying those facilities
+  in practice. I do not want to wait for a conceptified standard
+  library before being able to do so. I have analyzed the applicability
+  of Concepts in a limited fashion for the interfaces and the implementation
+  of the standard library, and I do not believe applying Concepts in
+  the standard library will result in design changes to Concepts.
+</p>
+<p>
+  Based on that confidence, I reiterate: it's time to ship Concepts
+  the language facility, and we should not wait for the standard library
+  to be partially or completely conceptified before doing so.
+</p>
+
+<a name="ConceptsAreSuperior"/><h2>Concepts are superior to the work-around techniques we have to apply today</h2>
+
+<p>
+  There's a whole host of things Concepts make much more direct and convenient
+  to express than the work-arounds we use today. It's perhaps valuable
+  to look at some such cases with examples, which I will do in the subsequent
+  sections. Here's a teaser list:
+</p>
+<p>
+  <ul>
+    <li>
+      Concepts allow constraining function arguments without turning
+      off deduction and without disturbing the meta-arity of a constrained
+      function template.
+    </li>
+    <li>
+      Concepts make it much easier to write overloads with mutually
+      exclusive constraints.
+    </li>
+    <li>
+      Concepts enable a broad range of constraint designs, giving the
+      interface designer various tools to decide what sort of abstractions
+      a particular interface needs.
+    </li>
+  </ul>
+</p>
+
+<a name="Deduction"/><h2>Concepts allow constraining function arguments without turning off deduction and without disturbing arity</h2>
+
+<p>
+  We start with something very simple:
+</p>
+<p>
+  <pre>
+    <code>
+      template &lt;class T&gt; void f(T);
+    </code>
+  </pre>
+</p>
+<p>
+  The problem here is that while this function template does deduction,
+  it provides no actual interface. If we want to constrain its function
+  parameter, we may initially try this:
+</p>
+<p>
+  <pre>
+    <code>
+      template &lt;class T&gt; void f(enable_if_t&lt;my_trait_v&lt;T&gt;&gt);
+    </code>
+  </pre>
+</p>
+<p>
+  We just turned off deduction. That also means that the technique will
+  not work for constructor templates. We may try a different approach:
+</p>
+<p>
+  <pre>
+    <code>
+      template &lt;class T&gt; auto f(T) -> enable_if_t&lt;my_trait_v&lt;T&gt;, void&gt;;
+    </code>
+  </pre>
+</p>
+<p>
+  Now we have a constraint for the parameter in the return type. Same applies
+  to using a decltype of an expression in the trailing-return-type. This
+  won't work with constructor templates either. We can
+  resort to using constraints on the template argument:
+</p>
+<p>
+  <pre>
+    <code>
+      template &lt;class T, typename = enable_if_t&lt;my_trait_v&lt;T&gt;&gt;&gt; void f(T);
+    </code>
+  </pre>
+</p>
+<p>
+  Now we have changed the function template's meta-arity from one to two. All of
+  these solutions are work-arounds. With concepts, we can do
+</p>
+<p>
+  <pre>
+    <code>
+      void f(MyConcept);
+    </code>
+  </pre>
+</p>
+<p>
+  The constraint for the parameter is at the parameter. The function
+  template will still deduce the template argument. The arity of the
+  function template is unchanged, as is its meta-arity.
+</p>
+
+<a name="Overloading"/><h2>Concepts make it much easier to write overloads with mutually exclusive constraints</h2>
+
+<p>
+  It's often desirable to constrain overloads of function templates
+  so that one overload is invoked when the template argument
+  satisfies certain criteria, and another overload if not. Let's look
+  at a thrilling example of what a person too clever for his own
+  good will write utilizing "nifty" techniques in C++14:
+</p>
+<p>
+  <pre>
+    <code>
+      template &lt;class T&gt; void f(T, decltype(declval&lt;T&gt;().f())* = 0);
+    </code>
+  </pre>
+</p>
+<p>
+  Pardon me. I should've warned you. The person is indeed too clever
+  for his own good, and he is very dangerous when given "nifty" facilities.
+  He didn't want to write a trait, because chances are that he's never
+  going to reuse the constraint on the function, and is thus unwilling
+  to separate it into a trait. So, he gets the declval of the template
+  parameter, constructs the expression, and turns its type into a pointer (and
+  completely fails to take into account references) because he wanted
+  to support functions returning void, and defaults the argument
+  in order to allow users to just call the function with one argument.
+</p>
+<p>
+  After all this, the "expression constraint" doesn't work with functions
+  that return references, the whole constraint can be accidentally bypassed
+  by invoking the function with two arguments, and no non-expert
+  will have any hope of ever understanding what's going on there. To add
+  insult to injury, this clever person can't figure out how to declare
+  the overload that is supposed to be taken when the constraint is not
+  satisfied. Any non-trait attempts he may make result in hard errors.
+</p>
+<p>
+  In contrast, with Concepts, here's what this too-clever programmer
+  will write:
+</p>
+<p>
+  <pre>
+    <code>
+      template &lt;class T&gt; void f(T) requires requires (T t) {t.f();};
+      template &lt;class T&gt; void f(T);
+    </code>
+  </pre>
+</p>
+<p>
+  The overloads are mutually exclusive, and everything is fine. If this
+  programmer so chooses, he can write an actual Concept for the constraint,
+  and apply separation of concerns that way. With the trait-based solutions,
+  the programmer
+  <b>has to write a trait</b>, for every expression he wants to
+  constrain on, because
+  otherwise he can't write the non-matching overload that requires
+  a negation of the trait. He will also potentially run into the
+  aforementioned problems with deduction, placement of the constraint,
+  or arity. Sure, a requires-clause is not exactly next to the parameter
+  either, but at least it's not hiding inside a trailing return type.
+</p>
+
+<a name="BroadRange"/><h2>Concepts enable a broad range of constraint designs</h2>
+
+<p>
+  The previous section very much hinted towards the topic of this section.
+  For expression constraints, choosing an overload for which an expression
+  is not valid requires writing a trait. It can't be written in an
+  ad-hoc manner straight on the function template declaration. With
+  Concepts, that is possible, and the code design evaluation path towards
+  a real separate Concept is palatable, as is the evaluation path
+  back towards an ad-hoc constraint. None of the issues with the
+  C++14 techniques for constraints arise easily.
+</p>
+<p>
+  With Concepts, the programmer can decide what kind of an abstraction
+  level is suitable for his constraints, and it's possible to mix and
+  match Concepts and traits and requires-clauses fairly easily. None
+  of that design leeway is attainable with the C++14 techniques.
+</p>
+
+<a name="StdLib"/><h2>So why shouldn't we ship Concepts and a Conceptified standard library at the same time?</h2>
+
+<p>
+  I don't want to wait for the conceptification of the standard library
+  before I can use the techniques illustrated in this paper (and there's
+  more than the examples in this paper). There's a lot of code that
+  can begin to benefit from those techniques even without a conceptified
+  library. In many cases, such code wouldn't benefit much or at all from
+  a conceptified library. Yes, I'm fully aware of the original goal
+  of Concepts being to create something that can reasonably be used
+  for the interfaces in the standard library; however, the language
+  facilities it ended up providing are so alluring that they in somecases
+  overshadow the benefits of some day having a constrained standard library.
+</p>
+<p>
+  I can start applying some of these techniques in some modern codebases
+  now, in some modern codebases as soon as GCC 6 is out, and in some
+  codebases when there's more than one compiler supporting Concepts.
+  We currently have basic library Concepts in the Ranges TS, and any
+  further conceptified library will likely just begin to form after we
+  have gotten that TS to the publication phase. From that point, it
+  takes some serious effort and time to further conceptify our standard
+  library. It's not unreasonable to expect this process to take a couple
+  of years, and all the while there would be a vast amount of code that
+  could immensely benefit from Concepts the language feature.
+</p>
+
+<a name="LibAndDesign"/><h2>But shouldn't the design of Concepts be validated by applying them to the library?</h2>
+
+<p>
+  Some audiences think we cannot be sure that we got the design of
+  Concepts right before we apply Concepts to the standard library.
+  Furthermore, to some audiences this means just applying them
+  into the specification in a somewhat abstract sense, and to some
+  it means that Concepts need to be applied to the implementation as
+  well. Even further, some audiences think Concepts should be applied
+  to both the standard interfaces and the internal facilities of
+  a library implementation. The claim is that such an exercise
+  is bound to reveal bugs in the Concepts design.
+</p>
+<p>
+  Let's go from bottom to top for those concerns:
+</p>
+<p>
+  The applicability of Concepts to the internal facilities
+  and the standard interfaces of a library implementation has
+  been explored in a limited fashion. I have implemented
+  certain internal facilities with fake Concepts, and tried out the
+  techniques with actual Concepts. I didn't find any significant
+  design changes I would want to have for Concepts. Extension ideas,
+  yes; but such extensions are not really in scope for Concepts
+  at this time - the extension ideas were mostly for ways to
+  make implementing the guts of the library easier, and Concepts
+  weren't designed for that; they were designed to be able to
+  constrain the interfaces of the library, not for constraining
+  the implementation.</p>
+
+<p>There's been somewhat limited amounts of field experience with
+  even the main use case of Concepts, constraining library interfaces.
+  Even so, we have had some feedback from adventurous library writers,
+  and thus far there have been fairly minor gripes about the Concepts
+  design. They have been mostly requests to simplify Concepts (at
+  the cost of decreased functionality, which was one of the reasons why
+  those design issues were rejected by EWG) and requests to relax
+  some limitations (which has been done to a certain extent). No
+  really major design issues have been reported by anyone. That
+  can certainly be an indication of small amounts of field experience,
+  but I daresay that it's an indication that the design is sound.
+</p>
+<p>We have had some amounts of specification experience with
+  libraries, such as the Ranges TS. As far as I know, no major
+  design issues for Concepts have come up. I very much doubt
+  applying Concepts to more library facilities would reveal
+  such issues, because I boldly claim that such issues aren't there.
+</p>
+
+<a name="FamousLastWords"/><h2>Famous last words</h2>
+
+<p>
+  I realize that the previous section might not be convincing to some
+  people, and that shipping Concepts the language feature is a leap of
+  faith. That may well be so, but programmers are aching to get
+  the language feature into their hands, and it's high time
+  we ship it to them. Conceptifying the standard library will
+  take its time, and we will not find major design issues for Concepts
+  while doing it. We shouldn't keep programmers waiting for the
+  language feature out of concern for hypothetical design issues
+  that we have no proof of, have some amounts of counter-proof of, and
+  very likely don't exist.
+</p>
+<p>
+  For the benefit of C++ users everywhere, let's ship Concepts the
+  language feature in C++17.
+</p>
+
+</body>
+
+</html>
