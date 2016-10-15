@@ -1,0 +1,346 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Explicit type checking with structured bindings</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2016-10-15<br/>
+</address>
+<hr/>
+<h1 align=center>Explicit type checking with structured bindings</h1>
+
+<h2>Abstract</h2>
+
+Structured bindings in C++17 deduce the type of the incoming
+entity, and bind references to its elements. The types of the element
+bindings cannot be specified; this is a problem for large-scale
+programs where it would be desirable to be able to write code
+where it's possible to express the intent to use a binding
+of a specific type. There are library solutions to the problem,
+but they are incomplete and cumbersome.
+
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#Inconsistency">Inconcistency</a></li>
+<li><a href="#WhyProblem">What is the problem?</a></li>
+<li><a href="#StaticAssert">Fine, just static_assert the types you expect</a></li>
+<li><a href="#Ensure">Enter ensure</a></li>
+<li><a href="#EnsureSteroids">Ensure on steroids</a></li>
+<li><a href="#LanguageExtension">Should we have a language extension?</a></li>
+</ul>
+
+<a name="Inconsistency"></a><h2>Inconsistency</h2>
+
+<p>
+With C++ amended with concepts, it's possible to declare variables that
+are
+<ol>
+  <li> of specific type</li>
+  <li> of a type deduced from an initializer</li>
+  <li> of a constrained type deduced from an initializer.</li>
+</ol>
+Similarly, it's possible to declare function parameters that are
+<ol>
+  <li> of specific type</li>
+  <li> of a type deduced from a call expression's arguments</li>
+  <li> of a constrained type deduced from a call expression's arguments.</li>
+</ol>
+Similarly, it's possible to declare function return values that are
+<ol>
+  <li> of specific type</li>
+  <li> of a type deduced from a return statement</li>
+  <li> of a constrained type deduced from a return statement.</li>
+</ol>
+Finally, it's possible to declare lambda captures that are
+<ol>
+  <li> of specific type (by using an explicit conversion in an init-capture)
+  </li>
+  <li> of a constrained type deduced from an init-capture's initializing
+    expression</li>
+  <li> of a type deduced from the type of the captured entity</li>
+  <li> of a constrained type deduced from the type of the captured entity.</li>
+</ol>
+However, for a structured binding, the type of a binding can be
+<ol>
+  <li>the type deduced from the element type of the entity for which
+    the bindings are declared.</li>
+</ol>
+There is no simple way to specify the expected type of a binding established
+by structured bindings directly when declaring the binding.
+</p>
+
+<a name="WhyProblem"></a><h2>What is the problem?</h2>
+
+<p>
+Well, despite what the Almost Always Auto proponents extol the benefits
+of using auto everywhere to be, there are very good reasons to write code
+that does something like
+</p>
+<p>
+  <pre>
+    <code>
+      SpecificType var = func();
+      ... /* some code in between */
+      process(var);
+    </code>
+  </pre>
+</p>
+<p>
+  Reasoning about that code is fairly straightforward. We know that
+  the type of var must be SpecificType, and we know that what func()
+  returns must be convertible to SpecificType. If the API of func()
+  changes in an incompatible way, we know about that at the point of
+  declaration of var, and we don't even need to see whether process(var)
+  became ill-formed, and we certainly don't need to worry about
+  whether that call changed meaning. We have established a strongly-typed
+  contract between func and the calling code, so that there's no
+  duck typing involved, and we can rely on incompatible changes to
+  the API of func() being loud and to notice them early.
+</p>
+<p>
+  In contrast, if we have something like
+</p>
+<p>
+  <pre>
+    <code>
+      auto var = func();
+      ... /* some code in between */
+      process(var);
+    </code>
+  </pre>
+</p>
+<p>
+  we will not see any incompatible changes to the API of func()
+  until we use the result, in process(var). We have made a trade-off
+  from explicit precise typing to duck typing. That trade-off may
+  well be a good idea, but there are a lot of cases where such a trade-off
+  isn't the right thing to do.
+</p>
+<p>
+  With structured bindings, what we have is
+</p>
+<p>
+  <pre>
+    <code>
+      auto [var, var2] = func();
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+<p>
+  The only option we have is duck typing. No concrete types for the bindings,
+  and not even constrained types to restrict the kind of types we expect. If
+  the element types of the entity returned by func() change, we will
+  not notice that before process(), and we might notice at all before
+  we debug the program.
+</p>
+
+<a name="StaticAssert"></a><h2>Fine, just static_assert the types you expect</h2>
+
+<p>
+  One way to avoid the problem is to add a check for the types after
+  the binding declaration:
+</p>
+<p>
+  <pre>
+    <code>
+      auto [var, var2] = func();
+      static_assert(is_same_v&lt;decltype(var), SpecificType&gt;);
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+<p>
+  This is not so simple in a loop:
+</p>
+<p>
+  <pre>
+    <code>
+      for (auto [var, var2] : func()) {
+        static_assert(is_same_v&lt;decltype(var), SpecificType&gt;);
+        ... /* some code in between */
+        process(var, var2);
+      }
+    </code>
+  </pre>
+</p>
+<p>
+  Why is my start_assert inside the loop? It's not dependent
+  on the values of the bound variables. I don't think I can
+  write it in the loop header, because there's no place where
+  the bindings would be in scope where I could put the static_assert.
+</p>
+
+<a name="Ensure"></a><h2>Enter ensure</h2>
+
+<p>
+  Peter Dimov showed an example of a library function that can
+  check the elements of the target of the structured bindings.
+  Its use looks roughly like this:
+</p>
+<p>
+  <pre>
+    <code>
+      auto [var, var2] = ensure&lt;SpecificType, SpecificType2&gt;(func());
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+<p>
+  It also works just fine in a loop:
+</p>
+<p>
+  <pre>
+    <code>
+      for (auto [var, var2] : ensure&lt;SpecificType, SpecificType2&gt;(func())) {
+        ... /* some code in between */
+        process(var, var2);
+      }
+    </code>
+  </pre>
+</p>
+<p>
+  Great, we have solved the problem, right?
+</p>
+<p>
+  Two questions come to mind when seeing such an ensure():
+  <ol>
+    <li>How does it cope with aggregate structs that don't have tuple_size and get&lt;&gt; customizations points?</li>
+    <li>How does it cope with xvalues and prvalues when the function
+      called returns a reference?</li>
+  </ol>
+</p>
+<p>
+  There's a separate proposal that proposes having tuple_size
+  and get&lt;&gt; just work for such aggregate structs, so we are
+  not going to spend more time on that part here. However, the
+  value category is interesting, thrilling and blood-chilling.
+</p>
+
+<p>
+Code like this is always fine:  
+</p>
+<p>
+  <pre>
+    <code>
+      auto [var, var2] = ensure&lt;SpecificType, SpecificType2&gt;(func());
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+<p>
+  In that code, func() may have return a reference or a temporary,
+  either way it will work even if passed through ensure(), which takes
+  a universal reference and returns it. The binding accepts its source
+  object by value, so no temporary was destroyed before the binding
+  happened and everything is fine.
+</p>
+<p>
+  Let's consider something different:
+</p>
+<p>
+  <pre>
+    <code>
+      auto&& [var, var2] = ensure&lt;SpecificType, SpecificType2&gt;(func());
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+<p>
+  Now, if func() returns by value, ensure manages to turn that
+  prvalue into an xvalue, and the temporary returned by func()
+  drops dead after the bindings are made (presumably not before),
+  since its lifetime wasn't extended, and our bindings end up being invalid.
+</p>
+<p>
+  It seems tricky to solve this problem. Whenever ensure takes a reference
+  and returns a reference, it manages to turn a prvalue into an xvalue,
+  breaking lifetime extension.
+</p>
+<p>
+  Well, can't we just have ensure return by value, and rely on mandatory
+  elision to do away with the extra move? No. That doesn't work if
+  the function we call returns a reference, because that breaks identity.
+</p>
+
+<a name="EnsureSteroids"></a><h2>Ensure on steroids</h2>
+<p>
+  Barry Revzin suggested a different approach; have ensure
+  call a function object. That way ensure can return what
+  the function object returns, and there's no prvalue-to-xvalue
+  conversion and no breaking identity. That looks roughly like this:
+</p>
+<p>
+  <pre>
+    <code>
+      auto&& [var, var2] = ensure_func&lt;SpecificType, SpecificType2&gt;([]() -&gt; decltype(auto) {return func();});
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+<p>
+  The caller must naturally understand to use a lambda with
+  a decltype(auto) return type, which is also the new return
+  type of ensure_func.
+</p>
+<p>
+  We can make it "prettier", by desperately using a macro:
+</p>
+<p>
+  <pre>
+    <code>
+      #define EVIL(X) []() -&gt; decltype(auto) {return X;}
+      auto&& [var, var2] = ensure_func&lt;SpecificType, SpecificType2&gt;(EVIL(func());
+      ... /* some code in between */
+      process(var, var2);
+    </code>
+  </pre>
+</p>
+
+<a name="LanguageExtension"></a><h2>Should we have a language extension?</h2>
+
+<p>
+  So, with the ingredients of a library helper backed up with a language
+  extension that allows tuple_size and get&lt;&gt; to just work on
+  aggregate structs, mixed with a lambda and possibly a macro, I can
+  get what I want. It's not pretty, but I can make it work.
+</p>
+<p>
+  <ul>
+  <li>Do we want users to need to rely on such techniques if they
+    want explicit typing of their bindings?</li>
+  <li>Do we consider such wantings a problem worth solving?</li>
+  <li>How do we think such problems should be solved?</li>
+  </ul>
+</p>
+</body>
+</html>

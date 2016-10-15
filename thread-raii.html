@@ -1,8 +1,7 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
-        "http://www.w3.org/TR/html4/loose.dtd">
-<html>
-<head>
-	<title>Discussion about std::thread and RAII</title>
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=windows-1252">
+	<title>A joining thread</title>
 
 	<style>
 	p {text-align:justify}
@@ -21,352 +20,217 @@
 </head>
 <body>
 
-<address align=right>
-Document number: D????
-<br/>
-<br/>
-<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
-2016-01-27<br/>
+<address align="right">
+Document number: P0206R1
+<br>
+<br>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br>
+2016-03-09<br>
 </address>
-<hr/>
-<h1 align=center>Discussion about std::thread and RAII</h1>
+<hr>
+<h1 align="center">A joining thread</h1>
+
+<h2>Changes from previous version</h2>
+
+<ul>
+  <li>This paper revises P0206R0.</li>
+  <li>Removed the motivation elaboration, it can be found in the previous revision.</li>
+  <li>Removed the discarded solutions.</li>
+  <li>Added explanation for the std::thread-accessing functions and discarded
+    alternatives for it.</li>
+  <li>Renamed safe_thread to joining_thread.</li>
+  <li>Used thread::id and thread::native_handle_type in joining_thread.</li>
+  <li>Updated proposed wording.</li>
+</ul>
 
 <h2>Abstract</h2>
 <p>
   C++ continues not to provide a thread type that would join() automatically
   on scope exit. This causes exception-safety problems, because failing to
   join() in all code paths causes the destructor of a std::thread to
-  terminate(). This paper explores various ways to solve the problem.
+  terminate(). This paper provides a solution that adds a new thread
+  type that joins in its destructor, and is based on large-group and LEWG
+  feedback given in Jacksonville. The proposal has been implemented and
+  tested.
 </p>
 
 <h2>Contents</h2>
 
 <ul>
-<li><a href="#Problem">The problem, reiterated</a></li>
-<li><a href="#StatusQuo">The status quo solution</a></li>
-<li><a href="#StatusQuoProblem">The problem with the status quo solution</a></li>
-<li><a href="#Solution1">Solution 1: Change std::thread::~thread to auto-join</a></li>
 <li><a href="#Solution2">Solution 2: Add a new thread type that auto-joins</a></li>
-<li><a href="#Solution3">Solution 3: Add a thread wrapper that auto-joins</a></li>
-<li><a href="#SolutionSummary">Solution summary</a></li>
-<li><a href="#Solution1Wording">Wording for Solution 1</a></li>
+<li><a href="#LEWGRecommendation">What LEWG recommended in Jacksonville</a></li>
+<li><a href="#Accessor">The std::thread-accessing function</a></li>
 <li><a href="#Solution2Wording">Wording for Solution 2</a></li>
 </ul>
 
-<a name="Problem"/><h2>The problem, reiterated</h2>
-<p>
-  Herb Sutter provided the following code example:
-</p>
-<p>
-  <pre>
-    <code>
-      std::vector&lt;std::pair&lt;unsigned int, unsigned int&gt;&gt; partitions =
-        utils::partition_indexes(0, size-1, num_threads);
-      std::vector&lt;std::thread&gt; threads;
-
-      LOG(LOG_DEBUG, "controller::reload_all: starting reload threads...");
-      for (unsigned int i=0; i&lt;num_threads-1; i++) {
-        threads.push_back(std::thread(reloadrangethread(this,
-        partitions[i].first, partitions[i].second, size, unattended)));
-      }
-
-      LOG(LOG_DEBUG, "controller::reload_all: starting my own reload...");
-      this-&gt;reload_range(partitions[num_threads-1].first,
-        partitions[num_threads-1].second, size, unattended);
-
-      LOG(LOG_DEBUG, "controller::reload_all: joining other threads...");
-      for (size_t i=0; i&lt;threads.size(); i++) {
-        threads[i].join();
-      }      
-    </code>
-  </pre>
-</p>
-<p>
-  The problem with the code is that the push_back can fail with an exception,
-  and in general, any exception thrown will skip the loop that joins all
-  threads, and any unjoined threads destroyed with the destruction of the
-  thread vector will cause the program to terminate.
-</p>
-
-<a name="StatusQuo"/><h2>The status quo solution</h2>
+<a name="Solution2"><h2>Solution 2: Add a new thread type that auto-joins</h2>
 
 <p>
-  The way to make the code exception-safe is to use a third-party thread
-  wrapper that joins the thread on destruction. That is, instead of containing
-  threads, the vector should hold such wrappers. Scott Meyers,
-  Anthony Williams and Bjarne Stroustrup
-  all describe such thread wrappers in their most recent books.
-</p>
-
-<a name="StatusQuoProblem"/><h2>The problem with the status quo solution</h2>
-
-<p>
-  It's inconvenient to need to use a third-party wrapper for something
-  as fundamental as exception-safety of using std::thread. There are multiple
-  such third-party wrappers, and it takes more effort to take one of them
-  into use than using a solution that would already be provided by the
-  standard library implementation. The following sections enumerate some
-  potential solutions.
-</p>
-
-<a name="Solution1"/><h2>Solution 1: Change std::thread::~thread to auto-join</h2>
-
-<p>
-  This solution has been previously proposed by Herb Sutter in
-  <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3636.pdf">n3636</a>. That paper contains proposed wording for the necessary changes to
-  std::thread. Implementation is trivially easy for
-  standard library vendors. As an addition, it's suggested that for
-  audiences willing to use the current terminating semantics, a new type
-  should be added that will not join on destructor, but will terminate instead.
-</p>
-<p>
-  The opposition to this solution has been that it changes the semantics
-  of existing code; there apparently are audiences who prefer the destruction
-  of joinable threads (which can be seen a logic error) to terminate so that
-  the program exits quickly, and external facilities can recover without
-  the program waiting (or hanging on) a join().
-</p>
-<p>
-  The benefit of this solution is that it's easy to use as a default. No
-  external wrapper needs to be taken into use, and it's arguably a better
-  default that caters better to non-expert use cases. Experts that want
-  termination need to use an alternative approach, rather than non-experts
-  who do not even realize their code isn't exception-safe needing to use
-  an alternative approach.
-</p>
-
-<a name="Solution2"/><h2>Solution 2: Add a new thread type that auto-joins</h2>
-
-<p>
-  As opposed to adding a thread wrapper (see later), it's been suggested
-  that it would be better to add a new thread type that has the full
-  API of std::thread, and recommend using this new thread type instead
-  of std::thread. Following such advise avoids the problems that would
-  arise when using a thread combined with a thread wrapper; forgetting
-  to wrap would make the exception-safety problems arise again.
-</p>
-<p>
+  In a large-group discussion in Jacksonville, the outcome was that
+  a new thread type that joins in its destructor should be added.
   The benefit of this solution is that it's non-intrusive; all existing
   users of std::thread are unaffected, for better or worse. Replacing
   the uses of std::thread with the uses of the new type where need be
   is arguably straightforward.
 </p>
-<p>
-  The downside of this solution is that it introduces another thread type
-  that users will need to consider in addition to std::thread.
-</p>
 
-<a name="Solution3"/><h2>Solution 3: Add a thread wrapper that auto-joins</h2>
+<a name="LEWGRecommendation"><h2>What LEWG recommended in Jacksonville</h2>
 
 <p>
-  The aforementioned book authors all provide a thread wrapper that
-  joins in its destructor. The wrapper as such can be made fairly
-  simple, and doesn't necessarily need to duplicate the full API
-  of std::thread. It's non-intrusive for existing code that uses std::thread,
-  and can be applied as necessary. It also doesn't need to duplicate all of the
-  functionality in std::thread.
+LEWG guidance from Jacksonville was as follows:    
 </p>
 <p>
-  The benefit of this solution is that it's non-intrusive; all existing
-  users of std::thread are unaffected, for better or worse. The wrapper
-  can be relatively simple, and can be specification-wise and
-  implementation-wise
-  a fairly lean solution. Replacing
-  the uses of std::thread with the uses of the new type where need be
-  can be straightforward.
+  <ol>
+    <li>The name of the type should not be "safe_thread", but LEWG had no consensus on which name to pick. There was no consensus between "joining_thread"
+    and "simple_thread".</li>
+    <li>The thread-accessing function that converts the new thread type to thread should not be a conversion operator, but rather a named function, with preference, but no consensus, for "as_thread" and "get_thread"</li>
+  </ol>
 </p>
 <p>
-  The downside of this solution is that remembering to use the wrapper
-  is tedious. Another downside is that if it's really a wrapper, ownership
-  questions arise; and if the wrapper owns the underlying std::thread,
-  then there's no real difference between a new thread type and such a wrapper.
-  Thus the 'wrapper' is NOT proposed with wording; the proposed wording
-  for solutions for 1 and 2 ARE such wrappers; they own a thread, and
-  are convertible from and to a thread.
+  This paper provides a type named "joining_thread", with the thread
+  conversion function "as_thread". The name "joining_thread" describes
+  the functionality, and doesn't suggest that it's significantly simpler.
+  While the author feels sympathy for it perhaps being, in many cases,
+  simpler to use, the choice is based on more accurately describing
+  what the type does. The author doesn't think that suggests that
+  std::thread doesn't join, but since std::thread doesn't do a join
+  in its destructor, the chosen name seems palatable. The choice
+  of "as_thread" rather than "get_thread" is fairly arbitrary.
 </p>
 
-<a name="SolutionSummary"/><h2>Solution summary</h2>
+<a name="Accessor"><h2>The std::thread-accessing function</h2>
 
 <p>
-Solution 1 and Solution 2 are the same option from the point of view that
-they both say "add a thread type that auto-joins." The only difference
-between Solution 1 and Solution 2 is which type gets the std::thread name
-- the one that has the current behavior, or the one that auto-joins. Also,
-both solutions provide a "wrapper", as the new thread types proposed in
-those solutions are convertible from and to std::thread.
+  In addition to picking the name "as_thread", this paper provides
+  two std::thread-accessing functions:
 </p>
-
-<a name="Solution1Wording"/><h2>Wording for Solution 1</h2>
-
 <p>
-  This solution has been previously proposed by Herb Sutter in
-  <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2013/n3636.pdf">n3636</a>. That paper contains proposed wording for the necessary changes to
-  std::thread, so this paper will not repeat that part of the wording.
-  As an addition, this paper will
-  provide wording for a new thread type
-  should be added that will not join in destructor or assignment operator,
-  but will terminate instead, thus providing a migration solution for users
-  who want to retain the C++11 semantics that std::thread previously had.
+  <pre><code>
+    thread& as_thread(); // addition to std::thread interface
+    const thread& as_thread() const; // addition to std::thread interface
+   </code></pre>
 </p>
+<p>
+  The functions are intentionally not ref-qualified, they intentionally
+  return a reference rather than a value, and it's intentional that
+  there are no overloads that return rvalue references.
+</p>
+<p>
+  The lack of ref-qualified overloads is because of simplicity. Rather
+  than having to write
+</p>
+<p>
+  <pre><code>
+    joining_thread make_joining_thread();
+    joining_thread jt = make_joining_thread();
+    thread t = std::move(jt).as_thread();
+  </code></pre>
+</p>
+<p>
+we can write    
+</p>
+<p>
+  <pre><code>
+    joining_thread make_joining_thread();
+    thread t = std::move(make_joining_thread().as_thread());
+  </code></pre>
+</p>
+<p>
+However, we do not want to allow    
+</p>
+<p>
+  <pre><code>
+    joining_thread make_joining_thread();
+    thread t{make_joining_thread()};
+  </code></pre>
+</p>
+<p>
+because that makes the conversion subtle. We also do not want to allow    
+</p>    
+<p>
+  <pre><code>
+    joining_thread make_joining_thread();
+    thread t{make_joining_thread().as_thread()};
+  </code></pre>
+</p>
+<p>
+because that requires an overload that returns an rvalue reference
+(complicating the type) and makes the ownership transfer subtle.  
+</p>
+<p>
+  The lack of a direct way to return an rvalue reference from an
+  joining_thread rvalue does disturb forwarding cases to some extent.
+  That was deemed acceptable, because forwarding was seen as yet
+  another case where ownership transfer is subtle.
+</p>
+<p>
+  Finally, these are named functions rather than conversion functions.
+  While conversion functions are more generic, it was deemed desirable
+  that the conversion from a joining thread to a non-joining thread
+  doesn't happen subtly in generic code.
+</p>
+
+<a name="Solution2Wording"><h2>Wording for Solution 2</h2>
 
 <p>
   In [thread.threads]/1, insert as follows:
 </p>
 <p>
-  <blockquote>
-<pre>
-Header &lt;thread&gt; synopsis
+  </p><blockquote>
+<pre>Header &lt;thread&gt; synopsis
   namespace std {
     class thread;
-    <ins>class basic_thread;</ins>
+    <ins>class joining_thread;</ins>
+
+    void swap(thread& x, thread& y) noexcept;
+    <ins>void swap(joining_thread& x, joining_thread& y) noexcept;</ins>
 </pre>
 </blockquote>
-</p>
+<p></p>
+
+<p>
+  In [thread.thread.constr]/4, insert as follows:
+</p>  
+<p>
+</p><blockquote>
+  Remarks: This constructor shall not participate in overload resolution if <code>decay_t&lt;F&gt;</code> is the same type as <code>std::thread</code><ins> or if <code>decay_t&lt;F&gt;</code> is the same type as <code>std::joining_thread</code></ins>.
+
+</blockquote>
+<p></p>
+
+
 <p>
   After [thread.thread.this], add a new section as follows:
 </p>
 <p>
-  <blockquote>
-<pre>
-Class basic_thread [thread.basic_thread.class]
+  </p><blockquote>
+<pre>Class joining_thread [thread.joining_thread.class]
 
 namespace std {
-  class basic_thread {
+  class joining_thread {
     public:
-    // types:
-    class id;
-    typedef implementation-defined native_handle_type; // See 30.2.3
+    // types
+    typedef thread::native_handle_type native_handle_type;
+    typedef thread::id id;
     // construct/copy/destroy:
-    basic_thread() noexcept;
-    template &lt;class F, class ...Args&gt; explicit basic_thread(F&amp;&amp; f, Args&amp;&amp;... args);
-    ~basic_thread() noexcept; // semantics different from std::thread
-    basic_thread(const basic_thread&amp;) = delete;
-    basic_thread(basic_thread&amp;&amp;) noexcept;
-    explicit basic_thread(thread&amp;&amp; x) noexcept; // addition to std::thread interface
-    basic_thread&amp; operator=(const basic_thread&amp;) = delete;
-    basic_thread&amp; operator=(basic_thread&amp;&amp;) noexcept; // semantics different from std::thread
-    basic_thread&amp; operator=(thread&amp;&amp; x) noexcept; // addition to std::thread interface
+    joining_thread() noexcept;
+    template &lt;class F, class ...Args&gt; explicit joining_thread(F&amp;&amp; f, Args&amp;&amp;... args);
+    ~joining_thread() noexcept; // semantics different from std::thread
+    joining_thread(const joining_thread&amp;) = delete;
+    joining_thread(joining_thread&amp;&amp;) noexcept;
+    explicit joining_thread(thread&amp;&amp; x) noexcept; // addition to std::thread interface
+    joining_thread&amp; operator=(const joining_thread&amp;) = delete;
+    joining_thread&amp; operator=(joining_thread&amp;&amp;) noexcept; // semantics different from std::thread
+    joining_thread&amp; operator=(thread&amp;&amp; x) noexcept; // addition to std::thread interface
     // members:
-    void swap(basic_thread&amp;) noexcept;
+    void swap(joining_thread&amp;) noexcept;
     bool joinable() const noexcept;
     void join();
     void detach();
-    id get_id() const noexcept;
-    native_handle_type native_handle(); // See 30.2.
-    thread to_thread(); // addition to std::thread interface
-    // static members:
-    static unsigned hardware_concurrency() noexcept;
-  };
-}
-  
-  
-The class basic_thread provides the same facilities as thread, and
-has the same members and the same semantics, with the differences
-as described below.
-
-basic_thread constructors [thread.basic_thread.constr]
-
-explicit basic_thread(thread&amp;&amp; x) noexcept;
-
-  Effects: Constructs an object of type basic_thread from x, and
-  sets x to a default constructed state.
-
-  Postconditions: x.get_id() == id() and get_id() returns the value
-  of x.get_id() prior to the start of construction.
-  
-basic_thread destructor [thread.basic_thread.destr]
-
-~basic_thread();
-
-  Effects: If joinable(), calls std::terminate(). Otherwise, has no effects.
-  [ Note: Either implicitly detaching or joining a joinable() thread in its
-  destructor could result in difficult to debug correctness (for detach)
-  or performance (for join) bugs encountered only when an exception is raised.
-  Thus the programmer must ensure that the destructor is never executed while
-  the thread is still joinable. -end note ]
-
-basic_thread assignment [thread.basic_thread.assign]
-
-basic_thread&amp; operator=(basic_thread&amp;&amp; x) noexcept;
-  Effects: If joinable(), calls std::terminate(). Otherwise, assigns
-  the state of x to *this and sets x to a default constructed state.
-
-  Postconditions: x.get_id() == id() and get_id() returns the value
-  of x.get_id() prior to the assignment.
-
-  Returns: *this
-  
-basic_thread&amp; operator=(thread&amp;&amp; x) noexcept;
-  Effects: If joinable(), calls std::terminate(). Otherwise, assigns
-  the state of x to *this and sets x to a default constructed state.
-
-  Postconditions: x.get_id() == id() and get_id() returns the value
-  of x.get_id() prior to the assignment.
-
-  Returns: *this
-
-basic_thread members [thread.basic_thread.member]
-
-thread to_thread();
-
-  Postconditions: *this is set to a default constructed state. The state
-  of the returned object is the state *this had prior to calling this function.
-
-  Returns: A thread object initialized from *this.
-  [Drafting note: an alternative approach would be to publicly inherit
-  basic_thread from thread, and let derived-to-base conversion handle
-  this conversion.]
-</pre>
-  </blockquote>
-</p>
-
-<a name="Solution2Wording"/><h2>Wording for Solution 2</h2>
-
-<p>
-  In [thread.threads]/1, insert as follows:
-</p>
-<p>
-  <blockquote>
-<pre>
-Header &lt;thread&gt; synopsis
-  namespace std {
-    class thread;
-    <ins>class safe_thread;</ins>
-</pre>
-</blockquote>
-</p>
-<p>
-  After [thread.thread.this], add a new section as follows:
-</p>
-<p>
-  <blockquote>
-<pre>
-Class safe_thread [thread.safe_thread.class]
-
-namespace std {
-  class safe_thread {
-    public:
-    // types:
-    class id;
-    typedef implementation-defined native_handle_type; // See 30.2.3
-    // construct/copy/destroy:
-    safe_thread() noexcept;
-    template &lt;class F, class ...Args&gt; explicit safe_thread(F&amp;&amp; f, Args&amp;&amp;... args);
-    ~safe_thread() noexcept; // semantics different from std::thread
-    safe_thread(const safe_thread&amp;) = delete;
-    safe_thread(safe_thread&amp;&amp;) noexcept;
-    safe_thread(thread&amp;&amp; x) noexcept; // addition to std::thread interface
-    safe_thread&amp; operator=(const safe_thread&amp;) = delete;
-    safe_thread&amp; operator=(safe_thread&amp;&amp;) noexcept; // semantics different from std::thread
-    safe_thread&amp; operator=(thread&amp;&amp; x) noexcept; // addition to std::thread interface
-    // members:
-    void swap(safe_thread&amp;) noexcept;
-    bool joinable() const noexcept;
-    void join();
-    void detach();
-    id get_id() const noexcept;
-    native_handle_type native_handle(); // See 30.2.3
-    thread to_thread(); // addition to std::thread interface
+    thread::id get_id() const noexcept;
+    thread::native_handle_type native_handle(); // See 30.2.3
+    thread& as_thread(); // addition to std::thread interface
+    const thread& as_thread() const; // addition to std::thread interface
     // static members:
     static unsigned hardware_concurrency() noexcept;
   };
@@ -374,32 +238,32 @@ namespace std {
   
   
   
-The class safe_thread provides the same facilities as thread, and
+The class joining_thread provides the same facilities as thread, and
 has the same members and the same semantics, with the differences
 as described below.
 
-safe_thread constructors [thread.safe_thread.constr]
+joining_thread constructors [thread.joining_thread.constr]
 
-safe_thread(thread&amp;&amp; x) noexcept;
+explicit joining_thread(thread&amp;&amp; x) noexcept;
 
-  Effects: Constructs an object of type safe_thread from x, and
+  Effects: Constructs an object of type joining_thread from x, and
   sets x to a default constructed state.
 
   Postconditions: x.get_id() == id() and get_id() returns the value
   of x.get_id() prior to the start of construction.
   
-safe_thread destructor [thread.safe_thread.destr]
+joining_thread destructor [thread.joining_thread.destr]
 
-~safe_thread() noexcept;
+~joining_thread() noexcept;
 
   Effects: If joinable(), calls join(). Otherwise, has no effects.
-  [Note: Because ~safe_thread is required to be noexcept,
+  [Note: Because ~joining_thread is required to be noexcept,
   if join() throws then std::terminate() will be called.
   --end note]
   
-safe_thread assignment [thread.safe_thread.assign]
+joining_thread assignment [thread.joining_thread.assign]
 
-safe_thread&amp; operator=(safe_thread&amp;&amp; x) noexcept;
+joining_thread&amp; operator=(joining_thread&amp;&amp; x) noexcept;
   Effects: If joinable(), calls join(). Then, assigns
   the state of x to *this and sets x to a default constructed state.
   [Note: If join() throws then std::terminate() will be called.
@@ -409,7 +273,7 @@ safe_thread&amp; operator=(safe_thread&amp;&amp; x) noexcept;
 
   Returns: *this
   
-safe_thread&amp; operator=(thread&amp;&amp; x) noexcept;
+joining_thread&amp; operator=(thread&amp;&amp; x) noexcept;
   Effects: If joinable(), calls join(). Then, assigns
   the state of x to *this and sets x to a default constructed state.
   [Note: If join() throws then std::terminate() will be called.
@@ -419,19 +283,21 @@ safe_thread&amp; operator=(thread&amp;&amp; x) noexcept;
 
   Returns: *this
 
-safe_thread members [thread.safe_thread.member]
+joining_thread members [thread.joining_thread.member]
 
-thread to_thread();
+thread& as_thread();
 
-  Postconditions: *this is set to a default constructed state. The state
-  of the returned object is the state *this had prior to calling this function.
+  Returns: A reference to the underlying thread object.
 
-  Returns: A thread object initialized from *this.
+const thread& as_thread() const;
+
+  Returns: A reference to the underlying thread object.
 
 </pre>
   </blockquote>
-</p>
+<p></p>
 
-</body>
 
-</html>
+
+
+</a></body></html>
