@@ -1,0 +1,166 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Adopt SD-6 feature macros into the C++20 working draft</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+Audience: EWG, LEWG
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2017-09-17<br/>
+</address>
+<hr/>
+<h1 align=center>Adopt SD-6 feature macros into the C++20 working draft</h1>
+
+<h2>Abstract</h2>
+<p>
+  This paper proposes to adopt the SD-6 feature macros into the
+  C++20 working draft. Merging the feature macros removes
+  vendors' obstacles for implementing them, makes them more
+  portable and causes no delays in vendors tracking the macros
+  in their implementations.
+</p>
+
+<h2>Current implementation status</h2>
+
+<p>
+  Looking at some implementations, we notice the following:
+  <ul>
+    <li>gcc and libstdc++ implement both the language feature
+      macros and the library feature macros fairly completely.</li>
+    <li>clang implements the language feature macros, libc++
+      implements fairly few of the library feature macros.</li>
+    <li>msvc and its library don't implement feature macros.
+  </ul>
+</p>
+<p>
+  Microsoft has indicated that it would be more palatable
+  for them to implement the feature macros if they are provided
+  in an official WG21-sanctioned document.
+</p>
+
+<h2>Why put it into the IS? Would not a TS be a better choice?</h2>
+
+<p>
+  A while ago, I myself thought that putting the macros
+  into an IS makes no sense, because we publish an IS every
+  3 years, and can put out TSes much faster. However, I realized
+  that there's no particular difference; implementations can
+  track IS working drafts, which we publish after every meeting,
+  so there's not necessary any delay for implementations of the macros,
+  and for users being able to use the macros when adopting new
+  features aggressively.
+</p>
+<p>
+  Putting the macros into a 'real' standard document makes them
+  more portable, and putting them into the IS makes them the
+  most portable, assuming that implementations continue
+  to strive for conformance.
+</p>
+
+<h2>Why not just continue to publish a separate document and hope for
+  implementations to implement them?</h2>
+
+<p>
+  As mentioned before, some vendors can justify implementing
+  the macros better if they are specified in an actual standard
+  document.
+</p>
+<p>
+  I know of some users (the Qt Base module of Qt in particular)
+  that use the feature macros correctly (without forking the language
+  or otherwise forming an actual dialect, and without duplicating
+  implementations), and seem to prefer a feature macro approach
+  to testing __cplusplus (which implementations are unlikely
+  to bump before they are in complete conformance) or to testing
+  features in an implementation-specific manner. Having the macros
+  be actually required, such testing remains simple and becomes
+  (much more) portable, compared to having to check what implementation is used
+  and which version of it is used.
+</p>
+<p>
+  I have fairly little to add why we should have feature macros to begin with. When used correctly, they allow library writers and library users to aggressively opt in to C++ features before an implementation is fully conforming to a new standard version, and to do so in a much simpler manner than detecting features in implementation-specific ways. They can most likely be abused in various ways, but the
+  proper ways are a clear improvement to me. The next section attempts to
+  provide a mini-FAQ of the reasons why we should have feature macros
+  in the IS.
+</p>
+
+<h2>Mini-FAQ</h2>
+
+<p>
+  <blockquote>
+    <p>
+      Q: Isn't the frequency of IS publications too low for feature macros in the IS to be useful?
+    </p>
+    <p>
+      A: No, because they can be updated in every working draft.
+    </p>
+    <p>
+      Q: But isn't it possible that feature macros are not enough? An implementation can define a feature macro but have a buggy implementation of the feature, so implementation-specific work-arounds may still be necessary.
+    </p>
+    <p>
+      A: That may be the case, but we expect that in quite many cases, feature macros are enough, as opposed to always using implementation-specific work-arounds.
+    </p>
+    <p>
+      Q: But it doesn't make sense to put the macros into an IS. Conforming implementations will have the same values for the macros and they will implement all features, so just checking __cplusplus is enough.
+    </p>
+    <p>
+      A: In isolation, that's all true. But before __cplusplus is bumped,
+      users can write code that detects and uses some features, and that
+      code will continue to work even after __cplusplus is bumped
+      with no source code changes.
+    </p>
+    <p>
+      Q: Aren't we encouraging subsetting and dialects?
+    </p>
+    <p>
+      A: Not really. What we are encouraging is a way for implementations
+      to give users a way to adopt features early in a portable way,
+      in a fashion that continues to work even after __cplusplus is bumped, and of course works before it's bumped.
+    </p>
+    <p>
+      Q: But none of this really works unless implementations provide
+      feature macros early, tracking the working drafts. The only thing
+      we guarantee is that a conforming implementation provides the
+      IS versions of the macros.
+    </p>
+    <p>
+      A: Correct, but as described in the previous answers, some implementations
+      will track the draft macros, and (correctly-written) code written to use
+      those will automatically work with implementations that didn't
+      provide the draft macros but will provide the IS macros. And, again,
+      that will happen without code changes on the user side. We don't
+      guarantee that every implementation provides every step of a migration
+      path, but we do guarantee that all of them provide the last step,
+      and we know that some will provide the earlier steps, so users
+      can write code that benefits automatically from the point when
+      the final macros are enabled, and already reaped the benefits
+      when more aggressive implementations enabled them prior to the IS.
+    </p>
+  </blockquote>
+</p>
+
+</body>
+
+</html>
