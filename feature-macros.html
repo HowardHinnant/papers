@@ -102,7 +102,7 @@ Audience: EWG, LEWG
   and which version of it is used.
 </p>
 <p>
-  I have fairly little to add why we should have feature macros to begin with. When used correctly, they allow library writers and library users to aggressively opt in to C++ features before an implementation is fully conforming to a new standard version, and to do so in a much simpler manner than detecting features in implementation-specific ways. They can most likely be abused in various ways, but the
+  I have fairly little to add why we should have feature macros to begin with. When used correctly, they allow library writers and library users to aggressively opt in to C++ features before an implementation is fully conforming to a new standard version, and to do so in a much simpler manner than detecting features in implementation-specific ways. Implementations that don't want to help early adopters can provide all feature test macros at once, at the same time they bump __cplusplus, and the presence of those macros will still help developers who've written code for implementations that do provide the feature test macros early. The feature macros can most likely be abused in various ways, but the
   proper ways are a clear improvement to me. The next section attempts to
   provide a mini-FAQ of the reasons why we should have feature macros
   in the IS.
