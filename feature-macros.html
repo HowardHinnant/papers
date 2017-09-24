@@ -40,6 +40,39 @@ Audience: EWG, LEWG
   vendors' obstacles for implementing them, makes them more
   portable and causes no delays in vendors tracking the macros
   in their implementations.
+
+  This proposal is very much separate from what we should do with
+  SD-6 as far as C++17 goes. We should publish a revision of SD-6
+  covering C++17 features as we have published SD-6 thus far. This
+  proposal should not affect that publication in any way.
+</p>
+
+
+<h2>Rumination</h2>
+
+<p>
+  The general problem we are trying to solve here is feature detection,
+  and based on detection results, conditional compilation of source
+  code. There have been suggestions that this should, instead of macros,
+  be done with a new language facility. The problem there is that
+  <ul>
+    <li>feature-testing macros work today, yesterday and tomorrow. I can
+      write my feature-macro protected code that uses C++20 facilities,
+      and even a C++03 compiler will happily accept that code without
+      any problems.</li>
+    <li>If I want to use such a hypothetical future facility, I need
+      to detect whether it's available. I either run into a chicken-egg
+      problem or I need to use feature macros. Sure, perhaps there
+      w>ould be fewer feature macros, but there still would be some.</li>
+    <li>I have no reason to believe adding such language facilities
+      is likely to succeed, or that such facilities are easily adopted
+      by various tools that read C++ code. The preprocessor is already
+      there, and can provide feature-testing for every user right now,
+      without having to wait multiple years.</li>
+    <li>Standardizing feature-testing macros does not prevent us
+      from adding a non-macro facility for feature testing and conditional
+      compilation.</li>
+  </ul>
 </p>
 
 <h2>Current implementation status</h2>
