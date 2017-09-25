@@ -17,6 +17,10 @@
 	}
 	ins {color:#00A000}
 	del {color:#A00000}
+	table {border: 1px solid black;}
+	th, td {border-left: 1px solid black}
+	td {border-top: 1px solid black}
+	td.heading {border-left-width: 0px}
 	</style>
 </head>
 <body>
@@ -71,7 +75,8 @@ Audience: EWG, LEWG
       without having to wait multiple years.</li>
     <li>Standardizing feature-testing macros does not prevent us
       from adding a non-macro facility for feature testing and conditional
-      compilation.</li>
+      compilation. Feature-testing macros and a potential non-macro
+      facility serve slightly different purposes with different trade-offs.</li>
   </ul>
 </p>
 
@@ -152,12 +157,6 @@ Audience: EWG, LEWG
       A: No, because they can be updated in every working draft.
     </p>
     <p>
-      Q: But isn't it possible that feature macros are not enough? An implementation can define a feature macro but have a buggy implementation of the feature, so implementation-specific work-arounds may still be necessary.
-    </p>
-    <p>
-      A: That may be the case, but we expect that in quite many cases, feature macros are enough, as opposed to always using implementation-specific work-arounds.
-    </p>
-    <p>
       Q: But it doesn't make sense to put the macros into an IS. Conforming implementations will have the same values for the macros and they will implement all features, so just checking __cplusplus is enough.
     </p>
     <p>
@@ -192,6 +191,57 @@ Audience: EWG, LEWG
       can write code that benefits automatically from the point when
       the final macros are enabled, and already reaped the benefits
       when more aggressive implementations enabled them prior to the IS.
+    </p>
+    <p>
+      Q: But isn't it possible that feature macros are not enough? An implementation can define a feature macro but have a buggy implementation of the feature, so implementation-specific work-arounds may still be necessary.
+    </p>
+    <p>
+      A: That may be the case, but we expect that in quite many cases, feature macros are enough, as opposed to always using implementation-specific work-arounds.
+      Let's illustrate what feature-testing macros are for and what they are not for:
+      <table>
+	<tr>
+	  <th style="visibility:hidden"></th>
+	  <th>Feature presence test</th>
+	  <th>Compiler bug detection</th>
+	  <th>Compile once</th>
+	  <th>Build variations</th>
+	</tr>
+	<tr>
+	  <td class="heading">Feature-testing macros</td>
+	  <td align="center">Y</td>
+	  <td align="center">N</td>
+	  <td align="center">N</td>
+	  <td align="center">Y</td>
+	</tr>
+	<tr>
+	  <td class="heading">Compiler-version macros (__GNUC__, _MSV_VER_)</td>
+	  <td align="center">N</td>
+	  <td align="center">Y</td>
+	  <td align="center">N</td>
+	  <td align="center">Y</td>
+	</tr>
+	<tr>
+	  <td class="heading">Platform/target macros (bit width, endianness, architecture)</td>
+	  <td align="center">N</td>
+	  <td align="center">N</td>
+	  <td align="center">N</td>
+	  <td align="center">Y</td>
+	</tr>
+	<tr>
+	  <td class="heading">Header guards</td>
+	  <td align="center">N</td>
+	  <td align="center">N</td>
+	  <td align="center">Y</td>
+	  <td align="center">N</td>
+	</tr>
+	<tr>
+	  <td class="heading">Modules</td>
+	  <td align="center">N</td>
+	  <td align="center">N</td>
+	  <td align="center">Y</td>
+	  <td align="center">Y</td>
+	</tr>
+      </table> 
     </p>
   </blockquote>
 </p>
