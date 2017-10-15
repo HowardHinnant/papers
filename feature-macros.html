@@ -229,7 +229,7 @@ Audience: EWG, LEWG
       Q: But isn't it possible that feature macros are not enough? An implementation can define a feature macro but have a buggy implementation of the feature, so implementation-specific work-arounds may still be necessary.
     </p>
     <p>
-      A: No, that's not what feature macros are for. They are to test whether the feature exists at all, not to detect bugs which needs to be done much less fequently and will still require compiler version tests.
+      A: No, that's not what feature macros are for. They are to test whether the feature exists at all, not to detect bugs, which needs to be done much less fequently, and will still require compiler version tests.
       Let's illustrate what feature-testing macros are for and what they are not for:
       <table>
 	<tr>
