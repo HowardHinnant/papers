@@ -51,6 +51,21 @@ Audience: EWG, LEWG
   proposal should not affect that publication in any way.
 </p>
 
+<h2>Goal</h2>
+
+<p>
+  Feature test macros are so we can adopt the latest C++ features *faster*
+  and always track the *latest* standard even before all our compilers
+  support it -- so they are a force for *unifying* (tracking the very
+  latest C++) and *avoiding* dialects that exist today (where code gets
+  stuck on older C++ versions as dialects because it must target the lowest
+  common denominator of supported compilers).
+</p>
+<p>
+  We have plenty of users who already do feature detection and conditional
+  compilation. Feature macros allow doing that portably and more simply
+  than with the alternative techniques available today.
+</p>
 
 <h2>Rumination</h2>
 
@@ -214,7 +229,7 @@ Audience: EWG, LEWG
       Q: But isn't it possible that feature macros are not enough? An implementation can define a feature macro but have a buggy implementation of the feature, so implementation-specific work-arounds may still be necessary.
     </p>
     <p>
-      A: That may be the case, but we expect that in quite many cases, feature macros are enough, as opposed to always using implementation-specific work-arounds.
+      A: No, that's not what feature macros are for. They are to test whether the feature exists at all, not to detect bugs which arises much less frequently will still require compiler version tests.
       Let's illustrate what feature-testing macros are for and what they are not for:
       <table>
 	<tr>
@@ -232,7 +247,7 @@ Audience: EWG, LEWG
 	  <td align="center">Y</td>
 	</tr>
 	<tr>
-	  <td class="heading">Compiler-version macros (__GNUC__, _MSV_VER_)</td>
+	  <td class="heading">Compiler-version macros (__GNUC__, _MSC_VER_)</td>
 	  <td align="center">N</td>
 	  <td align="center">Y</td>
 	  <td align="center">N</td>
@@ -286,6 +301,24 @@ Audience: EWG, LEWG
       // language facility, because it's not available
     }
     </pre>
+    </code>
+  </blockquote>
+</p>
+<p>
+  We might also get the desired effect with injection:
+  <blockquote>
+    <code>
+      <pre>
+	constexpr {
+        if (constant expression goes here) -&gt; {
+            // here goes code that uses the language facility
+            // that the constant expression detected
+        } else -&gt; { // the else block is completely optional
+            // here goes code that doesn't use the aforementioned
+            // language facility, because it's not available
+        }
+    }
+      </pre>
     </code>
   </blockquote>
 </p>
