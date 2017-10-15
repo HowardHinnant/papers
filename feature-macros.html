@@ -32,7 +32,7 @@ Audience: EWG, LEWG
 <br/>
 <br/>
 <a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
-2017-09-17<br/>
+2017-10-15<br/>
 </address>
 <hr/>
 <h1 align=center>Adopt SD-6 feature macros into the C++20 working draft</h1>
@@ -67,7 +67,7 @@ Audience: EWG, LEWG
     <li>If I want to use such a hypothetical future facility, I need
       to detect whether it's available. I either run into a chicken-egg
       problem or I need to use feature macros. Sure, perhaps there
-      w>ould be fewer feature macros, but there still would be some.</li>
+      would be fewer feature macros, but there still would be some.</li>
     <li>I have no reason to believe adding such language facilities
       is likely to succeed, or that such facilities are easily adopted
       by various tools that read C++ code. The preprocessor is already
@@ -78,6 +78,10 @@ Audience: EWG, LEWG
       compilation. Feature-testing macros and a potential non-macro
       facility serve slightly different purposes with different trade-offs.</li>
   </ul>
+</p>
+<p>
+  See the very end of this document for some strawman ideas on
+  such a language facility.
 </p>
 
 <h2>Current implementation status</h2>
@@ -141,7 +145,8 @@ Audience: EWG, LEWG
 </p>
 <p>
   I have fairly little to add why we should have feature macros to begin with. When used correctly, they allow library writers and library users to aggressively opt in to C++ features before an implementation is fully conforming to a new standard version, and to do so in a much simpler manner than detecting features in implementation-specific ways. Implementations that don't want to help early adopters can provide all feature test macros at once, at the same time they bump __cplusplus, and the presence of those macros will still help developers who've written code for implementations that do provide the feature test macros early. The feature macros can most likely be abused in various ways, but the
-  proper ways are a clear improvement to me. The next section attempts to
+  proper ways of using them are a clear improvement to me.
+  The next section attempts to
   provide a mini-FAQ of the reasons why we should have feature macros
   in the IS.
 </p>
@@ -172,6 +177,19 @@ Audience: EWG, LEWG
       A: Not really. What we are encouraging is a way for implementations
       to give users a way to adopt features early in a portable way,
       in a fashion that continues to work even after __cplusplus is bumped, and of course works before it's bumped.
+    </p>
+    <p>
+      Q: But don't feature macros lead into language splintering and
+      a proliferation of configurations?
+    </p>
+    <p>
+      A: Based on deployment experience, no. The amount of configurations
+      is the same. The amount of macro permutations is the same, or
+      smaller. Yes, that can mean that some builds have a lesser feature
+      set, but that's a trade-off the code author made when choosing
+      to use feature macros rather than a vendor-specific mechanism.
+      The point is that feature macros don't seem to increase
+      the amount of configurations and permutations.
     </p>
     <p>
       Q: But none of this really works unless implementations provide
@@ -246,6 +264,39 @@ Audience: EWG, LEWG
   </blockquote>
 </p>
 
+<h2>A new language facility</h2>
+
+<p>
+  I has been suggested to me that one way to do feature detection
+  would be to annotate declarations somehow when they are exported
+  from a module, and to import only those declarations for which
+  the condition in the annotation evaluates to true.
+</p>
+<p>
+  Separately from that, I can envision doing conditional
+  compilation with a new kind of language block:
+  <blockquote>
+    <code>
+    <pre>
+    std::compile_if&lt;constant expression goes here&gt; {
+      // here goes code that uses the language facility
+      // that the constant expression detected
+    } else { // the else block is completely optional
+      // here goes code that doesn't use the aforementioned
+      // language facility, because it's not available
+    }
+    </pre>
+    </code>
+  </blockquote>
+</p>
+<p>
+  Whether any experimentation with a module facility has been done,
+  I don't know. These ideas are not, to my knowledge, very baked.
+  Having such facilities would certainly be great, but we can't
+  know when they would appear, and they don't work with a C++03
+  compiler, or with a C++2a compiler that hasn't yet implemented
+  all of C++20. Feature macros do.
+</p>
 </body>
 
 </html>
