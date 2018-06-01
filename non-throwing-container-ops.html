@@ -22,11 +22,11 @@
 <body>
 
 <address align=right>
-Document number: P????
+Document number: P0132R1
 <br/>
 <br/>
 <a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
-2015-09-27<br/>
+2018-05-07<br/>
 </address>
 <hr/>
 <h1 align=center>Non-throwing container operations</h1>
@@ -36,44 +36,46 @@ Document number: P????
 <p>
 This paper explores alternatives for adding non-throwing container
 operations, namely alternatives to throwing exceptions from failing
-modifications.
-</p>
-<p>
-There are various embedded environments where exceptions
-are not palatable. Yet the applications written for such enviroments
-are getting ever more complex, and C++ and its abstraction mechanisms
-are increasingly attractive on such environments. There's an impedance
-mismatch between the desire to have the environment be as close
-to standard C++ as possible and not being able to afford exception
-support.
+modifications. Based on LEWG feedback from Jacksonville 2018 meeting,
+the focus is on minor additions to existing container APIs, instead
+of completely-custom allocators or completely-new containers.
 </p>
 
 <a name="Introduction"></a><h2>Introduction</h2>
 
 <p>
-A fairly common example of the environments mentioned in the abstract
-are systems that have at most hundreds of kilobytes of RAM. Yet in that
-crammed space, device manufacturers put applications that have
-network connectivity, XML support, declarative UI frameworks with
-scripting, and more.
-</p>
-<p>
-These environments often do ensure that the overall memory budget
-is not overrun by utilizing fixed-size pools. There are sometimes
-multiple pools so that individual module-specific pools cannot
-disturb each other, but the clients of the pools do recover from
-allocations failing to allocate memory from the pools.
-</p>
-<p>
-Building without exception support for such resource-constrained systems
-allows cramming much more functionality
-into the system, from both the non-volatile memory point of view
-and the RAM point of view. The RAM consumption is often the more important
-point, as is the potentially non-deterministic handling time of thrown
-exceptions.
-There has been a lot of talk about
-making exceptions more palatable on such resource-constrained
-systems, but thus far that hasn't materialized in practice.
+  The guidance polls in Jacksonville 2018 were as follows:
+  <pre>
+     Simple status return bool push_back(nothrow_t, const T&)
+SF 	F 	N 	A 	SA
+0 	1 	3 	6 	9
+
+Use a different function name bool push_back_nothrow(const T&)
+SF 	F 	N 	A 	SA
+1 	10 	8 	3 	1
+
+A much less intrusive alternative Allow allocator to return nullptr, etc.
+SF 	F 	N 	A 	SA
+0 	1 	6 	8 	5
+
+A minimal interface: add try_reserve/reserve_nothrow/…
+SF 	F 	N 	A 	SA
+1 	7 	12 	1 	0
+
+A custom allocator with a failure callback. We don't know enough about this to provide an opinion.
+
+Adding specialized containers
+SF 	F 	N 	A 	SA
+1 	9 	5 	4 	3
+
+Language mode for “allocation doesn’t throw”
+SF 	F 	N 	A 	SA
+4 	4 	2 	5 	7
+
+Make throwing unspecified when allocation fails.
+SF 	F 	N 	A 	SA
+1 	1 	2 	3 	14
+  </pre>
 </p>
 
 <a name="What"></a><h2>So what are you proposing?</h2>
