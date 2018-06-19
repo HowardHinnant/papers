@@ -43,7 +43,7 @@ Document number: D????
 	  void f(Sortable auto x);
 	  Sortable auto f();
 	  Sortable auto x = f();
-	  template &lt;Sortable N&gt; void f();
+	  template &lt;Sortable auto N&gt; void f();
       </code></pre>
       and combined all together,
       <pre><code>
@@ -142,9 +142,10 @@ Document number: D????
 <p>
   Constrained return type work the same way:
   <pre><code>
-      auto f4(); // unconstrained, deduced
-      Constraint auto f2(); // constrained, deduced
-      Whatever f5(); // See part 2
+      auto f4(); // unconstrained, deduced.
+      Constraint auto f2(); // constrained, deduced.
+      Whatever f5(); // See part 2. If Whatever is a type, not deduced.
+      // If Whatever is a concept, constrained and deduced.
   </code></pre>
 </p>
 <p>
@@ -157,9 +158,10 @@ Document number: D????
 <p>
   Constrained types for variables work the same way:
   <pre><code>
-      auto x = f(); // unconstrained, deduced
-      Constraint auto x2 = f2(); // constrained, deduced
-      Whatever x3 = f3(); // See part 2
+      auto x = f(); // unconstrained, deduced.
+      Constraint auto x2 = f2(); // constrained, deduced.
+      Whatever x3 = f3(); // See part 2. If Whatever is a type, not deduced.
+      // If Whatever is a concept, constrained and deduced.
   </code></pre>
 </p>
 <p>
@@ -186,8 +188,8 @@ Document number: D????
 </p>
 <p>
   Neither f nor f2 are templates. It seems fairly reasonable
-  to allow omitting the auto, but that should be done as an
-  addition, not as a replacement for 'Constraint auto'.
+  to allow omitting the auto, but that is intended to be a
+  relaxation of the general rule, not a replacement for 'Constraint auto'.
 </p>
 
 <p>
