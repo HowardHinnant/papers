@@ -75,16 +75,20 @@ Document number: D????
       <pre><code>
 	  Sortable f();
 	  Sortable x = f();
-      </code></pre>
-    <li>Simplifying and thus restricting the rules in [temp.param]/10; have
-      <code>template &lt;Sortable S&gt;</code> always
-      mean that S is a type parameter and require that
-      Sortable is a concept that takes a type parameter
-      or a pack of types. Sortable is a "type concept"
-      in all the examples of this abstract.
+      </code></pre></li>
+    <li>Simplifying and thus restricting the rules in [temp.param]/10,
+      so that <code>template &lt;Sortable S&gt;</code> always
+      means that S is a type parameter, and
+      <code>template &lt;Sortable auto S&gt;</code> always means
+      that S is a non-type parameter. Template template-parameters
+      are no longer supported in this short form. Moreover, Sortable
+      is restricted to be a concept that takes a type parameter or parameter pack;
+      non-type and template concepts are no longer supported in this short form.
     </li>
   </ol>
 </p>
+
+<p>Sortable is a "type concept" in all the examples of this abstract.</p>
 
 <p>
   This paper specifically does *not* propose
@@ -99,7 +103,7 @@ Document number: D????
   <ul>
     <li>
       works for constrained parameters, constrained
-      return types, constrained variables, and constrained
+      return types, constrained variables, and type-constrained
       non-type template parameters
     </li>
     <li>
@@ -151,7 +155,7 @@ Document number: D????
   concepts from types; concepts precede auto, types do not.
 </p>
 <p>
-  Constrained return type work the same way:
+  Constrained return types work the same way:
   <pre><code>
       auto f4(); // unconstrained, deduced.
       Constraint auto f5(); // constrained, deduced.
@@ -182,6 +186,8 @@ Document number: D????
 <p>
   Since we can have deduced types for non-type template
   parameters, and we use auto there, as in <code>template &lt;auto N&gt; void f();</code>, we allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
+  Note however that this can only be a type constraint; non-type concepts
+  (including auto concepts) are not allowed in this form.
 </p>
 
 <h2>Part 2: Relaxed 'Constrained auto'</h2>
