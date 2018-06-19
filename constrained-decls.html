@@ -1,0 +1,270 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Yet another approach for constrained declarations</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2018-06-18<br/>
+</address>
+<hr/>
+<h1 align=center>Yet another approach for constrained declarations</h1>
+
+<h2>Abstract</h2>
+
+<p>
+  This paper proposes three things:
+  <ol>
+    <li>A syntax for constrained declarations that is practically a
+      "constrained auto"; the principle is "wherever 'auto' goes,
+      a 'Constraint auto' can also go". In a nutshell,
+      <pre><code>
+	  void f(Sortable auto x);
+	  Sortable auto f();
+	  Sortable auto x = f();
+      </code></pre>
+    </li>
+    <li>An additional relaxation where, for the last two cases
+      illustrated above, the auto is optional:
+      <pre><code>
+	  Sortable f();
+	  Sortable x = f();
+      </code></pre>
+    <li>Simplifying the rules in [temp.param]/10; have
+      <code>template &lt;Sortable S&gt;</code> always
+      mean that S is a type parameter and require that
+      Sortable is a concept that takes a type parameter
+      or a pack of types.
+    </li>
+  </ol>
+</p>
+
+<p>
+  This paper specifically does *not* propose
+  <ul>
+    <li>any new introduction syntax</li>
+    <li>a new syntax for naming types</li>
+  </ul>
+</p>
+
+<p>
+  The idea of this approach is to provide a syntax that
+  <ul>
+    <li>
+      works for constrained parameters, constrained
+      return types, constrained variables, and constrained
+      non-type template parameters
+    </li>
+    <li>
+      avoids inventing many adventurous new things
+    </li>
+    <li>
+      in particular, avoids inventing new type sigils
+    </li>
+    <li>
+      doesn't clash with explicit template instantiations
+    </li>
+    <li>
+      is compatible with what we already have in polymorphic
+      lambdas, and makes functions uniform with them
+    </li>
+  </ul>
+</p>
+
+<h2>Part 1: 'Constrained auto'</h2>
+
+<p>
+  The approach proposed here borrows a subset of
+  <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2017/p0807r0.html">P0807R0 An Adjective Syntax for Concepts</a>. The idea is that
+  we don't try to come up with a notation that does everything
+  that P0807 does; in particular, there is no proposal for a new syntax
+  to introduce a type name.
+</p>
+
+<p>
+  The gist of the approach is simple; allow auto parameters in both
+  polymorphic lambdas and function templates, and allow the auto
+  to be preceded by a concept name. In every case, such a parameter
+  is a deduced parameter, and we can see which parameters are deduced
+  and which ones are not:
+  <pre><code>
+      [](auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
+      [](Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
+      void f(auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
+      void f2(Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
+
+      [](Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
+      void f3(Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
+  </code></pre>
+</p>
+<p>
+  Seeing 'auto' (even 'Constraint auto') in a parameter list
+  tells us that we're dealing with a template. We know for
+  each parameter whether it's deduced or not. We can tell apart
+  concepts from types; concepts precede auto, types do not.
+</p>
+<p>
+  Constrained return type work the same way:
+  <pre><code>
+      auto f(); // unconstrained, deduced
+      Constraint auto f2(); // constrained, deduced
+      Whatever f3(); // return type not deduced
+  </code></pre>
+</p>
+<p>
+  Note that neither f nor f2 is a template. There is no
+  mention of 'auto' in the parameter list. Again, we see
+  when the return type is deduced, and can tell concepts
+  apart from types.
+</p>
+
+<p>
+  Constrained types for variables work the same way:
+  <pre><code>
+      auto x = f(); // unconstrained, deduced
+      Constraint auto x2 = f2(); // constrained, deduced
+      Whatever x3 = f3(); // See part 2
+  </code></pre>
+</p>
+<p>
+  We can, again, easily see when deduction occurs.
+</p>
+
+<p>
+  Since we can have deduced types for non-type template
+  parameters, and we use auto there, as in <code>template &lt;auto N&gt; void f();</code>, we can just as well allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
+</p>
+
+<h2>Part 2: Relaxed 'Constrained auto'</h2>
+
+<p>
+  In function return types, we can leave out the auto. So, in addition
+  to
+  <pre><code>
+      Constraint auto f();
+  </code></pre>
+  we can write
+  <pre><code>
+      Constraint f2();
+  </code></pre>
+</p>
+<p>
+  Neither f nor f2 are templates. It seems fairly reasonable
+  to allow omitting the auto, but that should be done as an
+  addition, not as a replacement for 'Constraint auto'.
+</p>
+
+<p>
+  In variable declarations, omitting the auto also seems
+  reasonable:
+  <pre><code>
+      Constraint x = f2();
+  </code></pre>
+</p>
+<p>
+  Note, in particular, that we already have a syntax that
+  does (partial) deduction but doesn't make that explicit in the syntax:
+  <pre><code>
+      std::tuple x = foo();
+  </code></pre>
+</p>
+<p>
+  The variable case in particular seems reasonable, considering
+  the already existing deduction syntaxes that don't call
+  attention to deduction. The user always has a choice to use
+  a more explicit syntax. The return type case might well have
+  a weaker rationale for being allowed.
+</p>
+
+<h2>Part 3: Meaning of 'template &lt;Concept T&gt;'</h2>
+
+<p>
+  In [temp.param]/10 we have
+  <pre>
+  <blockquote>
+    A constrained-parameter declares a template parameter whose kind (type, non-type, template) and type
+    match that of the prototype parameter (17.6.8) of the concept designated by the qualified-concept-name
+    in the constrained-parameter. Let X be the prototype parameter of the designated concept. The declared
+    template parameter is determined by the kind of X (type, non-type, template) and the optional ellipsis in the
+    constrained-parameter as follows.
+
+    - If X is a type template-parameter, the declared parameter is a type template-parameter.
+    - If X is a non-type template-parameter, the declared parameter is a non-type template-parameter having
+    the same type as X.
+    - If X is a template template-parameter, the declared parameter is a template template-parameter having
+    the same template-parameter-list as X, excluding default template arguments.
+    - If the qualified-concept-name is followed by an ellipsis, then the declared parameter is a template
+    parameter pack (17.6.3).
+
+    [ Example:
+    template&lt;typename T&gt; concept C1 = true;
+    template&lt;template&lt;typename&gt; class X&gt; concept C2 = true;
+    template&lt;int N&gt; concept C3 = true;
+    template&lt;typename... Ts&gt; concept C4 = true;
+    template&lt;char... Cs&gt; concept C5 = true;
+    template&lt;C1 T&gt; void f1(); // OK, T is a type template-parameter
+    template&lt;C2 X&gt; void f2();  // OK, X is a template with one type-parameter
+    template&lt;C3 N&gt; void f3(); // OK, N has type int
+    template&lt;C4... Ts&gt; void f4(); // OK, Ts is a template parameter pack of types
+    template&lt;C4 T&gt; void f5(); // OK, T is a type template-parameter
+    template&lt;C5... Cs&gt; void f6(); // OK, Cs is a template parameter pack of chars
+    - end example ]
+  </blockquote>
+  </pre>
+</p>
+<p>Does that seem like a mouthful?</p>
+<p>
+  That's because it is. In 'template &lt;Constraint T&gt;', what
+  T is depends on what the template parameters of Constraint are.
+  What this paper is proposing is that for such a constrained-parameter
+  syntax, T would always be a type, and Constraint would always
+  need to be a concept that has a corresponding type parameter
+  or a type parameter pack.
+</p>
+<p>
+  This paper is not proposing disallowing concepts with non-type
+  parameters or template template parameters. What's being proposed
+  is merely that the constrained parameter shortcut is not provided
+  for those things, and that
+  <ul>
+    <li>the use of such concepts needs a requires-clause</li>
+    <li>the constrained parameter syntax means just one thing
+      when used with a concept (and has its original meaning
+      when used with a type, which is a non-type template parameter)</li>
+  </ul>
+</p>
+<p>
+  The rationale for this part is as follows:
+  <ol>
+    <li>It seems desirable to have the constrained template parameter syntax</li>
+    <li>It would be nice if that syntax covered the most common case</li>
+    <li>It would further be nice if that syntax covered *only* the most
+      common case</li>
+    <li>The other cases are expected to be so rare that there's no
+      need to provide a shortcut for them, and certainly rare enough
+      that they shouldn't use the same syntax</li>
+  </ol>
+</p>
+</body>
+</html>
