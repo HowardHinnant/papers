@@ -41,8 +41,8 @@ Document number: D????
       a 'Constraint auto' can also go". In a nutshell,
       <pre><code>
 	  void f(Sortable auto x);
-	  Sortable auto f();
-	  Sortable auto x = f();
+	  Sortable auto f(); // #1
+	  Sortable auto x = f(); // #2
 	  template &lt;Sortable auto N&gt; void f();
       </code></pre>
       and combined all together,
@@ -59,13 +59,13 @@ Document number: D????
       so this proposal includes auto-typed parameters for
       functions, which we already allow for lambdas.</p>
     </li>
-    <li>An additional relaxation where, for the last two cases
+    <li>An additional relaxation where, for #1 and #2
       illustrated above, the auto is optional:
       <pre><code>
 	  Sortable f();
 	  Sortable x = f();
       </code></pre>
-    <li>Simplifying the rules in [temp.param]/10; have
+    <li>Simplifying and thus restricting the rules in [temp.param]/10; have
       <code>template &lt;Sortable S&gt;</code> always
       mean that S is a type parameter and require that
       Sortable is a concept that takes a type parameter
