@@ -5,8 +5,8 @@
 	<title>Yet another approach for constrained declarations</title>
 
 	<style>
-	p {text-align:justify}
-	li {text-align:justify}
+	p, li {text-align:justify}
+	ol.wide li {margin-top:1em;}
 	blockquote.note
 	{
 		background-color:#E0E0E0;
@@ -39,54 +39,45 @@ Document number: D????
 
 <h2>Abstract</h2>
 
-<p>
-  This paper proposes three things:
-  <ol>
-    <li><p>A syntax for constrained declarations that is practically a
-      "constrained auto"; the principle is "wherever 'auto' goes,
-	a 'Constraint auto' can also go". The semantics are
-	"deduce like auto, and additionally check a constraint".
-	In a nutshell,
-      <pre><code>
-	  void f(Sortable auto x);
-	  Sortable auto f(); // #1
-	  Sortable auto x = f(); // #2
-	  template &lt;Sortable auto N&gt; void f();
-      </code></pre>
-      and combined all together,
-      <pre><code>
-	  template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x)
-	  {
-	      Sortable auto y = init;
-	  }
-      </code></pre>
-      An unconstrained version of that is
-      <pre><code>
-	  template &lt;auto N&gt; auto f(auto x)
-	  {
-	      auto y = init;
-	  }
-      </code></pre>
-      so this proposal includes auto-typed parameters for
-      functions, which we already allow for lambdas.</p>
-    </li>
-    <li>An additional relaxation where, for #1 and #2
-      illustrated above, the auto is optional:
-      <pre><code>
-	  Sortable f();
-	  Sortable x = f();
-      </code></pre></li>
-    <li>Simplifying and thus restricting the rules in [temp.param]/10,
-      so that <code>template &lt;Sortable S&gt;</code> always
-      means that S is a type parameter, and
-      <code>template &lt;Sortable auto S&gt;</code> always means
-      that S is a non-type parameter. Template template-parameters
-      are no longer supported in this short form. Moreover, Sortable
-      is restricted to be a concept that takes a type parameter or parameter pack;
-      non-type and template concepts are no longer supported in this short form.
-    </li>
-  </ol>
-</p>
+<p>This paper proposes three things:</p>
+<ol class="wide">
+  <li>A syntax for constrained declarations that is practically a
+    "constrained auto"; the principle is "wherever 'auto' goes,
+    a 'Constraint auto' can also go". The semantics are
+    "deduce like auto, and additionally check a constraint".
+    In a nutshell,
+    <pre><code>    void f(Sortable auto x);
+    Sortable auto f(); // #1
+    Sortable auto x = f(); // #2
+    template &lt;Sortable auto N&gt; void f();</code></pre>
+    and combined all together,
+    <pre><code>    template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x)
+    {
+        Sortable auto y = init;
+    }</code></pre>
+    An unconstrained version of that is
+    <pre><code>    template &lt;auto N&gt; auto f(auto x)
+    {
+        auto y = init;
+    }</code></pre>
+    so this proposal includes auto-typed parameters for
+    functions, which we already allow for lambdas.</li>
+
+  <li>An additional relaxation where, for #1 and #2
+    illustrated above, the auto is optional:
+    <pre><code>    Sortable f();
+    Sortable x = f();</code></pre></li>
+
+  <li>Simplifying and thus restricting the rules in [temp.param]/10,
+    so that <code>template &lt;Sortable S&gt;</code> always
+    means that S is a type parameter, and
+    <code>template &lt;Sortable auto S&gt;</code> always means
+    that S is a non-type parameter. Template template-parameters
+    are no longer supported in this short form. Moreover, Sortable
+    is restricted to be a concept that takes a type parameter or parameter pack;
+    non-type and template concepts are no longer supported in this short form.
+  </li>
+</ol>
 
 <p>Sortable is a "type concept" in all the examples of this abstract.</p>
 
@@ -138,15 +129,14 @@ Document number: D????
   to be preceded by a concept name. In every case, such a parameter
   is a deduced parameter, and we can see which parameters are deduced
   and which ones are not:
-  <pre><code>
-      [](auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
-      [](Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
-      void f(auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
-      void f2(Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
+  <pre><code>    [](auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
+    [](Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
 
-      [](Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
-      void f3(Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
-  </code></pre>
+    void f1(auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
+    void f2(Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
+
+    [](Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
+    void f3(Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre>
 </p>
 <p>
   Seeing 'auto' (even 'Constraint auto') in a parameter list
@@ -156,28 +146,28 @@ Document number: D????
 </p>
 <p>
   Constrained return types work the same way:
-  <pre><code>
-      auto f4(); // unconstrained, deduced.
-      Constraint auto f5(); // constrained, deduced.
-      Whatever f6(); // See part 2. If Whatever is a type, not deduced.
-      // If Whatever is a concept, constrained and deduced.
-  </code></pre>
+  <pre><code>    auto f4();                  // unconstrained, deduced.
+
+    Constraint auto f5();       // constrained, deduced.
+
+    Whatever f6();              // See part 2. If Whatever is a type, not deduced.
+                                // If Whatever is a concept, constrained and deduced.</code></pre>
 </p>
 <p>
   Note that f4, f5 and f6 are not templates (the previous
-  f, f2 and f3 *are* templates). There is no
+  f1, f2 and f3 *are* templates). There is no
   mention of 'auto' in the parameter list. Again, we see
   when the return type is deduced, if we so choose.
 </p>
 
 <p>
   Constrained types for variables work the same way:
-  <pre><code>
-      auto x = f(); // unconstrained, deduced.
-      Constraint auto x2 = f2(); // constrained, deduced.
-      Whatever x3 = f3(); // See part 2. If Whatever is a type, not deduced.
-      // If Whatever is a concept, constrained and deduced.
-  </code></pre>
+  <pre><code>    auto x1 = f1();             // unconstrained, deduced.
+
+    Constraint auto x2 = f2();  // constrained, deduced.
+
+    Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
+                                // If Whatever is a concept, constrained and deduced.</code></pre>
 </p>
 <p>
   We can, again, easily see when deduction occurs, if we so choose.
@@ -185,7 +175,8 @@ Document number: D????
 
 <p>
   Since we can have deduced types for non-type template
-  parameters, and we use auto there, as in <code>template &lt;auto N&gt; void f();</code>, we allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
+  parameters, and we use auto there (as in <code>template &lt;auto N&gt; void f();</code>)
+  we allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
   Note however that this can only be a type constraint; non-type concepts
   (including auto concepts) are not allowed in this form.
 </p>
@@ -195,16 +186,12 @@ Document number: D????
 <p>
   In function return types, we can leave out the auto. So, in addition
   to
-  <pre><code>
-      Constraint auto f();
-  </code></pre>
+  <pre><code>    Constraint auto f1();</code></pre>
   we can write
-  <pre><code>
-      Constraint f2();
-  </code></pre>
+  <pre><code>    Constraint f2();</code></pre>
 </p>
 <p>
-  Neither f nor f2 are templates. It seems fairly reasonable
+  Neither f1 nor f2 are templates. It seems fairly reasonable
   to allow omitting the auto, but that is intended to be a
   relaxation of the general rule, not a replacement for 'Constraint auto'.
 </p>
@@ -212,16 +199,12 @@ Document number: D????
 <p>
   In variable declarations, omitting the auto also seems
   reasonable:
-  <pre><code>
-      Constraint x = f2();
-  </code></pre>
+  <pre><code>    Constraint x = f2();</code></pre>
 </p>
 <p>
   Note, in particular, that we already have a syntax that
   does (partial) deduction but doesn't make that explicit in the syntax:
-  <pre><code>
-      std::tuple x = foo();
-  </code></pre>
+  <pre><code>    std::tuple x = foo();</code></pre>
 </p>
 <p>
   The variable case in particular seems reasonable, considering
@@ -237,9 +220,7 @@ Document number: D????
 
 <p>
   In [temp.param]/10 we have
-  <pre>
-  <blockquote>
-    A constrained-parameter declares a template parameter whose kind (type, non-type, template) and type
+  <pre><blockquote>    A constrained-parameter declares a template parameter whose kind (type, non-type, template) and type
     match that of the prototype parameter (17.6.8) of the concept designated by the qualified-concept-name
     in the constrained-parameter. Let X be the prototype parameter of the designated concept. The declared
     template parameter is determined by the kind of X (type, non-type, template) and the optional ellipsis in the
@@ -265,11 +246,11 @@ Document number: D????
     template&lt;C4... Ts&gt; void f4(); // OK, Ts is a template parameter pack of types
     template&lt;C4 T&gt; void f5(); // OK, T is a type template-parameter
     template&lt;C5... Cs&gt; void f6(); // OK, Cs is a template parameter pack of chars
-    - end example ]
-  </blockquote>
-  </pre>
+    - end example ]</blockquote></pre></p>
+
+<p>
+  Does that seem like a mouthful?
 </p>
-<p>Does that seem like a mouthful?</p>
 <p>
   That's because it is. In 'template &lt;Constraint T&gt;', what
   T is depends on what the template parameters of Constraint are.
@@ -282,42 +263,44 @@ Document number: D????
   This paper is not proposing disallowing concepts with non-type
   parameters or template template parameters. What's being proposed
   is merely that the constrained parameter shortcut is not provided
-  for those things, and that
-  <ul>
-    <li>the use of such concepts needs a requires-clause</li>
-    <li>the constrained parameter syntax means just one thing
-      when used with a concept (and has its original meaning
-      when used with a type, which is a non-type template parameter)</li>
-  </ul>
-</p>
+  for those things, and that</p>
+<ul>
+  <li>the use of such concepts needs a requires-clause</li>
+  <li>the constrained parameter syntax means just one thing
+    when used with a concept (and has its original meaning
+    when used with a type, which is a non-type template parameter)</li>
+</ul>
 <p>
   The rationale for this part is as follows:
-  <ol>
-    <li>It seems desirable to have the constrained template parameter syntax</li>
-    <li>It would be nice if that syntax covered the most common case</li>
-    <li>It would further be nice if that syntax covered *only* the most
-      common case</li>
-    <li>The other cases are expected to be so rare that there's no
-      need to provide a shortcut for them, and certainly rare enough
-      that they shouldn't use the same syntax</li>
-  </ol>
 </p>
+<ol>
+  <li>It seems desirable to have the constrained template parameter syntax</li>
+  <li>It would be nice if that syntax covered the most common case</li>
+  <li>It would further be nice if that syntax covered *only* the most
+    common case</li>
+  <li>The other cases are expected to be so rare that there's no
+    need to provide a shortcut for them, and certainly rare enough
+    that they shouldn't use the same syntax</li>
+</ol>
 <p>
   So, to clarify:
-  <ul>
-    <li>template &lt;MyIntTypeDef N&gt; means a non-type parameter,
-      like it always did</li>
-    <li>template &lt;ConceptName T&gt; means a type parameter constrained
-      by ConceptName, and
-      ConceptName needs to be a concept with a type parameter
-      or a pack parameter</li>
-    <li>template &lt;auto N&gt; means a non-type parameter with
-      a deduced type</li>
-    <li>template &lt;ConceptName auto N&gt; means a non-type parameter
-      with a deduced type constrained by ConceptName, and ConceptName
-      needs to be a concept with a type parameter or a pack parameter</li>
-  </ul>
+</p>
+<ul>
+  <li>template &lt;MyIntTypeDef N&gt; means a non-type parameter,
+    like it always did</li>
+  <li>template &lt;ConceptName T&gt; means a type parameter constrained
+    by ConceptName, and
+    ConceptName needs to be a concept with a type parameter
+    or a pack parameter</li>
+  <li>template &lt;auto N&gt; means a non-type parameter with
+    a deduced type</li>
+  <li>template &lt;ConceptName auto N&gt; means a non-type parameter
+    with a deduced type constrained by ConceptName, and ConceptName
+    needs to be a concept with a type parameter or a pack parameter</li>
+</ul>
+<p>
   Other use cases can be done with requires-clauses.
 </p>
+
 </body>
 </html>
