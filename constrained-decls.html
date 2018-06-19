@@ -36,14 +36,25 @@ Document number: D????
 <p>
   This paper proposes three things:
   <ol>
-    <li>A syntax for constrained declarations that is practically a
+    <li><p>A syntax for constrained declarations that is practically a
       "constrained auto"; the principle is "wherever 'auto' goes,
       a 'Constraint auto' can also go". In a nutshell,
       <pre><code>
 	  void f(Sortable auto x);
 	  Sortable auto f();
 	  Sortable auto x = f();
+	  template &lt;Sortable N&gt; void f();
       </code></pre>
+      and combined all together,
+      <pre><code>
+	  template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x);
+      </code></pre>
+      An unconstrained version of that is
+      <pre><code>
+	  template &lt;auto N&gt; auto f(auto x);
+      </code></pre>
+      so this proposal includes auto-typed parameters for
+      functions, which we already allow for lambdas.</p>
     </li>
     <li>An additional relaxation where, for the last two cases
       illustrated above, the auto is optional:
@@ -55,7 +66,8 @@ Document number: D????
       <code>template &lt;Sortable S&gt;</code> always
       mean that S is a type parameter and require that
       Sortable is a concept that takes a type parameter
-      or a pack of types.
+      or a pack of types. Sortable is a "type concept"
+      in all the examples of this abstract.
     </li>
   </ol>
 </p>
@@ -127,13 +139,14 @@ Document number: D????
 <p>
   Constrained return type work the same way:
   <pre><code>
-      auto f(); // unconstrained, deduced
+      auto f4(); // unconstrained, deduced
       Constraint auto f2(); // constrained, deduced
-      Whatever f3(); // See part 2
+      Whatever f5(); // See part 2
   </code></pre>
 </p>
 <p>
-  Note that neither f nor f2 is a template. There is no
+  Note that neither f4 nor f5 is a template (the previous
+  f, f2 and f3 *are* templates). There is no
   mention of 'auto' in the parameter list. Again, we see
   when the return type is deduced, if we so choose.
 </p>
@@ -152,7 +165,7 @@ Document number: D????
 
 <p>
   Since we can have deduced types for non-type template
-  parameters, and we use auto there, as in <code>template &lt;auto N&gt; void f();</code>, we can just as well allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
+  parameters, and we use auto there, as in <code>template &lt;auto N&gt; void f();</code>, we allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
 </p>
 
 <h2>Part 2: Relaxed 'Constrained auto'</h2>
