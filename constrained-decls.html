@@ -38,7 +38,9 @@ Document number: D????
   <ol>
     <li><p>A syntax for constrained declarations that is practically a
       "constrained auto"; the principle is "wherever 'auto' goes,
-      a 'Constraint auto' can also go". In a nutshell,
+	a 'Constraint auto' can also go". The semantics are
+	"deduce like auto, and additionally check a constraint".
+	In a nutshell,
       <pre><code>
 	  void f(Sortable auto x);
 	  Sortable auto f(); // #1
@@ -54,7 +56,10 @@ Document number: D????
       </code></pre>
       An unconstrained version of that is
       <pre><code>
-	  template &lt;auto N&gt; auto f(auto x);
+	  template &lt;auto N&gt; auto f(auto x)
+	  {
+	      auto y = init;
+	  }
       </code></pre>
       so this proposal includes auto-typed parameters for
       functions, which we already allow for lambdas.</p>
@@ -143,13 +148,13 @@ Document number: D????
   Constrained return type work the same way:
   <pre><code>
       auto f4(); // unconstrained, deduced.
-      Constraint auto f2(); // constrained, deduced.
-      Whatever f5(); // See part 2. If Whatever is a type, not deduced.
+      Constraint auto f5(); // constrained, deduced.
+      Whatever f6(); // See part 2. If Whatever is a type, not deduced.
       // If Whatever is a concept, constrained and deduced.
   </code></pre>
 </p>
 <p>
-  Note that neither f4 nor f5 is a template (the previous
+  Note that f4, f5 and f6 are not templates (the previous
   f, f2 and f3 *are* templates). There is no
   mention of 'auto' in the parameter list. Again, we see
   when the return type is deduced, if we so choose.
