@@ -47,7 +47,10 @@ Document number: D????
       </code></pre>
       and combined all together,
       <pre><code>
-	  template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x);
+	  template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x)
+	  {
+	      Sortable auto y = init;
+	  }
       </code></pre>
       An unconstrained version of that is
       <pre><code>
