@@ -129,14 +129,13 @@ Document number: D????
   <pre><code>
       auto f(); // unconstrained, deduced
       Constraint auto f2(); // constrained, deduced
-      Whatever f3(); // return type not deduced
+      Whatever f3(); // See part 2
   </code></pre>
 </p>
 <p>
   Note that neither f nor f2 is a template. There is no
   mention of 'auto' in the parameter list. Again, we see
-  when the return type is deduced, and can tell concepts
-  apart from types.
+  when the return type is deduced, if we so choose.
 </p>
 
 <p>
@@ -148,7 +147,7 @@ Document number: D????
   </code></pre>
 </p>
 <p>
-  We can, again, easily see when deduction occurs.
+  We can, again, easily see when deduction occurs, if we so choose.
 </p>
 
 <p>
