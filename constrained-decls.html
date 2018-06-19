@@ -265,5 +265,22 @@ Document number: D????
       that they shouldn't use the same syntax</li>
   </ol>
 </p>
+<p>
+  So, to clarify:
+  <ul>
+    <li>template &lt;MyIntTypeDef N&gt; means a non-type parameter,
+      like it always did</li>
+    <li>template &lt;ConceptName T&gt; means a type parameter constrained
+      by ConceptName, and
+      ConceptName needs to be a concept with a type parameter
+      or a pack parameter</li>
+    <li>template &lt;auto N&gt; means a non-type parameter with
+      a deduced type</li>
+    <li>template &lt;ConceptName auto N&gt; means a non-type parameter
+      with a deduced type constrained by ConceptName, and ConceptName
+      needs to be a concept with a type parameter or a pack parameter</li>
+  </ul>
+  Other use cases can be done with requires-clauses.
+</p>
 </body>
 </html>
