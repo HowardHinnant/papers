@@ -270,7 +270,15 @@ Document number: D????
     }
   </code></pre>
 </p>
-
+<p>
+  Note that the variable definition is unambiguously a variable
+  definition; this proposal proposes no function declaration
+  syntax that would clash with it. It's merely something
+  to be aware of. For the other cases, we propose that
+  we should have a disambiguation rule where a partial
+  concept identifier is interpreted like a type
+  if possible.
+</p>
 <h2>Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</h2>
 
 <p>
