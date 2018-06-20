@@ -19,6 +19,12 @@
 		padding-top: 1px;
 		padding-bottom: 1px;
 	}
+        blockquote.std
+        {
+                max-width: 55em;
+                border-left: thick solid #AAA;
+                padding-left: 1em;
+        }
 	ins {color:#00A000}
 	del {color:#A00000}
         p > code, li > code {color: #000080;}
@@ -265,47 +271,55 @@ Document number: D????
   </code></pre>
 </p>
 
-<h2>Part 3: Meaning of 'template &lt;Concept T&gt;'</h2>
+<h2>Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</h2>
 
 <p>
-  In [temp.param]/10 we have
-  <pre><blockquote>    A constrained-parameter declares a template parameter whose kind (type, non-type, template) and type
-    match that of the prototype parameter (17.6.8) of the concept designated by the qualified-concept-name
-    in the constrained-parameter. Let X be the prototype parameter of the designated concept. The declared
-    template parameter is determined by the kind of X (type, non-type, template) and the optional ellipsis in the
-    constrained-parameter as follows.
+  In <a href="https://wg21.link/temp.param#10">[temp.param]/10</a> we have:
+</p>
+<blockquote class="std">
+  A <em>constrained-parameter</em> declares a template parameter whose kind (type, non-type, template) and type
+  match that of the prototype parameter (17.6.8) of the concept designated by the <em>qualified-concept-name</em>
+  in the <em>constrained-parameter</em>. Let <code>X</code> be the prototype parameter of the designated concept.
+  The declared template parameter is determined by the kind of <code>X</code> (type, non-type, template)
+  and the optional ellipsis in the <em>constrained-parameter</em> as follows.
+  <ul>
+    <li>If <code>X</code> is a type <em>template-parameter</em>,
+      the declared parameter is a type <em>template-parameter</em>.</li>
+    <li>If <code>X</code> is a non-type <em>template-parameter</em>,
+      the declared parameter is a non-type <em>template-parameter</em>
+      having the same type as <code>X</code>.</li>
+    <li>If <code>X</code> is a template <em>template-parameter</em>,
+      the declared parameter is a template <em>template-parameter</em>
+      having the same <em>template-parameter-list</em> as <code>X</code>,
+      excluding default template arguments.</li>
+    <li>If the <em>qualified-concept-name</em> is followed by an ellipsis,
+      then the declared parameter is a template parameter pack (17.6.3).</li>
+  </ul>
 
-    - If X is a type template-parameter, the declared parameter is a type template-parameter.
-    - If X is a non-type template-parameter, the declared parameter is a non-type template-parameter having
-    the same type as X.
-    - If X is a template template-parameter, the declared parameter is a template template-parameter having
-    the same template-parameter-list as X, excluding default template arguments.
-    - If the qualified-concept-name is followed by an ellipsis, then the declared parameter is a template
-    parameter pack (17.6.3).
-
-    [ Example:
-    template&lt;typename T&gt; concept C1 = true;
+  [<em>Example</em>:<pre><code>    template&lt;typename T&gt; concept C1 = true;
     template&lt;template&lt;typename&gt; class X&gt; concept C2 = true;
     template&lt;int N&gt; concept C3 = true;
     template&lt;typename... Ts&gt; concept C4 = true;
     template&lt;char... Cs&gt; concept C5 = true;
-    template&lt;C1 T&gt; void f1(); // OK, T is a type template-parameter
-    template&lt;C2 X&gt; void f2();  // OK, X is a template with one type-parameter
-    template&lt;C3 N&gt; void f3(); // OK, N has type int
-    template&lt;C4... Ts&gt; void f4(); // OK, Ts is a template parameter pack of types
-    template&lt;C4 T&gt; void f5(); // OK, T is a type template-parameter
-    template&lt;C5... Cs&gt; void f6(); // OK, Cs is a template parameter pack of chars
-    - end example ]</blockquote></pre></p>
+
+    template&lt;C1 T&gt; void f1();       // OK, T is a type template-parameter
+    template&lt;C2 X&gt; void f2();       // OK, X is a template with one type-parameter
+    template&lt;C3 N&gt; void f3();       // OK, N has type int
+    template&lt;C4... Ts&gt; void f4();   // OK, Ts is a template parameter pack of types
+    template&lt;C4 T&gt; void f5();       // OK, T is a type template-parameter
+    template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of chars</code></pre>
+  &ndash; <em>end example</em>]
+</blockquote>
 
 <p>
   Does that seem like a mouthful?
 </p>
 <p>
-  That's because it is. In 'template &lt;Constraint T&gt;', what
-  T is depends on what the template parameters of Constraint are.
+  That's because it is. In <code>template &lt;Constraint T&gt;</code>, what
+  <code>T</code> is depends on what the template parameters of <code>Constraint</code> are.
   What this paper is proposing is that for such a constrained-parameter
-  syntax, T would always be a type, and Constraint would always
-  need to be a concept that has a corresponding type parameter
+  syntax, <code>T</code> would always be a type, and <code>Constraint</code>
+  would always need to be a concept that has a corresponding type parameter
   or a type parameter pack.
 </p>
 <p>
@@ -335,17 +349,18 @@ Document number: D????
   So, to clarify:
 </p>
 <ul>
-  <li>template &lt;MyIntTypeDef N&gt; means a non-type parameter,
-    like it always did</li>
-  <li>template &lt;ConceptName T&gt; means a type parameter constrained
-    by ConceptName, and
-    ConceptName needs to be a concept with a type parameter
-    or a pack parameter</li>
-  <li>template &lt;auto N&gt; means a non-type parameter with
-    a deduced type</li>
-  <li>template &lt;ConceptName auto N&gt; means a non-type parameter
-    with a deduced type constrained by ConceptName, and ConceptName
-    needs to be a concept with a type parameter or a pack parameter</li>
+  <li><code>template &lt;MyIntTypeDef N&gt;</code> means
+    a non-type parameter, like it always did.</li>
+  <li><code>template &lt;ConceptName T&gt;</code> means
+    a type parameter constrained by <code>ConceptName</code>,
+    and <code>ConceptName</code> needs to be a concept with
+    a type parameter or a pack parameter.</li>
+  <li><code>template &lt;auto N&gt;</code> means a non-type parameter
+    with a deduced type.</li>
+  <li><code>template &lt;ConceptName auto N&gt;</code> means
+    a non-type parameter with a deduced type constrained by
+    <code>ConceptName</code>, and <code>ConceptName</code>
+    needs to be a concept with a type parameter or a pack parameter.</li>
 </ul>
 <p>
   Other use cases can be done with requires-clauses.
