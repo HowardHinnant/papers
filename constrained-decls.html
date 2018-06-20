@@ -4,7 +4,7 @@
 <head>
 	<title>Yet another approach for constrained declarations</title>
 
-	<style>
+	<style type="text/css">
 	p, li {text-align:justify}
 	ol.wide li {margin-top:1em;}
 	blockquote.note
@@ -21,7 +21,7 @@
 </head>
 <body>
 
-<address align=right>
+<address style="text-align:right">
 Document number: D????
 <br/>
 <br/>
@@ -82,36 +82,36 @@ Document number: D????
 <p>Sortable is a "type concept" in all the examples of this abstract.</p>
 
 <p>
-  This paper specifically does *not* propose
-  <ul>
-    <li>any new introduction syntax</li>
-    <li>a new syntax for naming types</li>
-  </ul>
+  This paper specifically does <em>not</em> propose
 </p>
+<ul>
+  <li>any new introduction syntax</li>
+  <li>a new syntax for naming types</li>
+</ul>
 
 <p>
   The idea of this approach is to provide a syntax that
-  <ul>
-    <li>
-      works for constrained parameters, constrained
-      return types, constrained variables, and type-constrained
-      non-type template parameters
-    </li>
-    <li>
-      avoids inventing many adventurous new things
-    </li>
-    <li>
-      in particular, avoids inventing new type sigils
-    </li>
-    <li>
-      doesn't clash with explicit template instantiations
-    </li>
-    <li>
-      is compatible with what we already have in polymorphic
-      lambdas, and makes functions uniform with them
-    </li>
-  </ul>
 </p>
+<ul>
+  <li>
+    works for constrained parameters, constrained
+    return types, constrained variables, and type-constrained
+    non-type template parameters
+  </li>
+  <li>
+    avoids inventing many adventurous new things
+  </li>
+  <li>
+    in particular, avoids inventing new type sigils
+  </li>
+  <li>
+    doesn't clash with explicit template instantiations
+  </li>
+  <li>
+    is compatible with what we already have in polymorphic
+    lambdas, and makes functions uniform with them
+  </li>
+</ul>
 
 <h2>Part 1: 'Constrained auto'</h2>
 
@@ -155,7 +155,7 @@ Document number: D????
 </p>
 <p>
   Note that f4, f5 and f6 are not templates (the previous
-  f1, f2 and f3 *are* templates). There is no
+  f1, f2 and f3 <em>are</em> templates). There is no
   mention of 'auto' in the parameter list. Again, we see
   when the return type is deduced, if we so choose.
 </p>
@@ -276,7 +276,7 @@ Document number: D????
 <ol>
   <li>It seems desirable to have the constrained template parameter syntax</li>
   <li>It would be nice if that syntax covered the most common case</li>
-  <li>It would further be nice if that syntax covered *only* the most
+  <li>It would further be nice if that syntax covered <em>only</em> the most
     common case</li>
   <li>The other cases are expected to be so rare that there's no
     need to provide a shortcut for them, and certainly rare enough
