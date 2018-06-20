@@ -5,6 +5,10 @@
 	<title>Yet another approach for constrained declarations</title>
 
 	<style type="text/css">
+        html {font-family: "DejaVu Serif", serif; size: medium; line-height: 150%; margin: 0; padding: 0;}
+        code {font-family: "DejaVu Sans Mono", monospace; size: medium; line-height: 135%;}
+        body {margin: 1em 2em; padding: 0;}
+        h2 {margin: 1.5em 0 1em 0;}
 	p, li {text-align:justify}
 	ol.wide li {margin-top:1em;}
 	blockquote.note
@@ -17,11 +21,12 @@
 	}
 	ins {color:#00A000}
 	del {color:#A00000}
+        p > code, li > code {color: #000080;}
 	</style>
 </head>
 <body>
 
-<address style="text-align:right">
+<address style="text-align:right;">
 Document number: D????
 <br/>
 <br/>
@@ -45,9 +50,10 @@ Document number: D????
 <p>This paper proposes three things:</p>
 <ol class="wide">
   <li>A syntax for constrained declarations that is practically a
-    "constrained auto"; the principle is "wherever 'auto' goes,
-    a 'Constraint auto' can also go". The semantics are
-    "deduce like auto, and additionally check a constraint".
+    "constrained <code>auto</code>";
+    the principle is "wherever <code>auto</code> goes,
+    a <code>Constraint auto</code> can also go". The semantics are
+    "deduce like <code>auto</code>, and additionally check a constraint".
     In a nutshell,
     <pre><code>    void f(Sortable auto x);
     Sortable auto f(); // #1
@@ -63,33 +69,34 @@ Document number: D????
     {
         auto y = init;
     }</code></pre>
-    so this proposal includes auto-typed parameters for
+    so this proposal includes <code>auto</code>-typed parameters for
     functions, which we already allow for lambdas.</li>
 
   <li>An additional relaxation where, for #1 and #2
-    illustrated above, the auto is optional:
+    illustrated above, the <code>auto</code> is optional:
     <pre><code>    Sortable f();
     Sortable x = f();</code></pre></li>
 
-  <li>Simplifying and thus restricting the rules in [temp.param]/10,
+  <li>Simplifying and thus restricting the rules in
+    <a href="https://wg21.link/temp.param#10">[temp.param]/10</a>,
     so that <code>template &lt;Sortable S&gt;</code> always
-    means that S is a type parameter, and
+    means that <code>S</code> is a type parameter, and
     <code>template &lt;Sortable auto S&gt;</code> always means
-    that S is a non-type parameter. Template template-parameters
-    are no longer supported in this short form. Moreover, Sortable
+    that <code>S</code> is a non-type parameter. Template template-parameters
+    are no longer supported in this short form. Moreover, <code>Sortable</code>
     is restricted to be a concept that takes a type parameter or parameter pack;
     non-type and template concepts are no longer supported in this short form.
   </li>
 </ol>
 
-<p>Sortable is a "type concept" in all the examples of this abstract.</p>
+<p><code>Sortable</code> is a "type concept" in all the examples of this abstract.</p>
 
 <p>
   This paper specifically does <em>not</em> propose
 </p>
 <ul>
-  <li>any new introduction syntax</li>
-  <li>a new syntax for naming types</li>
+  <li>any new introduction syntax, or</li>
+  <li>a new syntax for naming types.</li>
 </ul>
 
 <p>
@@ -99,24 +106,24 @@ Document number: D????
   <li>
     works for constrained parameters, constrained
     return types, constrained variables, and type-constrained
-    non-type template parameters
+    non-type template parameters;
   </li>
   <li>
-    avoids inventing many adventurous new things
+    avoids inventing many adventurous new things;
   </li>
   <li>
-    in particular, avoids inventing new type sigils
+    in particular, avoids inventing new type sigils;
   </li>
   <li>
-    doesn't clash with explicit template instantiations
+    does not clash with explicit template instantiations; and
   </li>
   <li>
     is compatible with what we already have in polymorphic
-    lambdas, and makes functions uniform with them
+    lambdas, and makes functions uniform with them.
   </li>
 </ul>
 
-<h2>Part 1: 'Constrained auto'</h2>
+<h2>Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</h2>
 
 <p>
   The approach proposed here borrows a subset of
@@ -127,8 +134,8 @@ Document number: D????
 </p>
 
 <p>
-  The gist of the approach is simple; allow auto parameters in both
-  polymorphic lambdas and function templates, and allow the auto
+  The gist of the approach is simple: allow <code>auto</code> parameters in both
+  polymorphic lambdas and function templates, and allow the <code>auto</code>
   to be preceded by a concept name. In every case, such a parameter
   is a deduced parameter, and we can see which parameters are deduced
   and which ones are not:
@@ -142,10 +149,10 @@ Document number: D????
     void f3(Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre>
 </p>
 <p>
-  Seeing 'auto' (even 'Constraint auto') in a parameter list
+  Seeing <code>auto</code> (even <code>Constraint auto</code>) in a parameter list
   tells us that we're dealing with a template. We know for
   each parameter whether it's deduced or not. We can tell apart
-  concepts from types; concepts precede auto, types do not.
+  concepts from types: concepts precede <code>auto</code>, types do not.
 </p>
 <p>
   Constrained return types work the same way:
@@ -157,9 +164,10 @@ Document number: D????
                                 // If Whatever is a concept, constrained and deduced.</code></pre>
 </p>
 <p>
-  Note that f4, f5 and f6 are not templates (the previous
-  f1, f2 and f3 <em>are</em> templates). There is no
-  mention of 'auto' in the parameter list. Again, we see
+  Note that <code>f4</code>, <code>f5</code> and <code>f6</code>
+  are not templates (the previous <code>f1</code>, <code>f2</code>
+  and <code>f3</code> <em>are</em> templates). There is no
+  mention of <code>auto</code> in the parameter list. Again, we see
   when the return type is deduced, if we so choose.
 </p>
 
@@ -178,15 +186,21 @@ Document number: D????
 
 <p>
   Since we can have deduced types for non-type template
-  parameters, and we use auto there (as in <code>template &lt;auto N&gt; void f();</code>)
-  we allow a constraint there, too: <code>template &lt;Constraint auto N&gt; void f2();</code>.
+  parameters, and we use <code>auto</code> there
+  (as in <code>template &lt;auto N&gt; void f();</code>)
+  we allow a constraint there, too:
+</p>
+<pre><code>    template &lt;Constraint auto N&gt; void f2();</code></pre>
+<p>
   Note however that this can only be a type constraint; non-type concepts
   (including auto concepts) are not allowed in this form.
 </p>
 
 <p>
-  Partial concept identifiers also work:
-  <pre><code>    void f(Constructible&lt;int&gt; auto x);
+  Partial concept identifiers also work. Given a concept
+  <code>template &lt;typename A, typename B&gt; concept
+    Constructible = /* ... */;</code>, we can say:
+  <pre><code>    void f(Constructible&lt;int&gt; auto x);   // Constructible&lt;decltype(x), int&gt; is satisfied
 
     Constructible&lt;int&gt; auto f();
 
@@ -197,32 +211,33 @@ Document number: D????
 </p>
 
 <p>
-  In concert with the general approach "'Constraint auto' goes wherever
-  'auto' goes", new-expressions and operators work:
+  In concert with the general approach "<code>Constraint auto</code> goes wherever
+  <code>auto</code> goes", new-expressions and operators work:
   <pre><code>    auto alloc_next() { return new Sortable auto(this->next_val()); }
 
     operator Sortable auto() { }
   </code></pre>
 </p>
 
-<h2>Part 2: Relaxed 'Constrained auto'</h2>
+<h2>Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
 
 <p>
-  In function return types, we can leave out the auto. So, in addition
-  to
+  In function return types, we can leave out the <code>auto</code>.
+  So, in addition to
   <pre><code>    Constraint auto f1();</code></pre>
   we can write
   <pre><code>    Constraint f2();</code></pre>
 </p>
 <p>
-  Neither f1 nor f2 are templates. It seems fairly reasonable
-  to allow omitting the auto, but that is intended to be a
-  relaxation of the general rule, not a replacement for 'Constraint auto'.
+  Neither <code>f1</code> nor <code>f2</code> are templates.
+  It seems fairly reasonable to allow omitting the <code>auto</code>,
+  but that is intended to be a relaxation of the general rule,
+  not a replacement for <code>Constraint auto</code>.
 </p>
 
 <p>
-  In variable declarations, omitting the auto also seems
-  reasonable:
+  In variable declarations, omitting the <code>auto</code>
+  also seems reasonable:
   <pre><code>    Constraint x = f2();</code></pre>
 </p>
 <p>
@@ -241,11 +256,11 @@ Document number: D????
 </p>
 <p>
   Certain disambiguation details need to be handled:
-  <pre><code>    bool b(Constructible&lt;int&gt; && bar()); // variable definition
+  <pre><code>    bool b(Constructible&lt;int&gt; && bar());         // variable definition
 
     void foo() {
-        Constructible&lt;int&gt; * f2(); // disambiguation/type-name interpretation rule required
-        Constructible&lt;int&gt; * selector = f2(); // (same?) disambiguation/type-name interpretation rule required
+        Constructible&lt;int&gt; * f2();               // disambiguation/type-name interpretation rule required
+        Constructible&lt;int&gt; * selector = f2();    // (same?) disambiguation/type-name interpretation rule required
     }
   </code></pre>
 </p>
