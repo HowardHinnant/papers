@@ -4,7 +4,7 @@
 <head>
 	<title>Yet another approach for constrained declarations</title>
 
-	<style>
+	<style type="text/css">
 	p, li {text-align:justify}
 	ol.wide li {margin-top:1em;}
 	blockquote.note
@@ -21,7 +21,7 @@
 </head>
 <body>
 
-<address align=right>
+<address style="text-align:right">
 Document number: D????
 <br/>
 <br/>
@@ -83,35 +83,35 @@ Document number: D????
 
 <p>
   This paper specifically does <em>not</em> propose
-  <ul>
-    <li>any new introduction syntax</li>
-    <li>a new syntax for naming types</li>
-  </ul>
 </p>
+<ul>
+  <li>any new introduction syntax</li>
+  <li>a new syntax for naming types</li>
+</ul>
 
 <p>
   The idea of this approach is to provide a syntax that
-  <ul>
-    <li>
-      works for constrained parameters, constrained
-      return types, constrained variables, and type-constrained
-      non-type template parameters
-    </li>
-    <li>
-      avoids inventing many adventurous new things
-    </li>
-    <li>
-      in particular, avoids inventing new type sigils
-    </li>
-    <li>
-      doesn't clash with explicit template instantiations
-    </li>
-    <li>
-      is compatible with what we already have in polymorphic
-      lambdas, and makes functions uniform with them
-    </li>
-  </ul>
 </p>
+<ul>
+  <li>
+    works for constrained parameters, constrained
+    return types, constrained variables, and type-constrained
+    non-type template parameters
+  </li>
+  <li>
+    avoids inventing many adventurous new things
+  </li>
+  <li>
+    in particular, avoids inventing new type sigils
+  </li>
+  <li>
+    doesn't clash with explicit template instantiations
+  </li>
+  <li>
+    is compatible with what we already have in polymorphic
+    lambdas, and makes functions uniform with them
+  </li>
+</ul>
 
 <h2>Part 1: 'Constrained auto'</h2>
 
