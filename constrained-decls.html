@@ -32,6 +32,8 @@ Document number: D????
 <a href="mailto:gdr@microsoft.com">Gabriel Dos Reis</a><br/>
 <a href="mailto:bjarne@stroustrup.com">Bjarne Stroustrup</a><br/>
 <a href="mailto:jason@redhat.com">Jason Merrill</a><br/>
+<a href="mailto:hubert.reinterpretcast@gmail.com">Hubert Tong</a><br/>
+<a href="mailto:eric.niebler@gmail.com">Eric Niebler</a><br/>
 2018-06-19<br/>
 </address>
 <hr/>
@@ -181,6 +183,27 @@ Document number: D????
   (including auto concepts) are not allowed in this form.
 </p>
 
+<p>
+  Partial concept identifiers also work:
+  <pre><code>    void f(Constructible&lt;int&gt; auto x);
+
+    Constructible&lt;int&gt; auto f();
+
+    Constructible&lt;int&gt; auto x = f();
+
+    template &lt;Constructible&lt;int&gt; auto N&gt; void f();
+  </code></pre>
+</p>
+
+<p>
+  In concert with the general approach "'Constraint auto' goes wherever
+  'auto' goes", new-expressions and operators work:
+  <pre><code>    auto alloc_next() { return new Sortable auto(this->next_val()); }
+
+    operator Sortable auto() { }
+  </code></pre>
+</p>
+
 <h2>Part 2: Relaxed 'Constrained auto'</h2>
 
 <p>
@@ -214,6 +237,16 @@ Document number: D????
   a weaker rationale for being allowed. It should be noted, though,
   that this relaxation in general was present in the TS, this
   paper is merely not proposing it for parameters.
+</p>
+<p>
+  Certain disambiguation details need to be handled:
+  <pre><code>    bool b(Constructible&lt;int&gt; && bar()); // variable definition
+
+    void foo() {
+        Constructible&lt;int&gt; * f2(); // disambiguation/type-name interpretation rule required
+        Constructible&lt;int&gt; * selector = f2(); // (same?) disambiguation/type-name interpretation rule required
+    }
+  </code></pre>
 </p>
 
 <h2>Part 3: Meaning of 'template &lt;Concept T&gt;'</h2>
