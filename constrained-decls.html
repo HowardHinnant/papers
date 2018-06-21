@@ -46,6 +46,7 @@ Document number: D????
 <a href="mailto:hubert.reinterpretcast@gmail.com">Hubert Tong</a><br/>
 <a href="mailto:eric.niebler@gmail.com">Eric Niebler</a><br/>
 <a href="mailto:casey@carter.net">Casey Carter</a><br/>
+<a href="mailto:tom@honermann.net">Tom Honermann</a><br/>
 2018-06-21<br/>
 </address>
 <hr/>
@@ -103,6 +104,8 @@ Document number: D????
 <ul>
   <li>any new introduction syntax, or</li>
   <li>a new syntax for naming types.</li>
+  <li>a new shortcut syntax for applying multiple constraints
+    in one declaration</li>
 </ul>
 
 <p>
@@ -159,6 +162,20 @@ Document number: D????
   tells us that we're dealing with a template. We know for
   each parameter whether it's deduced or not. We can tell apart
   concepts from types: concepts precede <code>auto</code>, types do not.
+</p>
+<p>
+  It is worth noting that the constraint applies to the deduced
+  type, not to the cv-qualified argument type, in cases like
+  <pre><code>    void f42(Constraint const auto& c);</code></pre>
+  Naturally, if the deduced type is cv-qualified, the constraint applies
+  to that type. The intent is that the order of the constraint
+  and cv-qualifiers in the declaration does not matter.
+</p>
+<p>
+  It is further worth noting that this proposal proposes being
+  able to apply just one constraint for a parameter, return type
+  or non-type template argument; if multiple constraints are to
+  be considered, that should happen separately after C++20.
 </p>
 <p>
   Constrained return types work the same way:
