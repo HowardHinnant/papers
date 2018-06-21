@@ -168,7 +168,7 @@ Sortable x = f();</code></pre></blockquote></li>
 <h3>Function templates</h3>
 
 <p>
-  The gist of the approach is simple: allow <code>auto</code> parameters in both
+  The approach is simple: allow <code>auto</code> parameters in both
   polymorphic lambdas and function templates, and allow the <code>auto</code>
   to be preceded by a concept name. In every case, such a parameter
   is a deduced parameter, and we can see which parameters are deduced
@@ -183,14 +183,15 @@ void f2(Constraint auto a, Constraint auto&amp; b, Constraint const auto&amp; c,
 [](Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
 void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre></blockquote>
 <p>
-  Seeing <code>auto</code> (even <code>Constraint auto</code>) in a parameter list
+  The appearance of <code>auto</code> (even <code>Constraint auto</code>)
+  in a parameter list
   tells us that we're dealing with a function template. We know for
   each parameter whether it's deduced or not. We can tell apart
   concepts from types: concepts precede <code>auto</code>, types do not.
 </p>
 <p>
-  It is worth noting that the constraint applies to the deduced
-  type, not to the cv-qualified parameter type, in cases like:
+  The constraint applies to the deduced type, not to the cv-qualified
+  parameter type, in cases like:
 </p>
 <blockquote><pre><code>void f42(Constraint const auto&amp; c);</code></pre></blockquote>
 <p>
@@ -199,9 +200,8 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
   and cv-qualifiers in the declaration does not matter.
 </p>
 <p>
-  It is further worth noting that this proposal proposes being
-  able to apply just one constraint for a parameter, return type
-  or non-type template argument; any proposal to consider multiple
+  We only propose the ability to apply one single constraint for a parameter,
+  return type or non-type template parameter. Any proposal to consider multiple
   constraints should happen separately after C++20.
 </p>
 
@@ -218,8 +218,8 @@ Whatever f6();              // See part 2. If Whatever is a type, not deduced.
                             // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
 <p>
   Note that <code>f4</code>, <code>f5</code> and <code>f6</code>
-  are not templates (the previous <code>f1</code>, <code>f2</code>
-  and <code>f3</code> <em>are</em> templates). There is no
+  are not templates (whereas the previous <code>f1</code>, <code>f2</code>
+  and <code>f3</code> <em>are</em> templates). Here, there is no
   mention of <code>auto</code> in the parameter list. Again, we see
   when the return type is deduced, if we so choose.
 </p>
@@ -238,12 +238,11 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 </p>
 
 <p>
-  Since we can have deduced types for non-type template
-  parameters, and we use <code>auto</code> there
+  Since non-type template parameters can be deduced via <code>auto</code>
   (as in <code>template &lt;auto N&gt; void f();</code>),
   we also allow a constraint there:
 </p>
-<blockquote><pre><code>template &lt;Constraint auto N&gt; void f2();</code></pre></blockquote>
+<blockquote><pre><code>template &lt;Constraint auto N&gt; void f7();</code></pre></blockquote>
 <p>
   Note however that this can only be a type constraint; non-type concepts
   (including auto concepts) are not allowed in this form.
@@ -379,35 +378,31 @@ template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of 
   Does that seem like a mouthful?
 </p>
 <p>
-  That's because it is. In <code>template &lt;Constraint T&gt;</code>, what
-  <code>T</code> is depends on what the template parameters of <code>Constraint</code> are.
-  What this paper is proposing is that for such a constrained-parameter
-  syntax, <code>T</code> would always be a type, and <code>Constraint</code>
-  would always need to be a concept that has a corresponding type parameter
-  or a type parameter pack.
+  That's because it is. In <code>template &lt;Constraint T&gt;</code>, the kind of
+  <code>T</code> depends on the kind of the prototype parameter of <code>Constraint</code>.
+  We propose that for such a constrained-parameter syntax, <code>T</code> should
+  always be a type, and <code>Constraint</code> would always need to be a concept
+  that has a corresponding type parameter or a type parameter pack.
 </p>
 <p>
-  This paper is not proposing disallowing concepts with non-type
-  parameters or template template parameters. What's being proposed
-  is merely that the constrained parameter shortcut is not provided
-  for those things, and that</p>
-<ul>
-  <li>the use of such concepts needs a requires-clause</li>
-  <li>the constrained parameter syntax means just one thing
-    when used with a concept (and has its original meaning
-    when used with a type, which is a non-type template parameter)</li>
-</ul>
+  To be clear, we are not proposing that concepts in general should not
+  have non-type or template template parameters. We are merely proposing
+  that the constrained parameter shortcut is not provided for concepts with
+  such prototype parameters; such concepts need to be used with a requires-clause.
+  The constrained parameter syntax should mean just one thing.
+  Note that the same syntax <code>template &lt;A T&gt;</code> is still a non-type
+  parameter when <code>A</code> is a type name rather than a concept. We are willing
+  to tolerate this small potential for ambiguity.</p>
 <p>
   The rationale for this part is as follows:
 </p>
 <ol>
-  <li>It seems desirable to have the constrained template parameter syntax</li>
-  <li>It would be nice if that syntax covered the most common case</li>
-  <li>It would further be nice if that syntax covered <em>only</em> the most
-    common case</li>
+  <li>It seems desirable to have the constrained template parameter syntax.</li>
+  <li>It would be nice if that syntax covered the most common case.</li>
+  <li>It would further be nice if that syntax covered <em>only</em> the most common case.</li>
   <li>The other cases are expected to be so rare that there's no
     need to provide a shortcut for them, and certainly rare enough
-    that they shouldn't use the same syntax</li>
+    that they shouldn't use the same syntax.</li>
 </ol>
 <p>
   So, to clarify:
