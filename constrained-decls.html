@@ -80,10 +80,10 @@ Document number: D????
 <p>This paper proposes three things:</p>
 <ol class="wide">
   <li>A syntax for constrained declarations that is practically a
-    "constrained <code>auto</code>";
-    the principle is "wherever <code>auto</code> goes,
-    a <code>Constraint auto</code> can also go". The semantics are
-    "deduce like <code>auto</code>, and additionally check a constraint".
+    &ldquo;constrained <code>auto</code>&rdquo;;
+    the principle being &ldquo;wherever <code>auto</code> goes,
+    a <code>Constraint auto</code> can also (non-recursively) go&rdquo;.
+    The semantics are to deduce like <code>auto</code> and additionally check a constraint.
     In a nutshell,
     <blockquote><pre><code>void f(Sortable auto x);
 Sortable auto f();      // #1
@@ -99,7 +99,7 @@ template &lt;Sortable auto N&gt; void f();</code></pre></blockquote>
 {
     auto y = init;
 }</code></pre></blockquote>
-    So this proposal includes <code>auto</code>-typed parameters for
+    So, this proposal includes <code>auto</code>-typed parameters for
     functions, which we already allow for lambdas.</li>
 
   <li>An additional relaxation where the <code>auto</code> is optional
@@ -107,28 +107,28 @@ template &lt;Sortable auto N&gt; void f();</code></pre></blockquote>
     <blockquote><pre><code>Sortable f();
 Sortable x = f();</code></pre></blockquote></li>
 
-  <li>Simplifying and thus restricting the rules in
+  <li>Simplifying (and thus restricting) the rules in
     <a href="https://wg21.link/temp.param#10">[temp.param]/10</a>,
     so that <code>template &lt;Sortable S&gt;</code> always
     means that <code>S</code> is a type parameter, and
     <code>template &lt;Sortable auto S&gt;</code> always means
     that <code>S</code> is a non-type parameter. Template template-parameters
     are no longer supported in this short form. Moreover, <code>Sortable</code>
-    is restricted to be a concept that takes a type parameter or parameter pack;
+    is restricted to be a concept that takes a type parameter or type parameter pack;
     non-type and template concepts are no longer supported in this short form.
   </li>
 </ol>
 
-<p><code>Sortable</code> is a "type concept" in all the examples of this summary.</p>
+<p><code>Sortable</code> is a &ldquo;type concept&rdquo; in all the examples of this summary.</p>
 
 <p>
   This paper specifically does <em>not</em> propose
 </p>
 <ul>
-  <li>any new introduction syntax, or</li>
-  <li>a new syntax for naming types, or</li>
-  <li>a new shortcut syntax for applying multiple constraints
-    in one declaration.</li>
+  <li>any new lead-in syntax for templates, or</li>
+  <li>a new syntax for introducing names for placeholder types, or</li>
+  <li>a shortcut syntax for applying multiple constraints
+    to a placeholder type.</li>
 </ul>
 
 <p>
@@ -136,7 +136,7 @@ Sortable x = f();</code></pre></blockquote></li>
 </p>
 <ul>
   <li>
-    works for constrained parameters, constrained
+    works for constrained function parameters, constrained
     return types, constrained variables, and type-constrained
     non-type template parameters;
   </li>
