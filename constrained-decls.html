@@ -50,7 +50,7 @@ Document number: D????
 2018-06-21<br/>
 </address>
 <hr/>
-<h1 align=center>Yet another approach for constrained declarations</h1>
+<h1 style="text-align: center;">Yet another approach for constrained declarations</h1>
 
 <h2>Abstract</h2>
 
@@ -85,27 +85,27 @@ Document number: D????
     a <code>Constraint auto</code> can also go". The semantics are
     "deduce like <code>auto</code>, and additionally check a constraint".
     In a nutshell,
-    <pre><code>    void f(Sortable auto x);
-    Sortable auto f(); // #1
-    Sortable auto x = f(); // #2
-    template &lt;Sortable auto N&gt; void f();</code></pre>
+    <blockquote><pre><code>void f(Sortable auto x);
+Sortable auto f(); // #1
+Sortable auto x = f(); // #2
+template &lt;Sortable auto N&gt; void f();</code></pre></blockquote>
     and combined all together,
-    <pre><code>    template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x)
-    {
-        Sortable auto y = init;
-    }</code></pre>
+    <blockquote><pre><code>template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x)
+{
+    Sortable auto y = init;
+}</code></pre></blockquote>
     An unconstrained version of that is
-    <pre><code>    template &lt;auto N&gt; auto f(auto x)
-    {
-        auto y = init;
-    }</code></pre>
+<blockquote><pre><code>template &lt;auto N&gt; auto f(auto x)
+{
+    auto y = init;
+}</code></pre></blockquote>
     so this proposal includes <code>auto</code>-typed parameters for
     functions, which we already allow for lambdas.</li>
 
   <li>An additional relaxation where, for #1 and #2
     illustrated above, the <code>auto</code> is optional:
-    <pre><code>    Sortable f();
-    Sortable x = f();</code></pre></li>
+    <blockquote><pre><code>Sortable f();
+Sortable x = f();</code></pre></blockquote></li>
 
   <li>Simplifying and thus restricting the rules in
     <a href="https://wg21.link/temp.param#10">[temp.param]/10</a>,
@@ -172,15 +172,14 @@ Document number: D????
   is a deduced parameter, and we can see which parameters are deduced
   and which ones are not:
 </p>
-<pre><code>    [](auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
-    [](Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
+<blockquote><pre><code>[](auto a, auto&amp; b, const auto&amp; c, auto&amp;&amp; d) {...}; // unconstrained
+[](Constraint auto a, Constraint auto&amp; b, Constraint const auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
 
-    void f1(auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
-    void f2(Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
+void f1(auto a, auto&amp; b, const auto&amp; c, auto&amp;&amp; d) {...}; // unconstrained
+void f2(Constraint auto a, Constraint auto&amp; b, Constraint const auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
 
-    [](Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
-    void f3(Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre>
-
+[](Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
+void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre></blockquote>
 <p>
   Seeing <code>auto</code> (even <code>Constraint auto</code>) in a parameter list
   tells us that we're dealing with a template. We know for
@@ -190,7 +189,9 @@ Document number: D????
 <p>
   It is worth noting that the constraint applies to the deduced
   type, not to the cv-qualified argument type, in cases like:
-  <pre><code>    void f42(Constraint const auto& c);</code></pre>
+</p>
+<blockquote><pre><code>void f42(Constraint const auto&amp; c);</code></pre></blockquote>
+<p>
   Naturally, if the deduced type is cv-qualified, the constraint applies
   to that type. The intent is that the order of the constraint
   and cv-qualifiers in the declaration does not matter.
@@ -203,13 +204,13 @@ Document number: D????
 </p>
 <p>
   Constrained return types work the same way:
-  <pre><code>    auto f4();                  // unconstrained, deduced.
-
-    Constraint auto f5();       // constrained, deduced.
-
-    Whatever f6();              // See part 2. If Whatever is a type, not deduced.
-                                // If Whatever is a concept, constrained and deduced.</code></pre>
 </p>
+<blockquote><pre><code>auto f4();                  // unconstrained, deduced.
+
+Constraint auto f5();       // constrained, deduced.
+
+Whatever f6();              // See part 2. If Whatever is a type, not deduced.
+                            // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
 <p>
   Note that <code>f4</code>, <code>f5</code> and <code>f6</code>
   are not templates (the previous <code>f1</code>, <code>f2</code>
@@ -220,13 +221,13 @@ Document number: D????
 
 <p>
   Constrained types for variables work the same way:
-  <pre><code>    auto x1 = f1();             // unconstrained, deduced.
-
-    Constraint auto x2 = f2();  // constrained, deduced.
-
-    Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
-                                // If Whatever is a concept, constrained and deduced.</code></pre>
 </p>
+<blockquote><pre><code>auto x1 = f1();             // unconstrained, deduced.
+
+Constraint auto x2 = f2();  // constrained, deduced.
+
+Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
+                            // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
 <p>
   We can, again, easily see when deduction occurs, if we so choose.
 </p>
@@ -237,7 +238,7 @@ Document number: D????
   (as in <code>template &lt;auto N&gt; void f();</code>),
   we also allow a constraint there:
 </p>
-<pre><code>    template &lt;Constraint auto N&gt; void f2();</code></pre>
+<blockquote><pre><code>template &lt;Constraint auto N&gt; void f2();</code></pre></blockquote>
 <p>
   Note however that this can only be a type constraint; non-type concepts
   (including auto concepts) are not allowed in this form.
@@ -247,34 +248,34 @@ Document number: D????
   Partial concept identifiers also work. Given a concept
   <code>template &lt;typename A, typename B&gt; concept
     Constructible = /* ... */;</code>, we can say:
-  <pre><code>    void f(Constructible&lt;int&gt; auto x);   // Constructible&lt;decltype(x), int&gt; is satisfied
-
-    Constructible&lt;int&gt; auto f();
-
-    Constructible&lt;int&gt; auto x = f();
-
-    template &lt;Constructible&lt;int&gt; auto N&gt; void f();
-  </code></pre>
 </p>
+<blockquote><pre><code>void f(Constructible&lt;int&gt; auto x);   // Constructible&lt;decltype(x), int&gt; is satisfied
+
+Constructible&lt;int&gt; auto f();
+
+Constructible&lt;int&gt; auto x = f();
+
+template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockquote>
 
 <p>
   In concert with the general approach "<code>Constraint auto</code> goes wherever
   <code>auto</code> goes", new-expressions and operators work:
-  <pre><code>    auto alloc_next() { return new Sortable auto(this->next_val()); }
-
-    operator Sortable auto() { }
-  </code></pre>
 </p>
+<blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
+
+operator Sortable auto() { }</code></pre></blockquote>
 
 <h2 id="part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
 
 <p>
   In function return types, we can leave out the <code>auto</code>.
   So, in addition to
-  <pre><code>    Constraint auto f1();</code></pre>
-  we can write
-  <pre><code>    Constraint f2();</code></pre>
 </p>
+<blockquote><pre><code>Constraint auto f1();</code></pre></blockquote>
+<p>
+  we can write
+</p>
+<blockquote><pre><code>Constraint f2();</code></pre></blockquote>
 <p>
   Neither <code>f1</code> nor <code>f2</code> are templates.
   It seems fairly reasonable to allow omitting the <code>auto</code>,
@@ -285,13 +286,13 @@ Document number: D????
 <p>
   In variable declarations, omitting the <code>auto</code>
   also seems reasonable:
-  <pre><code>    Constraint x = f2();</code></pre>
 </p>
+<blockquote><pre><code>Constraint x = f2();</code></pre></blockquote>
 <p>
   Note, in particular, that we already have a syntax that
   does (partial) deduction but doesn't make that explicit in the syntax:
-  <pre><code>    std::tuple x = foo();</code></pre>
 </p>
+<blockquote><pre><code>std::tuple x = foo();</code></pre></blockquote>
 <p>
   The variable case in particular seems reasonable, considering
   the already existing deduction syntaxes that don't call
@@ -303,14 +304,13 @@ Document number: D????
 </p>
 <p>
   Certain disambiguation details need to be handled:
-  <pre><code>    bool b(Constructible&lt;int&gt; && bar());         // variable definition
-
-    void foo() {
-        Constructible&lt;int&gt; * f2();               // disambiguation/type-name interpretation rule required
-        Constructible&lt;int&gt; * selector = f2();    // (same?) disambiguation/type-name interpretation rule required
-    }
-  </code></pre>
 </p>
+<blockquote><pre><code>bool b(Constructible&lt;int&gt; &amp;&amp; bar());         // variable definition
+
+void foo() {
+    Constructible&lt;int&gt; * f2();               // disambiguation/type-name interpretation rule required
+    Constructible&lt;int&gt; * selector = f2();    // (same?) disambiguation/type-name interpretation rule required
+}</code></pre></blockquote>
 <p>
   Note that the variable definition is unambiguously a variable
   definition. This proposal proposes no function declaration
@@ -328,38 +328,44 @@ Document number: D????
   In <a href="https://wg21.link/temp.param#10">[temp.param]/10</a> we have:
 </p>
 <blockquote class="std">
+<p>
   A <em>constrained-parameter</em> declares a template parameter whose kind (type, non-type, template) and type
   match that of the prototype parameter (17.6.8) of the concept designated by the <em>qualified-concept-name</em>
   in the <em>constrained-parameter</em>. Let <code>X</code> be the prototype parameter of the designated concept.
   The declared template parameter is determined by the kind of <code>X</code> (type, non-type, template)
   and the optional ellipsis in the <em>constrained-parameter</em> as follows.
-  <ul>
-    <li>If <code>X</code> is a type <em>template-parameter</em>,
-      the declared parameter is a type <em>template-parameter</em>.</li>
-    <li>If <code>X</code> is a non-type <em>template-parameter</em>,
-      the declared parameter is a non-type <em>template-parameter</em>
-      having the same type as <code>X</code>.</li>
-    <li>If <code>X</code> is a template <em>template-parameter</em>,
-      the declared parameter is a template <em>template-parameter</em>
-      having the same <em>template-parameter-list</em> as <code>X</code>,
-      excluding default template arguments.</li>
-    <li>If the <em>qualified-concept-name</em> is followed by an ellipsis,
-      then the declared parameter is a template parameter pack (17.6.3).</li>
-  </ul>
+</p>
+<ul>
+  <li>If <code>X</code> is a type <em>template-parameter</em>,
+    the declared parameter is a type <em>template-parameter</em>.</li>
+  <li>If <code>X</code> is a non-type <em>template-parameter</em>,
+    the declared parameter is a non-type <em>template-parameter</em>
+    having the same type as <code>X</code>.</li>
+  <li>If <code>X</code> is a template <em>template-parameter</em>,
+    the declared parameter is a template <em>template-parameter</em>
+    having the same <em>template-parameter-list</em> as <code>X</code>,
+    excluding default template arguments.</li>
+  <li>If the <em>qualified-concept-name</em> is followed by an ellipsis,
+    then the declared parameter is a template parameter pack (17.6.3).</li>
+</ul>
+<p>
+  [<i>Example</i>:
+</p>
+<blockquote><pre><code>template&lt;typename T&gt; concept C1 = true;
+template&lt;template&lt;typename&gt; class X&gt; concept C2 = true;
+template&lt;int N&gt; concept C3 = true;
+template&lt;typename... Ts&gt; concept C4 = true;
+template&lt;char... Cs&gt; concept C5 = true;
 
-  [<em>Example</em>:<pre><code>    template&lt;typename T&gt; concept C1 = true;
-    template&lt;template&lt;typename&gt; class X&gt; concept C2 = true;
-    template&lt;int N&gt; concept C3 = true;
-    template&lt;typename... Ts&gt; concept C4 = true;
-    template&lt;char... Cs&gt; concept C5 = true;
-
-    template&lt;C1 T&gt; void f1();       // OK, T is a type template-parameter
-    template&lt;C2 X&gt; void f2();       // OK, X is a template with one type-parameter
-    template&lt;C3 N&gt; void f3();       // OK, N has type int
-    template&lt;C4... Ts&gt; void f4();   // OK, Ts is a template parameter pack of types
-    template&lt;C4 T&gt; void f5();       // OK, T is a type template-parameter
-    template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of chars</code></pre>
-  &ndash; <em>end example</em>]
+template&lt;C1 T&gt; void f1();       // OK, T is a type template-parameter
+template&lt;C2 X&gt; void f2();       // OK, X is a template with one type-parameter
+template&lt;C3 N&gt; void f3();       // OK, N has type int
+template&lt;C4... Ts&gt; void f4();   // OK, Ts is a template parameter pack of types
+template&lt;C4 T&gt; void f5();       // OK, T is a type template-parameter
+template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of chars</code></pre></blockquote>
+<p>
+  &mdash;<i>end example</i>]
+</p>
 </blockquote>
 
 <p>
