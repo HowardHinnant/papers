@@ -249,7 +249,7 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 </p>
 <blockquote><pre><code>template &lt;Constraint auto N&gt; void f7();</code></pre></blockquote>
 <p>
-  Note however that this can only be a type constraint; non-type concepts
+  Note, however, that this can only be a type constraint; non-type concepts
   (including auto concepts) are not allowed in this form.
 </p>
 
@@ -266,7 +266,7 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 <blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
 decltype(Constraint auto) x = f();</code></pre></blockquote>
 
-<h3>Futher examples</h3>
+<h3>Further examples</h3>
 
 <p>
   Partial concept identifiers also work. Given a concept
@@ -282,8 +282,8 @@ Constructible&lt;int&gt; auto x = f();
 template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockquote>
 
 <p>
-  In concert with the general approach "<code>Constraint auto</code> goes wherever
-  <code>auto</code> goes", new-expressions and operators work:
+  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
+  <code>auto</code> goes&rdquo;, new-expressions and operators work:
 </p>
 <blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
 
