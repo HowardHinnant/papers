@@ -82,8 +82,8 @@ Document number: D????
   <li>A syntax for constrained declarations that is practically a
     &ldquo;constrained <code>auto</code>&rdquo;;
     the principle being &ldquo;wherever <code>auto</code> goes,
-    a <code>Constraint auto</code> can also go&rdquo;. The semantics are
-    to deduce like <code>auto</code> and additionally check a constraint.
+    a <code>Constraint auto</code> can also (non-recursively) go&rdquo;.
+    The semantics are to deduce like <code>auto</code> and additionally check a constraint.
     In a nutshell,
     <blockquote><pre><code>void f(Sortable auto x);
 Sortable auto f();      // #1
