@@ -54,6 +54,29 @@ Document number: D????
 
 <h2>Abstract</h2>
 
+<p>
+  This is a proposal for a short syntax for the constrained declaration
+  of the function parameters of function templates, as well as of
+  variables and function return types. The new syntax is a &ldquo;constrained
+  <code>auto</code>&rdquo;, e.g. <code>void sort(Sortable auto&amp; c);</code>.
+</p>
+
+<h2>Contents</h2>
+<ol>
+  <li><a href="#revisions">Revision history</a></li>
+  <li><a href="#summary">Proposal summary</a></li>
+  <li><a href="#part1">Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</a></li>
+  <li><a href="#part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</a></li>
+  <li><a href="#part3">Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</a></li>
+</ol>
+
+<h2 id="revisions">Revision history</h2>
+<ul>
+  <li>This document: Initial proposal.</li>
+</ul>
+
+<h2 id="summary">Proposal summary</h2>
+
 <p>This paper proposes three things:</p>
 <ol class="wide">
   <li>A syntax for constrained declarations that is practically a
@@ -132,7 +155,7 @@ Document number: D????
   </li>
 </ul>
 
-<h2>Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</h2>
+<h2 id="part1">Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</h2>
 
 <p>
   The approach proposed here borrows a subset of
@@ -148,7 +171,8 @@ Document number: D????
   to be preceded by a concept name. In every case, such a parameter
   is a deduced parameter, and we can see which parameters are deduced
   and which ones are not:
-  <pre><code>    [](auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
+</p>
+<pre><code>    [](auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
     [](Constraint auto a, Constraint auto& b, Constraint const auto& c, Constraint auto&& d) {...}; // constrained
 
     void f1(auto a, auto& b, const auto& c, auto&& d) {...}; // unconstrained
@@ -156,7 +180,7 @@ Document number: D????
 
     [](Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
     void f3(Constraint auto&& a, SomethingElse&& b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre>
-</p>
+
 <p>
   Seeing <code>auto</code> (even <code>Constraint auto</code>) in a parameter list
   tells us that we're dealing with a template. We know for
@@ -242,7 +266,7 @@ Document number: D????
   </code></pre>
 </p>
 
-<h2>Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
+<h2 id="part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
 
 <p>
   In function return types, we can leave out the <code>auto</code>.
@@ -297,7 +321,8 @@ Document number: D????
   concept identifier is interpreted like a type
   if possible.
 </p>
-<h2>Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</h2>
+
+<h2 id="part3">Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</h2>
 
 <p>
   In <a href="https://wg21.link/temp.param#10">[temp.param]/10</a> we have:
