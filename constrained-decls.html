@@ -99,7 +99,7 @@ template &lt;Sortable auto N&gt; void f();</code></pre></blockquote>
 {
     auto y = init;
 }</code></pre></blockquote>
-    So this proposal includes <code>auto</code>-typed parameters for
+    So, this proposal includes <code>auto</code>-typed parameters for
     functions, which we already allow for lambdas.</li>
 
   <li>An additional relaxation where the <code>auto</code> is optional
@@ -107,7 +107,7 @@ template &lt;Sortable auto N&gt; void f();</code></pre></blockquote>
     <blockquote><pre><code>Sortable f();
 Sortable x = f();</code></pre></blockquote></li>
 
-  <li>Simplifying and thus restricting the rules in
+  <li>Simplifying (and thus restricting) the rules in
     <a href="https://wg21.link/temp.param#10">[temp.param]/10</a>,
     so that <code>template &lt;Sortable S&gt;</code> always
     means that <code>S</code> is a type parameter, and
