@@ -160,7 +160,7 @@ Sortable x = f();</code></pre></blockquote></li>
 <p>
   The approach proposed here borrows a subset of
   <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2017/p0807r0.html">P0807R0 An Adjective Syntax for Concepts</a>. The idea is that
-  we don't try to come up with a notation that does everything
+  we don&rsquo;t try to come up with a notation that does everything
   that P0807 does; in particular, there is no proposal for a new syntax
   to introduce a type name.
 </p>
@@ -168,8 +168,8 @@ Sortable x = f();</code></pre></blockquote></li>
 <h3>Function templates</h3>
 
 <p>
-  The approach is simple: allow <code>auto</code> parameters in both
-  polymorphic lambdas and function templates, and allow the <code>auto</code>
+  The approach is simple: allow <code>auto</code> parameters to produce
+  function templates (as they produce polymorphic lambdas), and allow the <code>auto</code>
   to be preceded by a concept name. In every case, such a parameter
   is a deduced parameter, and we can see which parameters are deduced
   and which ones are not:
@@ -183,10 +183,10 @@ void f2(Constraint auto a, Constraint auto&amp; b, Constraint const auto&amp; c,
 [](Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
 void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre></blockquote>
 <p>
-  The appearance of <code>auto</code> (even <code>Constraint auto</code>)
+  The appearance of <code>auto</code> (including <code>Constraint auto</code>)
   in a parameter list
-  tells us that we're dealing with a function template. We know for
-  each parameter whether it's deduced or not. We can tell apart
+  tells us that we are dealing with a function template. For each parameter,
+  we know whether it is deduced or not. We can tell apart
   concepts from types: concepts precede <code>auto</code>, types do not.
 </p>
 <p>
@@ -201,7 +201,7 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
 </p>
 <p>
   We only propose the ability to apply one single constraint for a parameter,
-  return type or non-type template parameter. Any proposal to consider multiple
+  return type, or non-type template parameter. Any proposal to consider multiple
   constraints should happen separately after C++20.
 </p>
 
