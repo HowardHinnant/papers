@@ -175,10 +175,10 @@ Sortable x = f();</code></pre></blockquote></li>
   and which ones are not:
 </p>
 <blockquote><pre><code>[](auto a, auto&amp; b, const auto&amp; c, auto&amp;&amp; d) {...}; // unconstrained
-[](Constraint auto a, Constraint auto&amp; b, Constraint const auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
+[](Constraint auto a, Constraint auto&amp; b, const Constraint auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
 
 void f1(auto a, auto&amp; b, const auto&amp; c, auto&amp;&amp; d) {...}; // unconstrained
-void f2(Constraint auto a, Constraint auto&amp; b, Constraint const auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
+void f2(Constraint auto a, Constraint auto&amp; b, const Constraint auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
 
 [](Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
 void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre></blockquote>
@@ -193,11 +193,12 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
   The constraint applies to the deduced type, not to the cv-qualified
   parameter type, in cases like:
 </p>
-<blockquote><pre><code>void f42(Constraint const auto&amp; c);</code></pre></blockquote>
+<blockquote><pre><code>void f42(const Constraint auto&amp; c);</code></pre></blockquote>
 <p>
   Naturally, if the deduced type is cv-qualified, the constraint applies
-  to that type. The intent is that the order of the constraint
-  and cv-qualifiers in the declaration does not matter.
+  to that type. To keep things simple, a concept-identifier always
+  precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
+  cannot be freely mixed.
 </p>
 <p>
   We only propose the ability to apply one single constraint for a parameter,
@@ -248,6 +249,19 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
   (including auto concepts) are not allowed in this form.
 </p>
 
+<h3>Trailing return types and <code>decltype(auto)</code></h3>
+
+<p>
+  A "Constraint <code>auto</code>" can be used in a trailing return type:
+<blockquote><pre><code>auto f() -> Constraint auto;</code></pre></blockquote>
+</p>
+
+<p>
+  <code>decltype(auto)</code> can also be constrained:
+  <blockquote><pre><code>auto f() -> decltype(Constraint auto);
+decltype(Constraint auto) x = f();
+  </code></pre></blockquote>
+</p>
 <h3>Futher examples</h3>
 
 <p>
