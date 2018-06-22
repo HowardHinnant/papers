@@ -225,8 +225,8 @@ Whatever f6();              // See part 2. If Whatever is a type, not deduced.
   Note that <code>f4</code>, <code>f5</code> and <code>f6</code>
   are not templates (whereas the previous <code>f1</code>, <code>f2</code>
   and <code>f3</code> <em>are</em> templates). Here, there is no
-  mention of <code>auto</code> in the parameter list. Again, we see
-  when the return type is deduced, if we so choose.
+  mention of <code>auto</code> in the parameter list. Users have the choice
+  of adopting a style where it is explicit as to whether the return type is deduced.
 </p>
 
 <p>
@@ -239,7 +239,7 @@ Constraint auto x2 = f2();  // constrained, deduced.
 Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
                             // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
 <p>
-  We can, again, easily see when deduction occurs, if we so choose.
+  Again, users can make it so that it is easy to see when deduction occurs.
 </p>
 
 <p>
