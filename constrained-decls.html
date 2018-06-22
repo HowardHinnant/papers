@@ -270,7 +270,7 @@ decltype(Constraint auto) x = f();</code></pre></blockquote>
 
 <p>
   Partial concept identifiers also work. Given a concept
-  <code>template &lt;typename A, typename B&gt; concept
+  <code>template &lt;typename T, typename... Args&gt; concept
     Constructible = /* ... */;</code>, we can say:
 </p>
 <blockquote><pre><code>void f(Constructible&lt;int&gt; auto x);   // Constructible&lt;decltype(x), int&gt; is satisfied
