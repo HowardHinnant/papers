@@ -47,6 +47,7 @@ Document number: D????
 <a href="mailto:eric.niebler@gmail.com">Eric Niebler</a><br/>
 <a href="mailto:casey@carter.net">Casey Carter</a><br/>
 <a href="mailto:tom@honermann.net">Tom Honermann</a><br/>
+<a href="mailto:erich.keane@intel.com">Erich Keane</a><br/>
 2018-06-21<br/>
 </address>
 <hr/>
@@ -198,10 +199,14 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
   Naturally, if the deduced type is cv-qualified, the constraint applies
   to that type. To keep things simple, a concept-identifier always
   precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
-  cannot be freely mixed.
+  cannot be freely mixed:
+  <blockquote><pre><code>const Contraint auto x = foo(); // ok
+Constraint const auto x = foo(); // ill-formed
+Constraint auto const y = foo(); // ok
+  </blockquote>
 </p>
 <p>
-  We only propose the ability to apply one single constraint for a parameter,
+  We propose only the ability to apply one single constraint for a parameter,
   return type, or non-type template parameter. Any proposal to consider multiple
   constraints should happen separately after C++20.
 </p>
