@@ -256,9 +256,9 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 <h3>Trailing return types and <code>decltype(auto)</code></h3>
 
 <p>
-  A "Constraint <code>auto</code>" can be used in a trailing return type:
+  A &ldquo;<code>Constraint auto</code>&rdquo; cannot be used to indicate that a function declarator has a trailing return type:
 </p>
-<blockquote><pre><code>auto f() -&gt; Constraint auto;</code></pre></blockquote>
+<blockquote><pre><code>Constraint auto f() -&gt; auto; // ill-formed; shall be the single <i>type-specifier</i> <code>auto</code></code></pre></blockquote>
 
 <p>
   <code>decltype(auto)</code> can also be constrained:
