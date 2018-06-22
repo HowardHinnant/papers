@@ -200,11 +200,10 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
   to that type. To keep things simple, a concept-identifier always
   precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
   cannot be freely mixed:
-  <blockquote><pre><code>const Contraint auto x = foo(); // ok
-Constraint const auto x = foo(); // ill-formed
-Constraint auto const y = foo(); // ok
-  </blockquote>
 </p>
+<blockquote><pre><code>const Contraint auto x = foo(); // ok
+Constraint const auto x = foo(); // ill-formed
+Constraint auto const y = foo(); // ok</code></pre></blockquote>
 <p>
   We propose only the ability to apply one single constraint for a parameter,
   return type, or non-type template parameter. Any proposal to consider multiple
@@ -258,15 +257,15 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 
 <p>
   A "Constraint <code>auto</code>" can be used in a trailing return type:
-<blockquote><pre><code>auto f() -> Constraint auto;</code></pre></blockquote>
 </p>
+<blockquote><pre><code>auto f() -&gt; Constraint auto;</code></pre></blockquote>
 
 <p>
   <code>decltype(auto)</code> can also be constrained:
-  <blockquote><pre><code>auto f() -> decltype(Constraint auto);
-decltype(Constraint auto) x = f();
-  </code></pre></blockquote>
 </p>
+<blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
+decltype(Constraint auto) x = f();</code></pre></blockquote>
+
 <h3>Futher examples</h3>
 
 <p>
