@@ -225,8 +225,8 @@ Whatever f6();              // See part 2. If Whatever is a type, not deduced.
   Note that <code>f4</code>, <code>f5</code> and <code>f6</code>
   are not templates (whereas the previous <code>f1</code>, <code>f2</code>
   and <code>f3</code> <em>are</em> templates). Here, there is no
-  mention of <code>auto</code> in the parameter list. Again, we see
-  when the return type is deduced, if we so choose.
+  mention of <code>auto</code> in the parameter list. Users have the choice
+  of adopting a style where it is explicit as to whether the return type is deduced.
 </p>
 
 <p>
@@ -239,7 +239,7 @@ Constraint auto x2 = f2();  // constrained, deduced.
 Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
                             // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
 <p>
-  We can, again, easily see when deduction occurs, if we so choose.
+  Again, users can make it so that it is easy to see when deduction occurs.
 </p>
 
 <p>
@@ -249,16 +249,16 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 </p>
 <blockquote><pre><code>template &lt;Constraint auto N&gt; void f7();</code></pre></blockquote>
 <p>
-  Note however that this can only be a type constraint; non-type concepts
+  Note, however, that this can only be a type constraint; non-type concepts
   (including auto concepts) are not allowed in this form.
 </p>
 
 <h3>Trailing return types and <code>decltype(auto)</code></h3>
 
 <p>
-  A "Constraint <code>auto</code>" can be used in a trailing return type:
+  A &ldquo;<code>Constraint auto</code>&rdquo; cannot be used to indicate that a function declarator has a trailing return type:
 </p>
-<blockquote><pre><code>auto f() -&gt; Constraint auto;</code></pre></blockquote>
+<blockquote><pre><code>Constraint auto f() -&gt; auto; // ill-formed; shall be the single <i>type-specifier</i> <code>auto</code></code></pre></blockquote>
 
 <p>
   <code>decltype(auto)</code> can also be constrained:
@@ -266,11 +266,11 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 <blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
 decltype(Constraint auto) x = f();</code></pre></blockquote>
 
-<h3>Futher examples</h3>
+<h3>Further examples</h3>
 
 <p>
   Partial concept identifiers also work. Given a concept
-  <code>template &lt;typename A, typename B&gt; concept
+  <code>template &lt;typename T, typename... Args&gt; concept
     Constructible = /* ... */;</code>, we can say:
 </p>
 <blockquote><pre><code>void f(Constructible&lt;int&gt; auto x);   // Constructible&lt;decltype(x), int&gt; is satisfied
@@ -282,8 +282,8 @@ Constructible&lt;int&gt; auto x = f();
 template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockquote>
 
 <p>
-  In concert with the general approach "<code>Constraint auto</code> goes wherever
-  <code>auto</code> goes", new-expressions and operators work:
+  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
+  <code>auto</code> goes&rdquo;, new-expressions and operators work:
 </p>
 <blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
 
