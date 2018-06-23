@@ -273,8 +273,7 @@ decltype(Constraint auto) x = f();</code></pre></blockquote>
   to that type.
 </p>
 <p>
-  To keep things simple, a concept-identifier always
-  precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
+  To keep things simple, an <code>auto</code> being constrained is always immediately preceded by the constraint. So, cv-qualifiers and concept-identifiers
   cannot be freely mixed:
 </p>
 <blockquote><pre><code>const Contraint auto x = foo(); // ok
