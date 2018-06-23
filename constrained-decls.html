@@ -292,7 +292,7 @@ operator Sortable auto() { }</code></pre></blockquote>
 <h2 id="part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
 
 <p>
-  In function return types, we can leave out the <code>auto</code>.
+  In the return type of a function declaration, we can leave out the <code>auto</code>.
   So, in addition to
 </p>
 <blockquote><pre><code>Constraint auto f1();</code></pre></blockquote>
@@ -314,16 +314,16 @@ operator Sortable auto() { }</code></pre></blockquote>
 <blockquote><pre><code>Constraint x = f2();</code></pre></blockquote>
 <p>
   Note, in particular, that we already have a syntax that
-  does (partial) deduction but doesn't make that explicit in the syntax:
+  does (partial) deduction but doesn&rsquo;t make that explicit in the syntax:
 </p>
 <blockquote><pre><code>std::tuple x = foo();</code></pre></blockquote>
 <p>
   The variable case in particular seems reasonable, considering
-  the already existing deduction syntaxes that don't call
+  the already existing deduction syntaxes that don&rsquo;t call
   attention to deduction. The user always has a choice to use
   a more explicit syntax. The return type case might well have
   a weaker rationale for being allowed. It should be noted, though,
-  that this relaxation in general was present in the TS, this
+  that this relaxation in general was present in the TS; this
   paper is merely not proposing it for parameters.
 </p>
 <p>
@@ -338,7 +338,7 @@ void foo() {
 <p>
   Note that the variable definition is unambiguously a variable
   definition. This proposal proposes no function declaration
-  syntax that would clash with it. It's merely something
+  syntax that would clash with it. It&rsquo;s merely something
   to be aware of, and a demonstration of how the presence of <code>auto</code>
   avoids ambiguity. For the other cases, we propose that
   we should have a disambiguation rule where a partial
