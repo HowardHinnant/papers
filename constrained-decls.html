@@ -354,23 +354,23 @@ void foo() {
 </p>
 <blockquote class="std">
 <p>
-  A <em>constrained-parameter</em> declares a template parameter whose kind (type, non-type, template) and type
-  match that of the prototype parameter (17.6.8) of the concept designated by the <em>qualified-concept-name</em>
-  in the <em>constrained-parameter</em>. Let <code>X</code> be the prototype parameter of the designated concept.
+  A <i>constrained-parameter</i> declares a template parameter whose kind (type, non-type, template) and type
+  match that of the prototype parameter (17.6.8) of the concept designated by the <i>qualified-concept-name</i>
+  in the <i>constrained-parameter</i>. Let <code>X</code> be the prototype parameter of the designated concept.
   The declared template parameter is determined by the kind of <code>X</code> (type, non-type, template)
-  and the optional ellipsis in the <em>constrained-parameter</em> as follows.
+  and the optional ellipsis in the <i>constrained-parameter</i> as follows.
 </p>
 <ul>
-  <li>If <code>X</code> is a type <em>template-parameter</em>,
-    the declared parameter is a type <em>template-parameter</em>.</li>
-  <li>If <code>X</code> is a non-type <em>template-parameter</em>,
-    the declared parameter is a non-type <em>template-parameter</em>
+  <li>If <code>X</code> is a type <i>template-parameter</i>,
+    the declared parameter is a type <i>template-parameter</i>.</li>
+  <li>If <code>X</code> is a non-type <i>template-parameter</i>,
+    the declared parameter is a non-type <i>template-parameter</i>
     having the same type as <code>X</code>.</li>
-  <li>If <code>X</code> is a template <em>template-parameter</em>,
-    the declared parameter is a template <em>template-parameter</em>
-    having the same <em>template-parameter-list</em> as <code>X</code>,
+  <li>If <code>X</code> is a template <i>template-parameter</i>,
+    the declared parameter is a template <i>template-parameter</i>
+    having the same <i>template-parameter-list</i> as <code>X</code>,
     excluding default template arguments.</li>
-  <li>If the <em>qualified-concept-name</em> is followed by an ellipsis,
+  <li>If the <i>qualified-concept-name</i> is followed by an ellipsis,
     then the declared parameter is a template parameter pack (17.6.3).</li>
 </ul>
 <p>
