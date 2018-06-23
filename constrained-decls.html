@@ -190,25 +190,6 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
   we know whether it is deduced or not. We can tell apart
   concepts from types: concepts precede <code>auto</code>, types do not.
 </p>
-<p>
-  The constraint applies to the deduced type, not to the cv-qualified
-  parameter type, in cases like:
-</p>
-<blockquote><pre><code>void f42(const Constraint auto&amp; c);</code></pre></blockquote>
-<p>
-  Naturally, if the deduced type is cv-qualified, the constraint applies
-  to that type. To keep things simple, a concept-identifier always
-  precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
-  cannot be freely mixed:
-</p>
-<blockquote><pre><code>const Contraint auto x = foo(); // ok
-Constraint const auto x = foo(); // ill-formed
-Constraint auto const y = foo(); // ok</code></pre></blockquote>
-<p>
-  We propose only the ability to apply one single constraint for a parameter,
-  return type, or non-type template parameter. Any proposal to consider multiple
-  constraints should happen separately after C++20.
-</p>
 
 <h3>Return types and variable declarations</h3>
 
@@ -266,7 +247,27 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 <blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
 decltype(Constraint auto) x = f();</code></pre></blockquote>
 
-<h3>Further examples</h3>
+<h3>General rules</h3>
+
+<p>
+  The constraint applies to the deduced type, not to the cv-qualified
+  parameter type, in cases like:
+</p>
+<blockquote><pre><code>void f42(const Constraint auto&amp; c);</code></pre></blockquote>
+<p>
+  Naturally, if the deduced type is cv-qualified, the constraint applies
+  to that type. To keep things simple, a concept-identifier always
+  precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
+  cannot be freely mixed:
+</p>
+<blockquote><pre><code>const Contraint auto x = foo(); // ok
+Constraint const auto x = foo(); // ill-formed
+Constraint auto const y = foo(); // ok</code></pre></blockquote>
+<p>
+  We propose only the ability to apply one single constraint for a parameter,
+  return type, or non-type template parameter. Any proposal to consider multiple
+  constraints should happen separately after C++20.
+</p>
 
 <p>
   Partial concept identifiers also work. Given a concept
