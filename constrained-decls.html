@@ -234,7 +234,15 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
   (including auto concepts) are not allowed in this form.
 </p>
 
-<h3>Trailing return types and <code>decltype(auto)</code></h3>
+<h3>Other uses of <code>auto</code></h3>
+
+<p>
+  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
+  <code>auto</code> goes&rdquo;, new-expressions and operators work:
+</p>
+<blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
+
+operator Sortable auto() { }</code></pre></blockquote>
 
 <p>
   A &ldquo;<code>Constraint auto</code>&rdquo; cannot be used to indicate that a function declarator has a trailing return type:
@@ -281,14 +289,6 @@ Constructible&lt;int&gt; auto f();
 Constructible&lt;int&gt; auto x = f();
 
 template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockquote>
-
-<p>
-  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
-  <code>auto</code> goes&rdquo;, new-expressions and operators work:
-</p>
-<blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
-
-operator Sortable auto() { }</code></pre></blockquote>
 
 <h2 id="part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
 
