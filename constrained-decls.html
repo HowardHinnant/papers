@@ -264,13 +264,16 @@ decltype(Constraint auto) x = f();</code></pre></blockquote>
 <h3>General rules</h3>
 
 <p>
-  The constraint applies to the deduced type, not to the cv-qualified
-  parameter type, in cases like:
+  The constraint applies directly to the deduced type. It does not apply to the possibly cv-qualified
+  type described by the type specifiers, nor does it apply to the type declared for the variable:
 </p>
-<blockquote><pre><code>void f42(const Constraint auto&amp; c);</code></pre></blockquote>
+<blockquote><pre><code>const Assignable&lt;int&gt; auto&amp;&amp; c = *static_cast&lt;int *&gt;(p); // Assignable&lt;int &amp;, int&gt;</code></pre></blockquote>
 <p>
-  Naturally, if the deduced type is cv-qualified, the constraint applies
-  to that type. To keep things simple, a concept-identifier always
+  Naturally, if the deduced type is cv-qualified (or a reference), the constraint applies
+  to that type.
+</p>
+<p>
+  To keep things simple, a concept-identifier always
   precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
   cannot be freely mixed:
 </p>
