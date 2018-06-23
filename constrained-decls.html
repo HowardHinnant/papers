@@ -338,12 +338,13 @@ void foo() {
 <p>
   Note that the variable definition is unambiguously a variable
   definition. This proposal proposes no function declaration
-  syntax that would clash with it. It&rsquo;s merely something
-  to be aware of, and a demonstration of how the presence of <code>auto</code>
-  avoids ambiguity. For the other cases, we propose that
-  we should have a disambiguation rule where a partial
-  concept identifier is interpreted like a type
-  if possible.
+  syntax that would clash with it; in particular, <code>Constructible&lt;int&gt;</code>
+  is not considered a <i>type-name</i> that is short for <code>Constructible&lt;int&gt; auto</code>
+  except in limited contexts. It&rsquo;s merely something to be aware of, and a demonstration of how
+  the presence of <code>auto</code> avoids ambiguity. For each remaining case above,
+  <code>Constructible&lt;int&gt;</code> <em>does</em> appear within such a limited context when parsing
+  the statements as prospective declaration statements; we propose to generalize the rule for disambiguating
+  in favor of declaration statements to cover this case.
 </p>
 
 <h2 id="part3">Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</h2>
