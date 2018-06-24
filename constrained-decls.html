@@ -48,7 +48,7 @@ Document number: D????
 <a href="mailto:casey@carter.net">Casey Carter</a><br/>
 <a href="mailto:tom@honermann.net">Tom Honermann</a><br/>
 <a href="mailto:erich.keane@intel.com">Erich Keane</a><br/>
-2018-06-21<br/>
+2018-06-23<br/>
 </address>
 <hr/>
 <h1 style="text-align: center;">Yet another approach for constrained declarations</h1>
@@ -397,17 +397,22 @@ template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of 
   Does that seem like a mouthful?
 </p>
 <p>
-  That's because it is. In <code>template &lt;Constraint T&gt;</code>, the kind of
+  That&rsquo;s because it is. In <code>template &lt;Constraint T&gt;</code>, the kind of
   <code>T</code> depends on the kind of the prototype parameter of <code>Constraint</code>.
-  We propose that for such a constrained-parameter syntax, <code>T</code> should
-  always be a type, and <code>Constraint</code> would always need to be a concept
-  that has a corresponding type parameter or a type parameter pack.
 </p>
 <p>
+  We instead propose that, for such a constrained-parameter syntax:
+</p>
+<ul>
+  <li><code>T</code> should always be a type, and</li>
+  <li><code>Constraint</code> would always need to be a concept
+  that has a corresponding type parameter or type parameter pack.</li>
+</ul>
+<p>
   To be clear, we are not proposing that concepts in general should not
-  have non-type or template template parameters. We are merely proposing
+  have non-type or template template parameters. We are merely proposing for it to be the case
   that the constrained parameter shortcut is not provided for concepts with
-  such prototype parameters; such concepts need to be used with a requires-clause.
+  such prototype parameters; such concepts would need to be used with a <i>requires-clause</i>.
   The constrained parameter syntax should mean just one thing.
   Note that the same syntax <code>template &lt;A T&gt;</code> is still a non-type
   parameter when <code>A</code> is a type name rather than a concept. We are willing
@@ -419,9 +424,9 @@ template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of 
   <li>It seems desirable to have the constrained template parameter syntax.</li>
   <li>It would be nice if that syntax covered the most common case.</li>
   <li>It would further be nice if that syntax covered <em>only</em> the most common case.</li>
-  <li>The other cases are expected to be so rare that there's no
-    need to provide a shortcut for them, and certainly rare enough
-    that they shouldn't use the same syntax.</li>
+  <li>The other cases are expected to be so rare that there&rsquo;s no
+    need to provide a shortcut for them, and they are certainly rare enough
+    that they shouldn&rsquo;t use the same syntax.</li>
 </ol>
 <p>
   So, to clarify:
@@ -431,17 +436,17 @@ template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of 
     a non-type parameter, like it always did.</li>
   <li><code>template &lt;ConceptName T&gt;</code> means
     a type parameter constrained by <code>ConceptName</code>,
-    and <code>ConceptName</code> needs to be a concept with
-    a type parameter or a pack parameter.</li>
+    and the prototype parameter of <code>ConceptName</code> needs to be
+    a type parameter or a type parameter pack.</li>
   <li><code>template &lt;auto N&gt;</code> means a non-type parameter
     with a deduced type.</li>
   <li><code>template &lt;ConceptName auto N&gt;</code> means
     a non-type parameter with a deduced type constrained by
-    <code>ConceptName</code>, and <code>ConceptName</code>
-    needs to be a concept with a type parameter or a pack parameter.</li>
+    <code>ConceptName</code>, and the prototype parameter of <code>ConceptName</code>
+    needs to be a type parameter or a type parameter pack.</li>
 </ul>
 <p>
-  Other use cases can be done with requires-clauses.
+  Other use cases can be done with <i>requires-clause</i>s.
 </p>
 
 </body>
