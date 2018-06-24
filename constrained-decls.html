@@ -326,6 +326,14 @@ template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockqu
   A minimal change we can make as part of this proposal is to allow <code>auto</code> as being implicitly modified by a least constrained concept where a constraint is currently allowed in a <i>return-type-requirement</i>.
   At the same time, <code>Constraint auto</code> would also be allowed. Thus, a plain <code>Constraint</code> in such a position can be seen as a case of relaxed &ldquo;constrained <code>auto</code>&rdquo;.
 </p>
+<p>For example:</p>
+<blockquote><pre><code>requires(T t) {
+  {t} -&gt; const auto*; // t needs to be a pointer to const
+}
+
+requires(T t) {
+  {t} -&gt; Constraint auto; // t needs to be of a type that satisfies Constraint
+}</code></pre></blockquote>
 
 <p>
   In variable declarations, omitting the <code>auto</code>
