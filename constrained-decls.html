@@ -255,6 +255,12 @@ operator Sortable auto() { }</code></pre></blockquote>
 <blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
 decltype(Constraint auto) x = f();</code></pre></blockquote>
 
+<p>
+  Structured bindings do deduce <code>auto</code> in some cases; however, the <code>auto</code> is deduced from the whole (and not from the individual components).
+  It is somewhat doubtful that applying the constraint to the whole, as opposed to (for example) applying separately to each component, is the correct semantic.
+  Therefore, we propose to defer enabling the application of constraints to structured bindings to separate papers.
+</p>
+
 <h3>General rules</h3>
 
 <p>
