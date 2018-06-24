@@ -317,6 +317,17 @@ template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockqu
 </p>
 
 <p>
+  Trailing return types in function declarations behave the same way:
+</p>
+<blockquote><pre><code>auto f1() -&gt; Constraint; // okay</code></pre></blockquote>
+
+<p>
+  Trailing return types are also used for <i>return-type-requirement</i>s; however, <code>auto</code> does not (currently) go in such a context, whereas constraints <em>do</em>.
+  A minimal change we can make as part of this proposal is to allow <code>auto</code> as being implicitly modified by a least constrained concept where a constraint is currently allowed in a <i>return-type-requirement</i>.
+  At the same time, <code>Constraint auto</code> would also be allowed. Thus, a plain <code>Constraint</code> in such a position can be seen as a case of relaxed &ldquo;constrained <code>auto</code>&rdquo;.
+</p>
+
+<p>
   In variable declarations, omitting the <code>auto</code>
   also seems reasonable:
 </p>
