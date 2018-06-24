@@ -190,25 +190,6 @@ void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a cons
   we know whether it is deduced or not. We can tell apart
   concepts from types: concepts precede <code>auto</code>, types do not.
 </p>
-<p>
-  The constraint applies to the deduced type, not to the cv-qualified
-  parameter type, in cases like:
-</p>
-<blockquote><pre><code>void f42(const Constraint auto&amp; c);</code></pre></blockquote>
-<p>
-  Naturally, if the deduced type is cv-qualified, the constraint applies
-  to that type. To keep things simple, a concept-identifier always
-  precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
-  cannot be freely mixed:
-</p>
-<blockquote><pre><code>const Contraint auto x = foo(); // ok
-Constraint const auto x = foo(); // ill-formed
-Constraint auto const y = foo(); // ok</code></pre></blockquote>
-<p>
-  We propose only the ability to apply one single constraint for a parameter,
-  return type, or non-type template parameter. Any proposal to consider multiple
-  constraints should happen separately after C++20.
-</p>
 
 <h3>Return types and variable declarations</h3>
 
@@ -253,7 +234,15 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
   (including auto concepts) are not allowed in this form.
 </p>
 
-<h3>Trailing return types and <code>decltype(auto)</code></h3>
+<h3>Other uses of <code>auto</code></h3>
+
+<p>
+  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
+  <code>auto</code> goes&rdquo;, new-expressions and operators work:
+</p>
+<blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
+
+operator Sortable auto() { }</code></pre></blockquote>
 
 <p>
   A &ldquo;<code>Constraint auto</code>&rdquo; cannot be used to indicate that a function declarator has a trailing return type:
@@ -266,7 +255,33 @@ Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
 <blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
 decltype(Constraint auto) x = f();</code></pre></blockquote>
 
-<h3>Further examples</h3>
+<p>
+  Structured bindings do deduce <code>auto</code> in some cases; however, the <code>auto</code> is deduced from the whole (and not from the individual components).
+  It is somewhat doubtful that applying the constraint to the whole, as opposed to (for example) applying separately to each component, is the correct semantic.
+  Therefore, we propose to defer enabling the application of constraints to structured bindings to separate papers.
+</p>
+
+<h3>General rules</h3>
+
+<p>
+  The constraint applies to the deduced type, not to the cv-qualified
+  parameter type, in cases like:
+</p>
+<blockquote><pre><code>void f42(const Constraint auto&amp; c);</code></pre></blockquote>
+<p>
+  Naturally, if the deduced type is cv-qualified, the constraint applies
+  to that type. To keep things simple, a concept-identifier always
+  precedes <code>auto</code>, so cv-qualifiers and concept-identifiers
+  cannot be freely mixed:
+</p>
+<blockquote><pre><code>const Contraint auto x = foo(); // ok
+Constraint const auto x = foo(); // ill-formed
+Constraint auto const y = foo(); // ok</code></pre></blockquote>
+<p>
+  We propose only the ability to apply one single constraint for a parameter,
+  return type, or non-type template parameter. Any proposal to consider multiple
+  constraints should happen separately after C++20.
+</p>
 
 <p>
   Partial concept identifiers also work. Given a concept
@@ -280,14 +295,6 @@ Constructible&lt;int&gt; auto f();
 Constructible&lt;int&gt; auto x = f();
 
 template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockquote>
-
-<p>
-  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
-  <code>auto</code> goes&rdquo;, new-expressions and operators work:
-</p>
-<blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
-
-operator Sortable auto() { }</code></pre></blockquote>
 
 <h2 id="part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
 
