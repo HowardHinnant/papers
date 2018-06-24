@@ -252,8 +252,8 @@ operator Sortable auto() { }</code></pre></blockquote>
 <p>
   <code>decltype(auto)</code> can also be constrained:
 </p>
-<blockquote><pre><code>auto f() -&gt; decltype(Constraint auto);
-decltype(Constraint auto) x = f();</code></pre></blockquote>
+<blockquote><pre><code>auto f() -&gt; Constraint decltype(auto);
+Constraint decltype(auto) x = f();</code></pre></blockquote>
 
 <p>
   Structured bindings do deduce <code>auto</code> in some cases; however, the <code>auto</code> is deduced from the whole (and not from the individual components).
