@@ -1,0 +1,228 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Static if resurrected</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2015-04-07<br/>
+</address>
+<hr/>
+<h1 align=center>Static if resurrected</h1>
+
+<h2>Abstract</h2>
+<p>I want to bring back parts of static if; namely bring it back
+in a form where it's
+<ul>
+<li>restricted to block scopes.</li>
+<li>always going to establish a new scope.</li>
+<li>required that there exists values of the condition so that
+either condition branch is well-formed.</li>
+</ul>
+</p>
+<p>Why? Because it allows making static decisions without
+having to resort to multiple overloads. Having a static
+if allows for simple and local code, without having to
+know the intricacies of overload resolution, partial
+ordering and SFINAE.
+</p>
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+Richard Smith explained the following:
+</p>
+<pre>
+The "controversial" parts of N3329 are that:
+1) it does not introduce a new scope, and
+2) the non-selected branch is completely ignored (the tokens aren't even 
+required to be parseable)
+
+This makes it fundamentally incompatible with the template model used by at 
+least two major implementations.
+
+If, instead, it introduced a new scope (as proposed in this thread) and we had 
+a requirement that it is possible to instantiate each arm of the static if 
+(that is, the same requirement we have for other token sequences in templates),
+then I believe the over-my-dead-body objections from implementors would disappear.
+</pre>
+<p>
+So, the proposed static_if (perhaps we could get rid of the space,
+it avoids splitting the keyword onto multiple lines. Not everyone
+uses clang-format. Yes, people who don't are foolish, but anyway)
+should have the characteristics Richard outlined.
+</p>
+
+<a name="Motivation"></a><h2>Motivation</h2>
+
+<p>
+As the first example, I find it unwieldy to do pack unpacking with 
+multiple overloads.
+</p>
+<pre>
+<code>
+template &lt;class T&gt; 
+void f(T&& t) 
+{
+    /* handle one T */
+} 
+
+template &lt;class T, class... Rest&gt; 
+void f(T&& t, Rest&&... r) 
+{
+    f(t); 
+    /* handle the tail */
+    f(r...); // I think I have a bug here if I don't have a zero-param overload
+}
+</code>
+</pre>
+<p>
+It would be much simpler to be able to handle the unpacking in one
+function template, even though we're still writing recursive code.
+</p>
+<pre>
+<code>
+template &lt;class T, class... Rest&gt; 
+void f(T&& t, Rest&&... r) 
+{
+    /* 
+      handle one T 
+    */
+    static_if (sizeof...(r)) {
+    /*
+      handle the tail 
+    */
+        f(r...); // I don't need a zero-param overload to do this
+    }
+}
+</code>
+</pre>
+<p>
+Mutually exclusive constraints would also be arguably easier to grok.
+Instead of
+</p>
+<pre>
+<code>
+template &lt;class T, class... Args&gt; 
+enable_if_t&lt;is_constructible_v&lt;T, Args...&gt;, unique_ptr&lt;T&gt;&gt; 
+make_unique(Args&&... args) 
+{
+    return unique_ptr&lt;T&gt;(new T(forward&lt;Args&gt;(args)...));
+}  
+
+template &lt;class T, class... Args&gt;  
+enable_if_t&lt;!is_constructible_v&lt;T, Args...&gt;, unique_ptr&lt;T&gt;&gt;
+make_unique(Args&&... args) 
+{
+    return unique_ptr&lt;T&gt;(new T{forward&lt;Args&gt;(args)...});
+}
+</code>
+</pre>
+<p>
+we could write
+</p>
+<pre>
+<code>
+template &lt;class T, class... Args&gt; 
+unique_ptr&lt;T&gt;
+make_unique(Args&&... args) 
+{
+    static_if (is_constructible_v&lt;T, Args...&gt;) {
+        return unique_ptr&lt;T&gt;(new T(forward&lt;Args&gt;(args)...));
+    } else {
+        return unique_ptr&lt;T&gt;(new T{forward&lt;Args&gt;(args)...});
+    }
+}
+</code>
+</pre>
+<p>
+Even if the enable_ifs above are turned into constraints, I daresay the
+single-function solution is much simpler. A "damn sight nicer", if you
+ask me.
+</p>
+<p>
+I expect there are many more good uses for such a facility than I can
+imagine. I have heard users hinting at wanting to write a function template
+that can take both signed and unsigned integral types, and write different
+code for the signed and unsigned cases, without having to worry about
+either branch emitting diagnostics even if never being taken - and those
+users do not think they want to write multiple overloads for integral
+types, since getting something like that right may end up being a heroic
+endeavor...
+</p>
+
+<a name="Concepts"></a><h2>Yes, but don't Concepts provide a superior alternative?</h2>
+
+<p>
+Yes, for expressing the constraints of a function template, they do. No, for
+simplicity and locality of code, they don't. It's certainly easier to
+write (mutually exclusive and other) constraints with concepts, since it's possible to overload
+on concepts. The lack of locality remains, and the need to understand
+overload resolution, partial ordering and SFINAE remains. I posit that
+there are many simple cases where all that is still overly complex
+when a simple block-scope static condition would do much better. Chances
+are, of course, that combining Concepts with a static_if can lead to
+expressive designs that are far superior to what either of these facilities 
+can provide in isolation.
+</p>
+<p>
+For the last part, it seems like some uses of static_if could combine
+rather nicely with constraint disjunctions:
+</p>
+<p>
+<pre>
+<code>
+template &lt;typename T, typename U&gt; void f(T, U)
+  requires C1&lt;T&gt; && (C2&lt;U&gt; || C3&lt;U&gt;)
+{
+    static_if (C2&lt;U&gt;) 
+    {
+    } 
+    else if (C3&lt;U&gt;) 
+    {
+    }
+}
+</code>
+</pre>
+</p>
+
+<a name="Implementability"></a><h2>Implementability</h2>
+<p>
+I fully expect the implementation difficulty of such a facility to be
+considerable, and it's certainly well beyond the capabilities of an
+intermediate front-end contributor such as myself. Is that cost worth
+the benefit of the facility? Hard to say. I guess it would be. :)
+</p>
+
+<a name="Teachability"></a><h2>Teachability</h2>
+<p>
+Adding this facility will increase the overall complexity of the language,
+and since it's not identical or even very similar to the static if in D,
+it's not trivial to teach. I do have high hopes that it would be much
+simpler to teach for simple cases than using multiple overloads would be.
+</p>
+
+</body>
+
+</html>

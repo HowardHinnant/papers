@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>LWG 2424: Atomics, mutexes and condition variables should not be trivially copyable</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2015-04-07<br/>
+</address>
+<hr/>
+<h1 align=center>LWG 2424: Atomics, mutexes and condition variables should not be trivially copyable</h1>
+
+<h2>Abstract</h2>
+<p><a href="http://cplusplus.github.io/LWG/lwg-active.html#2424">LWG 2424</a>
+points out that atomic types should not be trivially copyable. During
+an issue teleconference, Howard Hinnant pointed out that the same issue
+applies to mutexes and condition variables, and that it would be preferrable
+to state such things more generally rather than having it on every
+individual library type that requires non-trivial copyability. It seems
+that the library specification is faulty in this regard, since such
+types have deleted copy operations, but those do not render the types
+non-trivially copyable. It was also mentioned that the core language
+has been in flux in this area, and the library should have a sane and stable
+way to specify such things. There are a couple of ways to solve the
+problem, but there are subtleties involved.
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+Quoting [class]/6:
+</p>
+<blockquote><pre>
+A trivially copyable class is a class that:
+- has no non-trivial copy constructors (12.8),
+- has no non-trivial move constructors (12.8),
+- has no non-trivial copy assignment operators (13.5.3, 12.8),
+- has no non-trivial move assignment operators (13.5.3, 12.8), and
+- has a trivial destructor (12.4).
+</pre>
+</blockquote>
+<p>
+A deleted copy constructor is trivial, so the current specification
+of atomic types renders them trivially copyable.
+</p>
+<p>So, why don't we just say that a deleted special member function 
+is non-trivial? Alas, that would mean the following type becomes
+non-trivial:
+</p>
+<p>
+<code>
+<pre>
+struct X 
+{
+    const int val;
+};
+</pre>
+</code>
+</p>
+<p>
+X has a deleted copy assignment operator. That doesn't mean that X is
+not trivially copyable. And X has been trivial since the dawn of time,
+so we must be careful not to break such expectations.
+</p>
+
+<a name="DifferentExplicitImplicit"></a><h2>Make explicitly deleted and implicitly deleted special member functions act differently?</h2>
+
+<p>
+We could solve the problem by stating that explicitly deleted special
+member functions are non-trivial. Such ideas have been floated before,
+and several people would apparently find it intuitive. The downside
+is that in general we try to avoid differences between explicit and
+implicit default/delete.
+</p>
+
+<a name="LibraryFix"></a><h2>Can the library easily specify its types so that they are not trivially copyable?</h2>
+
+<p>
+The library types could just make the copy operations user-provided.
+That is, instead of 
+<pre>
+<code>
+atomic& operator=(const atomic&) = delete;
+</code>
+</pre>
+the library would need to do
+<pre>
+<code>
+private:
+atomic& operator=(const atomic&);
+</code>
+</pre>
+Now the special member function is not trivial, since it's user-provided.
+The general downside of the technique is that friends can still try to
+call such a special member, and the result of the call is a linker error.
+That problem is surmountable, since there are no user-visible friends
+of such library types.
+</p>
+
+<a name="LibraryWeasel"></a><h2>Library weasel wording solution</h2>
+
+<p>
+The proposed solution for LWG 2424 just states that the types are
+not trivially copyable. That's a good solution in the sense that
+it doesn't over-specify how an implementation renders the type
+non-trivially copyable, but it has the downside that we should
+at least be aware of how a library implementation does that in
+terms of the core language, and the current synopses that use
+deleted special member functions do not work.
+</p>
+
+<a name="LibraryEvil"></a><h2>An evil library solution</h2>
+
+<p>
+An "evil" solution would be to specialize <code>is_trivially_copyable</code>
+and <code>is_trivial</code> for the types that are not desired to be trivially
+copyable or trivial. Since it's undefined behaviour to do so in
+a C++ program, such a solution would potentially require compiler
+help. Such a solution is undesirable for library implementations
+that need to work with multiple compilers.
+</p>
+
+<a name="Solution"></a><h2>Suggested solution?</h2>
+
+<p>
+Due to the struct X example, it seems we should tread very carefully
+with suggestions to change the semantics of deleted special member
+functions. It seems recommendable to
+<ul>
+<li>educate library vendors about the fact that deleting a special
+member function doesn't do what people think it does.</li>
+<li>perhaps strike the deleted special member functions from atomic types,
+<code>condition_variable</code> and all library mutexes and locks,
+and replace that with..</li>
+<li>add general wording like in the proposed resolution of LWG 2424
+to the right places, and also state generally that the chosen
+types are not copyable at all.</li>
+</ul>
+</p>
+<p>
+It's debatable whether the deleted special member functions need to
+be stricken. We want to make sure that some of these types are not copyable
+and not movable, and additionally that none of them are trivially copyable.
+It's potentially possible to retain the deleted special member functions and
+add additional signatures (in the library implementation, not in the
+specification) that are user-provided, but I don't find that solution
+very clean. It would certainly be useful to hash out compiler bugs
+in the implementation of <code>is_trivially_copyable</code> 
+(I found some compilers
+that don't do the right thing with "has no non-trivial.." part of it).
+</p>
+
+</body>
+</html>

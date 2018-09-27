@@ -1,0 +1,396 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Ruminations on lambda captures</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2016-01-28<br/>
+</address>
+<hr/>
+<h1 align=center>Ruminations on lambda captures</h1>
+
+<h2>Abstract</h2>
+<p>
+  The proposal for capturing *this by value (<a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2015/p0018r1.html">P0018</a>) raised suggestions
+  for a "true value capture", which led to suggestions to change capture-default
+  that defaults to by-value capture([=]) in the case of capturing class members.
+  This paper explores what the suggested
+  changes to the capture-default might mean. This paper specifically doesn't
+  try to claim that any of the changes would have an effect on any particular
+  amount of existing code, and admits that the examples in this paper are
+  somewhat concocted and for illustrative purposes only.
+</p>
+
+<h2>Contents</h2>
+
+<ul>
+<li><a href="#MainVariants">The main suggestions of changed semantics for capturing members</a></li>
+<li><a href="#WhyChange">Why change anything?</a></li>
+<li><a href="#EffectOfFullCopy">The effect of copying the whole object</a></li>
+<li><a href="#EffectOfMemberCopy">The effect of copying individual members</a></li>
+<li><a href="#WhatAboutNonMemberLambdas">Sure, but aren't such issues already present in lambdas outside classes or class member definitions?</a></li>
+<li><a href="#ExplicitFullObjectCopy">Does the proposed [*this] suffer from these problems?</a></li>
+<li><a href="#CopyingMembersIsHard">"Copying members is too hard."</a></li>
+<li><a href="#WhatToDo">""Ok, hotshot, what do you recommend?"</a></li>
+</ul>
+
+<a name="MainVariants"/><h2>The main suggestions of changed semantics for capturing members</h2>
+
+<p>
+  There have been two suggestions for how the semantics of the capture-default
+  for by-value capture of members should change:
+</p>
+<p>
+  <ol>
+    <li>Capture the whole object by value.</li>
+    <li>Capture the individual members by value.</li>
+  </ol>
+</p>
+<p>
+  The first suggestion means roughly the following:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        int y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // X::y is used in the lambda, so the whole object
+                    // is copied and the X::y of the copy is used here
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  The second suggestion means roughly the following:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        int y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // X::y is used in the lambda, so X::y
+                    // is copied and the copy of that single member is used here
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+
+<a name="WhyChange"/><h2>Why change anything?</h2>
+
+<p>
+  The motivation for change is two-fold:
+</p>
+<p>
+  <ol>
+    <li>A by-value capture-default copies every entity mentioned in the
+      lambda-body, except if the entities are members. This presents
+      a consistency argument between lambdas inside classes and lambdas
+      outside classes or class member definitions.
+    </li>
+    <li>In addition to a mere consistency argument, a by-value capture-default
+      not performing an actual object copy (it will copy the pointer 'this',
+      not the object pointed to nor its members) is suggested to be a pitfall.
+    </li>
+  </ol>
+</p>
+
+<a name="EffectOfFullCopy"/><h2>The effect of copying the whole object</h2>
+
+<p>
+  If the whole surrounding object is copied when a by-value capture-default
+  is used inside a class, we are potentially looking at making currently
+  valid code ill-formed, or changing the semantics of existing code silently.
+</p>
+<p>
+</p>
+<p>
+  Here's one example of making currently valid code ill-formed:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        unique_ptr&lt;int&gt; y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // *this is attempted to be copied, but that's ill-formed
+                    // because X is move-only.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  Here's another example of making currently valid code ill-formed:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        mutex y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // *this is attempted to be copied, but that's ill-formed
+                    // because X is neither movable nor copyable.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  Here's one example of a silent change of semantics:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        vector&lt;int&gt; y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // *this is copied, and X::y with it.
+                    // This introduces a copy that wasn't there before,
+                    // and means that any code that refers to y will
+                    // now refer to the X::y of a copied object, not
+                    // the original X::y.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  The extra copy can be a performance issue. The change in which
+  X::y is referred may be a correctness issue.
+</p>
+
+<a name="EffectOfMemberCopy"/><h2>The effect of copying individual members</h2>
+
+<p>
+  As with copying a full object, copying individual members has similar
+  potentials for breakage; it can make currently valid code ill-formed,
+  or change semantics silently.
+</p>
+<p>
+  Here's a slight modification of the move-only example where code
+  becomes ill-formed:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        unique_ptr&lt;int&gt; y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // X::y is attempted to be copied, but that's ill-formed
+                    // because X::y is move-only.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  In a similar vein, the noncopyable/nonmovable case also breaks:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        mutex y;
+        void f()
+        {
+          auto lam = [=](){
+            bar(y); // X::y is attempted to be copied, but that's ill-formed
+                    // because X::y is neither movable nor copyable.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  The previous example for a silent change of semantics has the same issues.
+  However, there are different examples:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        vector&lt;int&gt; y;
+        vector&lt;int&gt;::iterator y_i; // let's assume this iterator points to X::y
+        void f()
+        {
+          auto lam = [=](){
+            bar(y, y_i); // X::y and X::y_i are copied.
+                         // This introduces a copy that wasn't there before,
+                         // and means that any code that refers to y will
+                         // now refer to the X::y of a copied object, not
+                         // the original X::y. The copied X::y_i will still
+                         // point to the original X::y.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+<p>
+  Yet another example:
+</p>
+<p>
+  <pre>
+    <code>
+      struct X
+      {
+        vector&lt;int&gt; y;
+        vector&lt;int&gt;&amp; y2; // let's assume this reference refers to X::y
+        void f()
+        {
+          auto lam = [=](){
+            bar(y, y2);  // X::y and X::y2 are copied.
+                         // This introduces two copies that weren't there before,
+                         // and means that any code that refers to y will
+                         // now refer to the X::y of a copied object, not
+                         // the original X::y. The copied X::y2 will change
+                         // from a reference to a vector object.
+          };
+          // use lam any which way
+        }
+      };
+    </code>
+  </pre>
+</p>
+
+<a name="WhatAboutNonMemberLambdas"/><h2>Sure, but aren't such issues already present in lambdas outside classes or class member definitions?</h2>
+
+<p>
+  Sure, turning references into objects and having handles with
+  reference/pointer-semantics refer/point to the original instead
+  of a copy are issues with
+  lambdas that appear outside classes or class member definitions. That's
+  a consistency argument; users need to learn two rules for a by-value
+  capture-default.
+</p>
+<p>
+  The author of this paper thinks the consistency argument is somewhat
+  questionable; outside a class or a class member definition, it's arguably
+  less likely that when capturing multiple entities by value, some of those
+  entities refer to each other in an invariant-preserving way.
+  The author of this paper believes it would be far more likely that
+  class members refer to other members in an invariant-preserving way.
+  Thus making it easier to copy individual members automatically increases
+  the risk of accidentally breaking invariants.
+</p>
+<p>
+  The second counter-argument is compatibility; we may find some amounts
+  of evidence that capture-defaults are rarely used inside classes or
+  class member definitions, or we may find style guides that ban
+  capture-defaults in such contexts; the problem is that there's arguably
+  a lot of code we can't analyze in such ways, and for some of the
+  presented examples, we have user reports according to which there
+  is existing code that relies on the current semantics.
+</p>
+
+<a name="ExplicitFullObjectCopy"/><h2>Does the proposed [*this] suffer from these problems?</h2>
+
+<p>
+  The simple answer is no. It is a pure extension, so it will not
+  break existing code.
+</p>
+
+<a name="CopyingMembersIsHard"/><h2>"Copying members is too hard."</h2>
+
+<p>
+  When the author of this paper explained the potential breakage in the
+  case of move-only or non-copyable/movable types, one response suggested
+  using init-captures. Well, right back at ya, if you want to copy
+  a member, an init-capture will do it; the syntax is explicit, and
+  there's no reliance on "default magic".
+</p>
+<p>
+  Yes, there are cases where init-captures are inconvenient, and
+  P0018 explains some such cases. However, P0018 also provides
+  a solution for most of such cases, which is explicitly copying
+  the whole object, aka [*this]. That solution breaks no existing code.
+  There are certain cases which P0018 doesn't cover, but the author
+  of this paper thinks it can be extended to cover those cases if need
+  be, again without breaking any existing code.
+</p>
+
+<a name="WhatToDo"/><h2>"Ok, hotshot, what do you recommend?"</h2>
+
+<p>
+  The author of this paper has a fairly straightforward suggestion,
+  and that suggestion requires fairly little work: leave the semantics
+  of by-value capture-defaults unchanged.
+</p>
+<p>
+  The rationale for maintaining the status quo, despite there usually
+  being no requirement to provide any, is three-fold:
+</p>
+<p>
+  <ol>
+    <li>We won't introduce an incompatibility with C++11 and C++14,
+      we won't make all existing material on lambdas obsolete, and
+      we won't break code, loudly or silently.</li>
+    <li>We can't know how much code we would break. There are reports
+    according to which the amount would be non-zero.</li>
+    <li>To some extent, we won't trade some pitfalls for others.</li>
+  </ol>
+</p>
+</body>
+
+</html>

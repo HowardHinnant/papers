@@ -1,0 +1,190 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Non-throwing container operations</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: P0132R1
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2018-05-07<br/>
+</address>
+<hr/>
+<h1 align=center>Non-throwing container operations</h1>
+
+<h2>Abstract</h2>
+
+<p>
+This paper explores alternatives for adding non-throwing container
+operations, namely alternatives to throwing exceptions from failing
+modifications. Based on LEWG feedback from Jacksonville 2018 meeting,
+the focus is on minor additions to existing container APIs, instead
+of completely-custom allocators or completely-new containers.
+</p>
+
+<a name="Introduction"></a><h2>Introduction</h2>
+
+<p>
+  The guidance polls in Jacksonville 2018 were as follows:
+  <pre>
+     Simple status return bool push_back(nothrow_t, const T&)
+SF 	F 	N 	A 	SA
+0 	1 	3 	6 	9
+
+Use a different function name bool push_back_nothrow(const T&)
+SF 	F 	N 	A 	SA
+1 	10 	8 	3 	1
+
+A much less intrusive alternative Allow allocator to return nullptr, etc.
+SF 	F 	N 	A 	SA
+0 	1 	6 	8 	5
+
+A minimal interface: add try_reserve/reserve_nothrow/…
+SF 	F 	N 	A 	SA
+1 	7 	12 	1 	0
+
+A custom allocator with a failure callback. We don't know enough about this to provide an opinion.
+
+Adding specialized containers
+SF 	F 	N 	A 	SA
+1 	9 	5 	4 	3
+
+Language mode for “allocation doesn’t throw”
+SF 	F 	N 	A 	SA
+4 	4 	2 	5 	7
+
+Make throwing unspecified when allocation fails.
+SF 	F 	N 	A 	SA
+1 	1 	2 	3 	14
+  </pre>
+</p>
+
+<a name="What"></a><h2>So what are you proposing?</h2>
+
+<p>
+In a very abstract sense, what we are proposing is adding alternative
+contained modifier operations of some form so that exceptions are not
+required for reporting errors. There are various ways in which that
+can be done, but certain general properties are probably common
+to all alternatives:
+<ul>
+<li>Exception support costs too much, space-wise and time-wise.</li>
+<li>Dynamic memory allocations still happen, and they can fail.</li>
+<li>Not every module is critical, so various strategies can be employed
+to recover from allocation failures.</li>
+<li>Termination is not a feasible strategy.</li>
+</ul>
+</p>
+
+<a name="Why_not_terminate"></a><h3>Why not just terminate?</h3>
+
+<p>
+A fairly oft-suggested alternative is to just terminate if a failing
+allocation cannot throw. That's a very drastic approach, because
+many environments do not support multiple processes, so if any module
+terminates, the whole system will restart after a hard abort. This
+causes loss of system availability, which in some environments is
+life-threatening and in some environments loses user data.
+</p>
+
+<a name="Alternatives"></a><h2>Some proposal alternatives</h2>
+
+<a name="Return_bool"></a><h3>Simple status return</h3>
+
+<p>
+Daniel Gutson's original proposal outline just adds non-throwing
+overloads to contained modifiers. Here's an example of what
+such overloads for vector's push_back would look like:
+<pre>
+<code>
+bool push_back(nothrow_t, const T&);    
+bool push_back(nothrow_t, T&&);    
+</code>
+</pre>
+The general idea is that we use a tag type to differentiate
+these overloads, and since the idea is that these operations
+don't throw if an allocation fails, we can just as well use
+the nothrow_t we already have. The function returns a bool
+signaling whether it succeeded or not. Note that the copy
+operation of T may throw; that throw is not handled by these
+functions. The intention is that these functions are used
+with an accompanying allocator that doesn't throw on failure,
+and the element type is one that has non-throwing copy/move
+operations. Also note that the idea is to add such non-throwing
+operations to other containers beyond vector.
+</p>
+
+<a name="Return_bool_different_name"></a><h3>Use a different function name instead</h3>
+
+<p>
+Various people suggested that since the behavior of these functions
+is significantly different from the other overloads, they should
+be named differently. As a strawman example, something like
+<pre>
+<code>
+bool push_back_nothrow(const T&);    
+bool push_back_nothrow(T&&);    
+</code>
+</pre>
+</p>
+
+<a name="Handle_failure_internally"></a><h3>A much less intrusive alternative</h3>
+<p>
+Howard Hinnant pointed out that adding lots of new functions or overloads
+to the api of the library containers to be used by a specialized
+crowd is questionable. He outlined a possible alternative:
+allowing an allocator to return a nullptr and specifying the behavior
+in that case. For instance, a failed push_back just wouldn't change
+the size or the capacity of the vector.
+</p>
+
+<a name="Callback"></a><h3>A custom allocator with a failure callback</h3>
+<p>
+Howard outlined a different less intrusive approach: use an allocator
+that can register a failure callback. This is fairly similar to the
+previous approach in the sense that an allocator can fail without
+an exception and the result behavior of the container needs to be specified,
+but in addition to that, a user can set a failure callback on the allocator.
+That may end up being rather intrusive if the callback type is not
+erased. Erasing the type of the callback has its own problems.
+</p>
+
+<a name="Separate_container"></a><h3>Adding new specialized containers</h3>
+<p>
+Howard also suggested building a new container, since it's can be seen as
+a fair assessment that such a difference in behavior is significant
+enough that the facility should become a separate container.
+</p>
+
+<a name="What_next"></a><h2>What's next?</h2>
+
+<p>
+Before diving into detailed specification and implementation,
+design guidance is necessary. The whole approach needs to go
+to EWG, because the general idea of not using exceptions
+for error reporting is a completely new programming model
+for the library containers. Beyond that, the general design
+needs to be looked at by LEWG: whether to add overloads, whether
+to add new functions, whether to build new containers...
+</p>
+</body>
+</html>

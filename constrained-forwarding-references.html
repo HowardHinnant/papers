@@ -1,0 +1,240 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Constrained forwarding references</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2018-06-01<br/>
+</address>
+<hr/>
+<h1 align=center>Constrained forwarding references</h1>
+
+<h2>Abstract</h2>
+
+<p>
+  A declaration like void f(CopyConstructible&amp;&amp;); is not a function
+  that takes a forwarding reference to a CopyConstructible type; it accepts
+  an lvalue of any type, or an rvalue that is CopyConstructible. I find it
+  unwise to have such a problem in the language, so this paper proposes
+  to solve the problem by adding a new deduction rule so that constrained
+  forwarding references will have the constraints apply to the non-reference
+  type, instead of sometimes applying to that type and sometimes to
+  an lvalue reference to that type.
+</p>
+
+<h2>The problem illustrated</h2>
+
+<p>
+  Casey Carter provided the following:
+</p>
+
+  <blockquote>
+    <p>
+    Yes, constraining forwarding references is a nightmare, especially when the concept may accept both or either of T and T& with different meanings:
+    <blockquote><code>
+    <pre>
+    void foo(CopyConstructible&amp;&amp; x) { /* ... */ }
+    </pre>
+    </code></blockquote>
+Did the author really intend to require that x is either an rvalue reference to an object of a copy constructible type or an lvalue reference to anything? The original design for the 'structible concepts only admitted object types specifically to avoid this problem which I call "reference confusion". We eventually had to drop that design and fall back on the type traits in part because it's impossible to effectively constrain declarations using only expression requirements. 
+    </p>
+    <p>
+      When constraining forwarding references I recommend being very careful, and avoiding terse syntax so the next person doesn't end up wondering about your intent.
+      </p>
+  </blockquote>
+
+<p>
+  Let's look at an example:
+</p>
+<blockquote>
+  <pre><code>
+#include &lt;type_traits&gt;
+
+struct X {};
+
+struct Y {Y() = default; Y(const Y&amp;) = delete;};
+
+template &lt;class T&gt; concept bool CopyConstructible = std::is_copy_constructible_v&lt;T&gt;;
+void f(CopyConstructible&amp;&amp;) {}
+template &lt;CopyConstructible T&gt; void f2(T&amp;&amp;) {}
+template &lt;class T&gt; void f3(T&amp;&amp;) requires CopyConstructible&lt;T&gt; {}
+template &lt;class T&gt; void f4(T&amp;&amp;) requires CopyConstructible&lt;std::remove_reference_t&lt;T&gt;&gt; {}
+
+template &lt;class T&gt; concept bool Integral = std::is_integral_v&lt;T&gt;;
+void g(Integral&amp;&amp;) {}
+template &lt;Integral T&gt; void g2(T&amp;&amp;) {}
+template &lt;class T&gt; void g3(T&amp;&amp;) requires Integral&lt;T&gt; {}
+template &lt;class T&gt; void g4(T&amp;&amp;) requires Integral&lt;std::remove_reference_t&lt;T&gt;&gt; {}
+
+int main()
+{
+    X x;
+    Y y;
+
+    f(x);
+    f(y); // #1
+    f(X());
+    //f(Y()); // the computer says no, but one could expect it would've already said no at #1
+
+    f2(x);
+    f2(y); // #2
+    f2(X());
+    //f2(Y()); // the computer says no, but one could expect it would've already said no at #2
+
+    f3(x);
+    f3(y); // #3
+    f3(X());
+    //f3(Y()); // the computer says no, but one could expect it would've already said no at #3
+
+    f4(x);
+    //f4(y); // ill-formed, great!
+    f4(X());
+    //f4(Y()); // ill-formed, great!
+
+    double a = 5.5;
+    int b = 666;
+
+    //g(a); // the computer says no
+    //g(5.5); // the computer says no
+    //g(b); // the computer says no, which is surprising
+    g(666);
+
+    //g2(a); // the computer says no
+    //g2(5.5); // the computer says no
+    //g2(b); // the computer says no, which is surprising
+    g2(666);
+
+    //g3(a); // the computer says no
+    //g3(5.5); // the computer says no
+    //g3(b); // the computer says no, which is surprising
+    g3(666);
+
+    //g4(a); // ill-formed, great!
+    //g4(5.5); // ill-formed, great!
+    g4(b);
+    g4(666);
+}
+  </code></pre>
+</blockquote>
+<p>
+  The commented-out lines are ill-formed.
+</p>
+<p>
+  This status quo has two problems:
+  <ol>
+    <li>For the CopyConstructible example, the user failed
+      to actually constrain the function, except for f4. For lvalues,
+      the function doesn't require what the user most likely
+      thinks it requires, which punches a big hole into the interface.
+    </li>
+    <li>For the Integral example, the user will end up being
+      puzzled that the function requires more than the user
+      expected. There's no hole in the interface, but there's
+      a stumbling block that should not be there.
+    </li>
+  </ol>
+</p>
+<p>
+  Those are, sadly, not the only problems. They are the original
+  ones, but they lead to additional ones:
+  <ol>
+    <li>
+      Such core concepts are now hard to use, and using them
+      correctly will often require additional requires-clauses.
+    </li>
+    <li>
+      Naive and simple uses are the ones that are more mistake-prone,
+      whereas the longer and more complex ones make it somewhat
+      easier to avoid mistakes.
+    </li>
+  </ol>
+</p>
+<p>
+  We should realize that the problem also arises if we get
+  constrained variables again:
+<pre><code><blockquote>
+void f()
+{
+    X x;
+    Y y;
+    CopyConstructible&amp;&amp; c = x;
+    CopyConstructible&amp;&amp; c2 = y;
+}
+</blockquote></code></pre>
+</p>
+<p>
+  Here, we can't add a convenient additional constraint.
+  The only refuge is a separate static_assert.
+</p>
+
+<h2>Solution, wording</h2>
+
+<p>
+  It seems perfectly reasonable for a user to operate under a mental
+  model that ConceptName&amp;&amp; is a forwarding reference to a
+  constrained type. To facilitate this, we propose a new deduction rule,
+  so that if a forwarding reference is constrained, the constraints
+  apply to the non-reference type, not to the deduced type (which
+  may be an lvalue reference). With this fix, the example's f, f2 and
+  f3 work like f4, and g, g2 and g3 work like g4. The only change
+  is in deduction; calls with explicit template arguments do not
+  change meaning. Wording follows (thanks to Jens Maurer for the
+  wording).
+</p>
+
+<p>
+   Change in [over.match.viable] 16.3.2 p2 as follows:
+</p>
+<blockquote>
+  <pre>
+    Second, for a function to be viable, if it has associated constraints,
+    those constraints shall be satisfied (17.4.2) <ins>with the proviso that
+    any constraint referring to a template parameter T whose template
+    argument was deduced from a forwarding reference as an lvalue reference
+    to some type U ([temp.deduct.call] is instead taken to check
+    satisfaction for U, not for "lvalue reference to U"</ins>.
+  </pre>
+
+</blockquote>
+
+<h2>Alternatives considered but rejected</h2>
+
+<p>
+  A different way to fix the problem would be to add
+  the reference removal into the concept used. That doesn't
+  work for the proposed core concepts, because they need
+  to be able to deal with reference types as well as non-reference
+  types.
+</p>
+
+<p>
+  We could also just tell users to write their own concepts
+  that combine the reference removal and the use of the core
+  concept. That makes the core concept less useful and doesn't
+  remove the problem that it's hard to use correctly.
+</p>
+
+</body>
+</html>

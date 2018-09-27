@@ -1,0 +1,524 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>Yet another approach for constrained declarations</title>
+
+	<style type="text/css">
+        html {font-family: "DejaVu Serif", serif; size: medium; line-height: 150%; margin: 0; padding: 0;}
+        code {font-family: "DejaVu Sans Mono", monospace; size: medium; line-height: 135%;}
+        body {margin: 1em 2em; padding: 0;}
+        h2 {margin: 1.5em 0 1em 0;}
+	p, li {text-align:justify}
+	ol.wide li {margin-top:1em;}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+        blockquote.std
+        {
+                max-width: 55em;
+                border-left: thick solid #AAA;
+                padding-left: 1em;
+        }
+	ins {color:#00A000}
+	del {color:#A00000}
+        p > code, li > code {color: #000080;}
+	</style>
+</head>
+<body>
+
+<address style="text-align:right;">
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+<a href="mailto:tkoeppe@google.com">Thomas K&ouml;ppe</a><br/>
+<a href="mailto:andrew.n.sutton@gmail.com">Andrew Sutton</a><br/>
+<a href="mailto:hsutter@microsoft.com">Herb Sutter</a><br/>
+<a href="mailto:gdr@microsoft.com">Gabriel Dos Reis</a><br/>
+<a href="mailto:bjarne@stroustrup.com">Bjarne Stroustrup</a><br/>
+<a href="mailto:jason@redhat.com">Jason Merrill</a><br/>
+<a href="mailto:hubert.reinterpretcast@gmail.com">Hubert Tong</a><br/>
+<a href="mailto:eric.niebler@gmail.com">Eric Niebler</a><br/>
+<a href="mailto:casey@carter.net">Casey Carter</a><br/>
+<a href="mailto:tom@honermann.net">Tom Honermann</a><br/>
+<a href="mailto:erich.keane@intel.com">Erich Keane</a><br/>
+2018-09-27<br/>
+</address>
+<hr/>
+<h1 style="text-align: center;">Yet another approach for constrained declarations</h1>
+
+<h2>Abstract</h2>
+
+<p>
+  We propose a short syntax for the constrained declaration
+  of function parameters, function return types and
+  variables. The new syntax is a &ldquo;constrained
+  <code>auto</code>&rdquo;, e.g. <code>void sort(Sortable auto&amp; c);</code>.
+</p>
+
+<h2>Contents</h2>
+<ol>
+  <li><a href="#revisions">Revision history</a></li>
+  <li><a href="#summary">Proposal summary</a></li>
+  <li><a href="#part1">Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</a></li>
+  <li><a href="#part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</a></li>
+  <li><a href="#part3">Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</a></li>
+  <li><a href="#part4">Part 4: Meaning of &ldquo;<code>template &lt;Concept... T&gt;</code>&rdquo; and its friends</a></li>
+</ol>
+
+<h2 id="revisions">Revision history</h2>
+<ul>
+  <li>This document: Initial proposal.</li>
+</ul>
+
+<h2 id="summary">Proposal summary</h2>
+
+<p>This paper proposes three things:</p>
+<ol class="wide">
+  <li>A syntax for constrained declarations that is practically a
+    &ldquo;constrained <code>auto</code>&rdquo;;
+    the principle being &ldquo;wherever <code>auto</code> goes,
+    a <code>Constraint auto</code> can also (non-recursively) go&rdquo;.
+    The semantics are to deduce like <code>auto</code> and additionally check a constraint.
+    In a nutshell,
+    <blockquote><pre><code>void f(Sortable auto x);
+Sortable auto f();      // #1
+Sortable auto x = f();  // #2
+template &lt;Sortable auto N&gt; void f();</code></pre></blockquote>
+    and all combined:
+    <blockquote><pre><code>template &lt;Sortable auto N&gt; Sortable auto f(Sortable auto x)
+{
+    Sortable auto y = init;
+}</code></pre></blockquote>
+    An unconstrained version of that is:
+<blockquote><pre><code>template &lt;auto N&gt; auto f(auto x)
+{
+    auto y = init;
+}</code></pre></blockquote>
+    So, this proposal includes <code>auto</code>-typed parameters for
+    functions, which we already allow for lambdas.</li>
+
+  <li>An additional relaxation where the <code>auto</code> is optional
+    for the cases #1 and #2 illustrated above:
+    <blockquote><pre><code>Sortable f();
+Sortable x = f();</code></pre></blockquote></li>
+
+  <li>Simplifying (and thus restricting) the rules in
+    <a href="https://wg21.link/temp.param#10">[temp.param]/10</a>,
+    so that <code>template &lt;Sortable S&gt;</code> always
+    means that <code>S</code> is a type parameter, and
+    <code>template &lt;Sortable auto S&gt;</code> always means
+    that <code>S</code> is a non-type parameter. Template template-parameters
+    are no longer supported in this short form. Moreover, <code>Sortable</code>
+    is restricted to be a concept that takes a type parameter or type parameter pack;
+    non-type and template concepts are no longer supported in this short form.
+  </li>
+</ol>
+
+<p><code>Sortable</code> is a &ldquo;type concept&rdquo; in all the examples of this summary.</p>
+
+<p>
+  This paper specifically does <em>not</em> propose
+</p>
+<ul>
+  <li>any new lead-in syntax for templates, or</li>
+  <li>a new syntax for introducing names for placeholder types, or</li>
+  <li>a shortcut syntax for applying multiple constraints
+    to a placeholder type.</li>
+</ul>
+
+<p>
+  The idea of this approach is to provide a syntax that
+</p>
+<ul>
+  <li>
+    works for constrained function parameters, constrained
+    return types, constrained variables, and type-constrained
+    non-type template parameters;
+  </li>
+  <li>
+    avoids inventing many adventurous new things;
+  </li>
+  <li>
+    in particular, avoids inventing new type sigils;
+  </li>
+  <li>
+    does not clash with explicit template instantiations; and
+  </li>
+  <li>
+    is compatible with what we already have in polymorphic
+    lambdas, and makes functions uniform with them.
+  </li>
+</ul>
+
+<h2 id="part1">Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</h2>
+
+<p>
+  The approach proposed here borrows a subset of
+  <a href="http://open-std.org/JTC1/SC22/WG21/docs/papers/2017/p0807r0.html">P0807R0 An Adjective Syntax for Concepts</a>. The idea is that
+  we don&rsquo;t try to come up with a notation that does everything
+  that P0807 does; in particular, there is no proposal for a new syntax
+  to introduce a type name.
+</p>
+
+<h3>Function templates</h3>
+
+<p>
+  The approach is simple: allow <code>auto</code> parameters to produce
+  function templates (as they produce polymorphic lambdas), and allow the <code>auto</code>
+  to be preceded by a concept name. In every case, such a parameter
+  is a deduced parameter, and we can see which parameters are deduced
+  and which ones are not:
+</p>
+<blockquote><pre><code>[](auto a, auto&amp; b, const auto&amp; c, auto&amp;&amp; d) {...}; // unconstrained
+[](Constraint auto a, Constraint auto&amp; b, const Constraint auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
+
+void f1(auto a, auto&amp; b, const auto&amp; c, auto&amp;&amp; d) {...}; // unconstrained
+void f2(Constraint auto a, Constraint auto&amp; b, const Constraint auto&amp; c, Constraint auto&amp;&amp; d) {...}; // constrained
+
+[](Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference
+void f3(Constraint auto&amp;&amp; a, SomethingElse&amp;&amp; b) {...}; // a constrained deduced forwarding reference and a concrete rvalue reference</code></pre></blockquote>
+<p>
+  The appearance of <code>auto</code> (including <code>Constraint auto</code>)
+  in a parameter list
+  tells us that we are dealing with a function template. For each parameter,
+  we know whether it is deduced or not. We can tell apart
+  concepts from types: concepts precede <code>auto</code>, types do not.
+</p>
+
+<h3>Return types and variable declarations</h3>
+
+<p>
+  Constrained return types work the same way:
+</p>
+<blockquote><pre><code>auto f4();                  // unconstrained, deduced.
+
+Constraint auto f5();       // constrained, deduced.
+
+Whatever f6();              // See part 2. If Whatever is a type, not deduced.
+                            // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
+<p>
+  Note that <code>f4</code>, <code>f5</code> and <code>f6</code>
+  are not templates (whereas the previous <code>f1</code>, <code>f2</code>
+  and <code>f3</code> <em>are</em> templates). Here, there is no
+  mention of <code>auto</code> in the parameter list. Users have the choice
+  of adopting a style where it is explicit as to whether the return type is deduced.
+</p>
+
+<p>
+  Constrained types for variables work the same way:
+</p>
+<blockquote><pre><code>auto x1 = f1();             // unconstrained, deduced.
+
+Constraint auto x2 = f2();  // constrained, deduced.
+
+Whatever x3 = f3();         // See part 2. If Whatever is a type, not deduced.
+                            // If Whatever is a concept, constrained and deduced.</code></pre></blockquote>
+<p>
+  Again, users can make it so that it is easy to see when deduction occurs.
+</p>
+
+<p>
+  Since non-type template parameters can be deduced via <code>auto</code>
+  (as in <code>template &lt;auto N&gt; void f();</code>),
+  we also allow a constraint there:
+</p>
+<blockquote><pre><code>template &lt;Constraint auto N&gt; void f7();</code></pre></blockquote>
+<p>
+  Note, however, that this can only be a type constraint; non-type concepts
+  (including auto concepts) are not allowed in this form.
+</p>
+
+<h3>Other uses of <code>auto</code></h3>
+
+<p>
+  In concert with the general approach that &ldquo;<code>Constraint auto</code> goes wherever
+  <code>auto</code> goes&rdquo;, new-expressions and conversion operators work:
+</p>
+<blockquote><pre><code>auto alloc_next() { return new Sortable auto(this-&gt;next_val()); }
+
+operator Sortable auto() { }</code></pre></blockquote>
+
+<p>
+  A &ldquo;<code>Constraint auto</code>&rdquo; cannot be used to indicate that a function declarator has a trailing return type:
+</p>
+<blockquote><pre><code>Constraint auto f() -&gt; auto; // ill-formed; shall be the single <i>type-specifier</i> <code>auto</code></code></pre></blockquote>
+
+<p>
+  <code>decltype(auto)</code> can also be constrained:
+</p>
+<blockquote><pre><code>auto f() -&gt; Constraint decltype(auto);
+Constraint decltype(auto) x = f();</code></pre></blockquote>
+
+<p>
+  Structured bindings do deduce <code>auto</code> in some cases; however, the <code>auto</code> is deduced from the whole (and not from the individual components).
+  It is somewhat doubtful that applying the constraint to the whole, as opposed to (for example) applying separately to each component, is the correct semantic.
+  Therefore, we propose to defer enabling the application of constraints to structured bindings to separate papers.
+</p>
+
+<h3>General rules</h3>
+
+<p>
+  The constraint applies directly to the deduced type. It does not apply to the possibly cv-qualified
+  type described by the type specifiers, nor does it apply to the type declared for the variable:
+</p>
+<blockquote><pre><code>const Assignable&lt;int&gt; auto&amp;&amp; c = *static_cast&lt;int *&gt;(p); // Assignable&lt;int &amp;, int&gt;</code></pre></blockquote>
+<p>
+  Naturally, if the deduced type is cv-qualified (or a reference), the constraint applies
+  to that type.
+</p>
+<p>
+  To keep things simple, an <code>auto</code> (or <code>decltype(auto)</code>) being constrained is always immediately preceded by the constraint. So, cv-qualifiers and concept-identifiers
+  cannot be freely mixed:
+</p>
+<blockquote><pre><code>const Contraint auto x = foo(); // ok
+Constraint const auto x = foo(); // ill-formed
+Constraint auto const y = foo(); // ok</code></pre></blockquote>
+<p>
+  We propose only the ability to apply one single constraint for a parameter,
+  return type, or non-type template parameter. Any proposal to consider multiple
+  constraints should happen separately after C++20.
+</p>
+
+<p>
+  Partial concept identifiers also work. Given a concept
+  <code>template &lt;typename T, typename... Args&gt; concept
+    Constructible = /* ... */;</code>, we can say:
+</p>
+<blockquote><pre><code>void f(Constructible&lt;int&gt; auto x);   // Constructible&lt;decltype(x), int&gt; is satisfied
+
+Constructible&lt;int&gt; auto f();
+
+Constructible&lt;int&gt; auto x = f();
+
+template &lt;Constructible&lt;int&gt; auto N&gt; void f();</code></pre></blockquote>
+
+<h2 id="part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</h2>
+
+<p>
+  In the return type of a function declaration, we can leave out the <code>auto</code>.
+  So, in addition to
+</p>
+<blockquote><pre><code>Constraint auto f1();</code></pre></blockquote>
+<p>
+  we can write
+</p>
+<blockquote><pre><code>Constraint f2();</code></pre></blockquote>
+<p>
+  Neither <code>f1</code> nor <code>f2</code> are templates.
+  It seems fairly reasonable to allow omitting the <code>auto</code>,
+  but that is intended to be a relaxation of the general rule,
+  not a replacement for <code>Constraint auto</code>.
+</p>
+
+<p>
+  Trailing return types in function declarations behave the same way:
+</p>
+<blockquote><pre><code>auto f1() -&gt; Constraint; // okay</code></pre></blockquote>
+
+<p>
+  Trailing return types are also used for <i>return-type-requirement</i>s; however, <code>auto</code> does not (currently) go in such a context, whereas constraints <em>do</em>.
+  A minimal change we can make as part of this proposal is to allow <code>auto</code> as being implicitly modified by a least constrained concept where a constraint is currently allowed in a <i>return-type-requirement</i>.
+  At the same time, <code>Constraint auto</code> would also be allowed. Thus, a plain <code>Constraint</code> in such a position can be seen as a case of relaxed &ldquo;constrained <code>auto</code>&rdquo;.
+</p>
+<p>For example:</p>
+<blockquote><pre><code>requires(T t) {
+  {t} -&gt; const auto*; // t needs to be a pointer to const
+}
+
+requires(T t) {
+  {t} -&gt; Constraint auto; // t needs to be of a type that satisfies Constraint
+}</code></pre></blockquote>
+
+<p>
+  In variable declarations, omitting the <code>auto</code>
+  also seems reasonable:
+</p>
+<blockquote><pre><code>Constraint x = f2();</code></pre></blockquote>
+<p>
+  Note, in particular, that we already have a syntax that
+  does (partial) deduction but doesn&rsquo;t make that explicit in the syntax:
+</p>
+<blockquote><pre><code>std::tuple x = foo();</code></pre></blockquote>
+<p>
+  The variable case in particular seems reasonable, considering
+  the already existing deduction syntaxes that don&rsquo;t call
+  attention to deduction. The user always has a choice to use
+  a more explicit syntax. The return type case might well have
+  a weaker rationale for being allowed. It should be noted, though,
+  that this relaxation in general was present in the TS; this
+  paper is merely not proposing it for parameters.
+</p>
+<p>
+  Certain disambiguation details need to be handled:
+</p>
+<blockquote><pre><code>bool b(Constructible&lt;int&gt; &amp;&amp; bar());         // variable definition
+
+void foo() {
+    Constructible&lt;int&gt; * f2();               // disambiguation/type-name interpretation rule required
+    Constructible&lt;int&gt; * selector = f2();    // (same?) disambiguation/type-name interpretation rule required
+}</code></pre></blockquote>
+<p>
+  Note that the variable definition is unambiguously a variable
+  definition. This proposal proposes no function declaration
+  syntax that would clash with it; in particular, <code>Constructible&lt;int&gt;</code>
+  is not considered a <i>type-name</i> that is short for <code>Constructible&lt;int&gt; auto</code>
+  except in limited contexts. It&rsquo;s merely something to be aware of, and a demonstration of how
+  the presence of <code>auto</code> avoids ambiguity. For each remaining case above,
+  <code>Constructible&lt;int&gt;</code> <em>does</em> appear within such a limited context when parsing
+  the statements as prospective declaration statements; we propose to generalize the rule for disambiguating
+  in favor of declaration statements to cover this case.
+</p>
+
+<h2 id="part3">Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</h2>
+
+<p>
+  In <a href="https://wg21.link/temp.param#10">[temp.param]/10</a> we have:
+</p>
+<blockquote class="std">
+<p>
+  A <i>constrained-parameter</i> declares a template parameter whose kind (type, non-type, template) and type
+  match that of the prototype parameter (17.6.8) of the concept designated by the <i>qualified-concept-name</i>
+  in the <i>constrained-parameter</i>. Let <code>X</code> be the prototype parameter of the designated concept.
+  The declared template parameter is determined by the kind of <code>X</code> (type, non-type, template)
+  and the optional ellipsis in the <i>constrained-parameter</i> as follows.
+</p>
+<ul>
+  <li>If <code>X</code> is a type <i>template-parameter</i>,
+    the declared parameter is a type <i>template-parameter</i>.</li>
+  <li>If <code>X</code> is a non-type <i>template-parameter</i>,
+    the declared parameter is a non-type <i>template-parameter</i>
+    having the same type as <code>X</code>.</li>
+  <li>If <code>X</code> is a template <i>template-parameter</i>,
+    the declared parameter is a template <i>template-parameter</i>
+    having the same <i>template-parameter-list</i> as <code>X</code>,
+    excluding default template arguments.</li>
+  <li>If the <i>qualified-concept-name</i> is followed by an ellipsis,
+    then the declared parameter is a template parameter pack (17.6.3).</li>
+</ul>
+<p>
+  [<i>Example</i>:
+</p>
+<blockquote><pre><code>template&lt;typename T&gt; concept C1 = true;
+template&lt;template&lt;typename&gt; class X&gt; concept C2 = true;
+template&lt;int N&gt; concept C3 = true;
+template&lt;typename... Ts&gt; concept C4 = true;
+template&lt;char... Cs&gt; concept C5 = true;
+
+template&lt;C1 T&gt; void f1();       // OK, T is a type template-parameter
+template&lt;C2 X&gt; void f2();       // OK, X is a template with one type-parameter
+template&lt;C3 N&gt; void f3();       // OK, N has type int
+template&lt;C4... Ts&gt; void f4();   // OK, Ts is a template parameter pack of types
+template&lt;C4 T&gt; void f5();       // OK, T is a type template-parameter
+template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of chars</code></pre></blockquote>
+<p>
+  &mdash;<i>end example</i>]
+</p>
+</blockquote>
+
+<p>
+  Does that seem like a mouthful?
+</p>
+<p>
+  That&rsquo;s because it is. In <code>template &lt;Constraint T&gt;</code>, the kind of
+  <code>T</code> depends on the kind of the prototype parameter of <code>Constraint</code>.
+</p>
+<p>
+  We instead propose that, for such a constrained-parameter syntax:
+</p>
+<ul>
+  <li><code>T</code> should always be a type, and</li>
+  <li><code>Constraint</code> would always need to be a concept
+  that has a corresponding type parameter or type parameter pack.</li>
+</ul>
+<p>
+  To be clear, we are not proposing that concepts in general should not
+  have non-type or template template parameters. We are merely proposing for it to be the case
+  that the constrained parameter shortcut is not provided for concepts with
+  such prototype parameters; such concepts would need to be used with a <i>requires-clause</i>.
+  The constrained parameter syntax should mean just one thing.
+  Note that the same syntax <code>template &lt;A T&gt;</code> is still a non-type
+  parameter when <code>A</code> is a type name rather than a concept. We are willing
+  to tolerate this small potential for ambiguity.</p>
+<p>
+  The rationale for this part is as follows:
+</p>
+<ol>
+  <li>It seems desirable to have the constrained template parameter syntax.</li>
+  <li>It would be nice if that syntax covered the most common case.</li>
+  <li>It would further be nice if that syntax covered <em>only</em> the most common case.</li>
+  <li>The other cases are expected to be so rare that there&rsquo;s no
+    need to provide a shortcut for them, and they are certainly rare enough
+    that they shouldn&rsquo;t use the same syntax.</li>
+</ol>
+<p>
+  So, to clarify:
+</p>
+<ul>
+  <li><code>template &lt;MyIntTypeDef N&gt;</code> means
+    a non-type parameter, like it always did.</li>
+  <li><code>template &lt;ConceptName T&gt;</code> means
+    a type parameter constrained by <code>ConceptName</code>,
+    and the prototype parameter of <code>ConceptName</code> needs to be
+    a type parameter or a type parameter pack.</li>
+  <li><code>template &lt;auto N&gt;</code> means a non-type parameter
+    with a deduced type.</li>
+  <li><code>template &lt;ConceptName auto N&gt;</code> means
+    a non-type parameter with a deduced type constrained by
+    <code>ConceptName</code>, and the prototype parameter of <code>ConceptName</code>
+    needs to be a type parameter or a type parameter pack.</li>
+</ul>
+<p>
+  Other use cases can be done with <i>requires-clause</i>s.
+</p>
+
+<h2 id="part4">Part 4: Meaning of &ldquo;<code>template &lt;Concept... T&gt;</code>&rdquo; and its friends</h2>
+
+<p>
+  In <a href="https://wg21.link/temp.param#10">[temp.param]/11</a> we have:
+</p>
+<blockquote class="std"><pre><code>template&lt;C2... T&gt; struct s3; // associates C2&lt;T...&gt;
+</code></pre></blockquote>
+<p>
+  This seems to be doing an unexpected thing, i.e. have the constraint
+  apply to more than one type in a pack at a time. We propose that
+  <ul>
+    <li>For a simple pack of constrained types, the concept
+      mentioned is applied to each type in the pack in turn,
+    as a unary concept.</li>
+    <li>For a pack of constrained types that use partial-concept-identifiers,
+      the concept
+      mentioned is applied to each type in the pack in turn,
+      as a binary or more-nary concept, but applied to just one
+      type in the pack in turn.</li>
+  </ul>
+</p>
+<p>
+  In other words,
+  <ul>
+    <li><code>template &lt;ConceptName... T&gt; void f(T...);</code>
+      means a variadic function template where each type in the pack
+      <code>T</code> needs to satisfy ConceptName as a unary Concept, applied
+      as <code>ConceptName&lt;T<sub>n</sub>&gt;</code>.</li>
+    <li>Similarly, <code>void f(ConceptName auto... T);</code>
+      means exactly the same thing.</li>
+    <li><code>template &lt;ConceptName&lt;T&gt;... U&gt; void f(U...);</code>
+      means a variadic function template where each type in the pack
+      <code>T</code> needs to satisfy <code>ConceptName</code> as a binary Concept, applied
+      as <code>ConceptName&lt;U<sub>n</sub>, T&gt;</code>.</li>
+    <li>Similarly, <code>void f(ConceptName&lt;T&gt; auto... U);</code>
+      means exactly the same thing.</li>
+    <li><code>template &lt;ConceptName&lt;T, V, W&gt;... U&gt; void f(U...);</code>
+      means a variadic function template where each type in the pack
+      <code>T</code> needs to satisfy <code>ConceptName</code> as a n-ary Concept, applied
+      as <code>ConceptName&lt;U<sub>n</sub>, T, V, W&gt;</code>.</li>
+  </ul>
+</p>
+</body>
+</html>

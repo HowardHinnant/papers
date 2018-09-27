@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+	<title>constexpr goto</title>
+
+	<style>
+	p {text-align:justify}
+	li {text-align:justify}
+	blockquote.note
+	{
+		background-color:#E0E0E0;
+		padding-left: 15px;
+		padding-right: 15px;
+		padding-top: 1px;
+		padding-bottom: 1px;
+	}
+	ins {color:#00A000}
+	del {color:#A00000}
+	</style>
+</head>
+<body>
+
+<address align=right>
+Document number: D????
+<br/>
+<br/>
+<a href="mailto:ville.voutilainen@gmail.com">Ville Voutilainen</a><br/>
+2015-04-10<br/>
+</address>
+<hr/>
+<h1 align=center>constexpr goto</h1>
+
+<h2>Abstract</h2>
+<p>
+Various users report they would like to do something like
+</p>
+<p>
+<pre>
+<code>
+for (auto x : a) {
+  for (auto y : b) {
+    if (cond)
+      goto out;
+  }
+}
+out:
+</code>
+</pre>
+</p>
+<p>
+and have it be allowed in constant expressions, but they can't, since
+goto isn't allowed in a constant expression. The users report that
+the technique is the most straightforward way to break out of multiple
+loops, and certain kinds of parser code naturally gravitate towards
+such techniques. The users also say they would prefer to allow such
+parser code to be eligible for constant expressions.
+</p>
+
+<h2>Rumination</h2>
+
+<p>
+We have rejected "labeled-break" proposals before, suggesting
+lambdas, goto, and some other techniques as reasonable work-arounds.
+We will have a proposal for constexpr lambdas, but gotos still can't
+be used in constant expressions. We treat our control statements
+unequally in this regard.
+</p>
+<p>
+Whatever its faults, goto has valid and reasonable uses. Some of those uses are
+the most convenient way to express code for certain problems.
+</p>
+<p>
+There is unsubstantiated hearsay according to which banning goto
+in constant expressions is more for taste reasons than technical reasons, 
+meaning that supporting goto in constant expressions isn't particularly
+hard to implement. I can't say whether that's correct for implementations
+in general.
+</p>
+
+<h2>The ultimate question</h2>
+
+<p>
+Do we think the valid and reasonable uses of goto are important enough 
+that we should support goto in constant expressions? 
+</p>
+
+</body>
+
+</html>
