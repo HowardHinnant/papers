@@ -48,7 +48,7 @@ Document number: D????
 <a href="mailto:casey@carter.net">Casey Carter</a><br/>
 <a href="mailto:tom@honermann.net">Tom Honermann</a><br/>
 <a href="mailto:erich.keane@intel.com">Erich Keane</a><br/>
-2018-06-24<br/>
+2018-09-27<br/>
 </address>
 <hr/>
 <h1 style="text-align: center;">Yet another approach for constrained declarations</h1>
@@ -69,6 +69,7 @@ Document number: D????
   <li><a href="#part1">Part 1: &ldquo;Constrained <code>auto</code>&rdquo;</a></li>
   <li><a href="#part2">Part 2: Relaxed &ldquo;constrained <code>auto</code>&rdquo;</a></li>
   <li><a href="#part3">Part 3: Meaning of &ldquo;<code>template &lt;Concept T&gt;</code>&rdquo;</a></li>
+  <li><a href="#part4">Part 4: Meaning of &ldquo;<code>template &lt;Concept... T&gt;</code>&rdquo; and its friends</a></li>
 </ol>
 
 <h2 id="revisions">Revision history</h2>
@@ -477,5 +478,47 @@ template&lt;C5... Cs&gt; void f6();   // OK, Cs is a template parameter pack of 
   Other use cases can be done with <i>requires-clause</i>s.
 </p>
 
+<h2 id="part4">Part 4: Meaning of &ldquo;<code>template &lt;Concept... T&gt;</code>&rdquo; and its friends</h2>
+
+<p>
+  In <a href="https://wg21.link/temp.param#10">[temp.param]/11</a> we have:
+</p>
+<blockquote class="std"><pre><code>template&lt;C2... T&gt; struct s3; // associates C2&lt;T...&gt;
+</code></pre></blockquote>
+<p>
+  This seems to be doing an unexpected thing, i.e. have the constraint
+  apply to more than one type in a pack at a time. We propose that
+  <ul>
+    <li>For a simple pack of constrained types, the concept
+      mentioned is applied to each type in the pack in turn,
+    as a unary concept.</li>
+    <li>For a pack of constrained types that use partial-concept-identifiers,
+      the concept
+      mentioned is applied to each type in the pack in turn,
+      as a binary or more-nary concept, but applied to just one
+      type in the pack in turn.</li>
+  </ul>
+</p>
+<p>
+  In other words,
+  <ul>
+    <li><code>template &lt;ConceptName... T&gt; void f(T...);</code>
+      means a variadic function template where each type in the pack
+      <code>T</code> needs to satisfy ConceptName as a unary Concept, applied
+      as <code>ConceptName&lt;T<sub>n</sub>&gt;</code>.</li>
+    <li>Similarly, <code>void f(ConceptName auto... T);</code>
+      means exactly the same thing.</li>
+    <li><code>template &lt;ConceptName&lt;T&gt;... U&gt; void f(U...);</code>
+      means a variadic function template where each type in the pack
+      <code>T</code> needs to satisfy <code>ConceptName</code> as a binary Concept, applied
+      as <code>ConceptName&lt;U<sub>n</sub>, T&gt;</code>.</li>
+    <li>Similarly, <code>void f(ConceptName&lt;T&gt; auto... U);</code>
+      means exactly the same thing.</li>
+    <li><code>template &lt;ConceptName&lt;T, V, W&gt;... U&gt; void f(U...);</code>
+      means a variadic function template where each type in the pack
+      <code>T</code> needs to satisfy <code>ConceptName</code> as a n-ary Concept, applied
+      as <code>ConceptName&lt;U<sub>n</sub>, T, V, W&gt;</code>.</li>
+  </ul>
+</p>
 </body>
 </html>
